@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Python dependencies
+        run: pip install numpy matplotlib pytest
+      - name: Lab build is up to date
+        run: python3 tools/build_web.py --check
+      - name: Storm math proof of concept
+        working-directory: poc/storm-math
+        run: python3 -m pytest -q
+      - name: Lab engine matches the proof of concept
+        run: python3 -m pytest -q tests
+      - name: Browser smoke test
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          node tests/web/smoke.mjs

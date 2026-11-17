@@ -1,0 +1,14 @@
+{
+  "name": "openpacketrouter",
+  "private": true,
+  "description": "Open network simulator for teaching. Home of the El Dorado Storm Lab.",
+  "scripts": {
+    "build": "python3 tools/build_web.py",
+    "check": "python3 tools/build_web.py --check",
+    "serve": "node server/server.js",
+    "test:web": "node tests/web/smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

@@ -1,0 +1,183 @@
+/* ========================================================================
+   6. CONTENT: words per audience, glossary, mission tracks
+   ======================================================================== */
+const WORDS = {
+  rhoK:     {plain: "Echo score", student: "Storm number <span class=\"nt\">ρ</span>", engineer: "<span class=\"nt\">ρ(B)</span>"},
+  tree:     {plain: "✓ Quiet", student: "✓ No loops", engineer: "✓ Tree · ρ = 0"},
+  circ:     {plain: "⟳ Endless echo", student: "⟳ Loop · circulating", engineer: "⟳ Circulating · ρ = 1"},
+  amp:      {plain: "▲ Echo storm", student: "▲ Storm · amplifying", engineer: "▲ Amplifying · ρ > 1"},
+  centersK: {plain: "Air traffic centers", student: "Centers", engineer: "ARTCCs"},
+  srcK:     {plain: "Shout from", student: "Broadcast from", engineer: "Source"},
+  send:     {plain: "Shout one message", student: "Send one broadcast", engineer: "Send broadcast"},
+  slow:     {plain: "Watch: step by step", student: "Mode: slow motion", engineer: "Mode: hop-by-hop"},
+  live:     {plain: "Watch: real time", student: "Mode: live", engineer: "Mode: live"},
+  chatter:  {plain: "Everyday chatter", student: "ARP chatter", engineer: "ARP chatter"},
+  drain:    {plain: "Quiet everything", student: "Clear storm", engineer: "Clear storm"},
+  stpOff:   {plain: "LOOP GUARD OFF", student: "STP OFF", engineer: "STP OFF"},
+  stp:      {plain: "Loop guard", student: "Spanning tree", engineer: "STP"},
+  bpdu:     {plain: "Loop-guard notes", student: "BPDUs", engineer: "BPDUs"},
+  mathK:    {plain: "What's happening", student: "What the math says", engineer: "Model"},
+  track:    {plain: "The story", student: "Missions", engineer: "Missions"},
+};
+const T = k => (WORDS[k] && (WORDS[k][S.mode] ?? WORDS[k].student)) || k;
+const devTag = d => S.mode === "plain" ? (DEV[d].ptag || DEV[d].tag) : DEV[d].tag;
+const devName = d => S.mode === "plain" && DEV[d].plabel ? DEV[d].plabel : DEV[d].label;
+const linkName = id => { const l = LINK[id]; return S.mode === "plain" ? (PLAIN_LINK[id] || `${devName(l.a)} ↔ ${devName(l.b)}`) : `${l.a} ${l.ap} ↔ ${l.b} ${l.bp}`; };
+
+const GLOSS = {
+  switch:    {t: "Switch", s: "A device that connects computers on the same network. It forwards each frame toward its destination, and copies broadcasts out every port except the one they came in on.", p: "A junction. It passes every message along to everything plugged into it.", a: "Like a mail room that copies any letter addressed to \"everyone\" into every mailbox."},
+  broadcast: {t: "Broadcast", s: "A frame addressed to every device on the network (destination MAC FF:FF:FF:FF:FF:FF). Switches flood it out every port except the one it arrived on.", p: "A message shouted to everyone at once.", a: "Like an announcement over a school PA system."},
+  arp:       {t: "ARP", s: "Address Resolution Protocol. Before a computer can talk to 10.200.0.50, it broadcasts \"who has 10.200.0.50?\". Networks do this constantly. It is normal chatter.", p: "Computers constantly asking \"who's at this address?\" by shouting.", a: "Like calling out a name in a crowded room to find someone."},
+  loop:      {t: "Loop", s: "More than one path between the same switches. A broadcast can travel around the loop and come back, again and again. Ethernet frames have no TTL, so nothing kills them.", p: "A circle in the wiring. Messages can go around and around.", a: "Like two microphones facing two speakers: the sound feeds back forever."},
+  stp:       {t: "Spanning tree (STP)", s: "A protocol switches use to find loops. They elect a root bridge, pick one best path to it, and block every other port so exactly one path remains.", p: "Loop guard. The junctions agree to close one road so messages can't go in circles.", a: "Like closing one bridge across a river so traffic can't drive in circles."},
+  bpdu:      {t: "BPDU", s: "Bridge Protocol Data Unit: the hello message spanning tree sends to discover loops. A switch with STP off may pass them along or drop them.", p: "The note loop guards pass to each other to spot circles.", a: "Like lighthouses flashing to each other to map the coast."},
+  blocked:   {t: "Blocked port", s: "A port spanning tree has turned off for data. The cable stays plugged in as a backup, ready if another link fails.", p: "A road that's closed on purpose so there are no circles.", a: "Like a locked emergency exit: there if you need it."},
+  rho:       {t: "ρ (rho), the storm number", s: "The largest eigenvalue of the network's flooding matrix. ρ = 0: no loops, broadcasts die out. ρ = 1: a loop, frames circle forever. ρ > 1: a storm, frames multiply every hop.", p: "Echo score. 0 is quiet. 1 is an echo that never stops. More than 1 is an echo that gets louder every time.", a: "Like a rumor: 0 means nobody repeats it, 1 means it goes around forever, 2 means everyone tells two friends."},
+  center:    {t: "Center (ARTCC)", s: "An Air Route Traffic Control Center. The FAA has 22; each handles high-altitude traffic over a big region. They rely on the FTI network for radar and radio.", p: "A big air traffic control building that guides planes between airports.", a: ""},
+  router:    {t: "Router", s: "A device that connects different networks. Routers do not forward broadcasts, so they end a broadcast domain.", p: "A border gate between neighborhoods. Shouting doesn't get through it.", a: "Like a closed door between two rooms."},
+  cutover:   {t: "Cutover", s: "The moment traffic moves from old equipment to new. During a cutover both paths are often live at once, which is exactly when loops appear.", p: "Switching from the old equipment to the new.", a: ""},
+  trunk:     {t: "Trunk", s: "A link that carries several VLANs at once. Here every core link is a trunk, so a storm on one VLAN shares the cable with all the others.", p: "A main road that carries many kinds of traffic.", a: ""},
+};
+function termHTML(html) {
+  return html.replace(/\[\[(\w+)(?:\|([^\]]+))?\]\]/g, (_, k, label) => `<button type="button" class="term" data-g="${k}">${label || GLOSS[k].t.split(" (")[0].toLowerCase()}</button>`);
+}
+
+const on = id => S.link[id] === "up";
+const TRACKS = {
+  plain: [
+    { title: "Meet the network", preset: "baseline",
+      idea: "This is a tiny copy of the network that lets air traffic control centers talk to radar and radio sites. Each box is a [[switch|junction]] that passes messages along.",
+      steps: [
+        {text: "Press <b>Shout one message</b>. Watch the Fort Worth desk's message travel to everyone.", check: () => S.seen.sentSlow, show: {dev: "ZFW-VOICE"}},
+        {text: "Watch it stop once everyone has heard it.", check: () => S.seen.slowDone},
+      ],
+      hints: ["The button is blue, just above the map.", "Messages are the pink dots. Each junction copies them to every other cable."],
+      q: "In your own words: why did the message stop?" },
+    { title: "A small change at El Dorado", preset: "baseline",
+      idea: "On Nov 13, technicians in El Dorado, Arkansas plugged in a new junction. Its [[stp|loop guard]] was switched off. So was the old junction's.",
+      steps: [
+        {text: "Click the long dotted <b>new fiber</b> and press <b>Plug in</b>.", check: () => on("L14"), show: {link: "L14"}},
+        {text: "Plug in <b>cable A</b> between the old and new junctions.", check: () => on("L15"), show: {link: "L15"}},
+        {text: "Make your prediction below before the last cable.", check: () => S.predicted !== null},
+        {text: "Plug in <b>cable B</b>.", check: () => on("L16"), show: {link: "L16"}},
+        {text: "Shout a message and watch what happens at El Dorado.", check: () => S.seen.slowLoop, show: {dev: "ELD-RADIO"}},
+      ],
+      predict: {gate: "L16", q: "What happens when you plug in cable B?",
+        options: ["Nothing. It's just a spare cable.", "Messages start going around in circles.", "The network gets faster."], answer: 1,
+        explain: "Two cables between the same two junctions make a circle. With the loop guard off, any message that gets in goes around forever."},
+      hints: ["Dotted lines are cables that aren't plugged in yet. Click one to plug it in.", "Watch the echo score in the dark bar at the top after each cable."],
+      q: "Why didn't the technicians notice a problem when they plugged in cable A?" },
+    { title: "The country goes quiet", preset: "cutover",
+      idea: "Computers send small \"who's there?\" messages all the time ([[arp|everyday chatter]]). With a circle in the wiring, every one gets trapped and repeats forever.",
+      steps: [
+        {text: "Turn on <b>Everyday chatter</b>.", check: () => S.chatter},
+        {text: "Watch the air traffic centers go down. Two down means a ground stop.", check: () => S.seen.gs},
+        {text: "Cut El Dorado off: click the <b>new fiber</b> and unplug it.", check: () => !on("L14"), show: {link: "L14"}},
+        {text: "Unplug El Dorado's <b>old cable</b> too.", check: () => !on("L6"), show: {link: "L6"}},
+        {text: "Watch all three centers recover.", check: () => S.seen.gsCleared},
+      ],
+      hints: ["The centers are the three tiles in the dark bar. Red means down.", "El Dorado is connected to the rest of the country by two long cables: the new fiber and the old cable."],
+      q: "The centers came back, but what did El Dorado lose? What would that mean for pilots flying nearby?",
+      fact: "In real life it took 18 minutes from the first problems to the ground stop, and 4 hours 21 minutes to lift it." },
+    { title: "Fix it for good", preset: "cutover",
+      idea: "Unplugging isn't a fix. The real fix is to switch the [[stp|loop guard]] back on. Then the junctions agree to close one road and the circle is broken.",
+      steps: [
+        {text: "Click the <b>new junction</b> and turn its loop guard on.", check: () => S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Turn the loop guard on at the <b>old junction</b> too.", check: () => S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Turn on everyday chatter. Keep every center normal for 5 seconds.", check: () => S.seen.calm5},
+      ],
+      hints: ["Look for the pink LOOP GUARD OFF tags on the map.", "After the fix, look for a ☒ on one of the El Dorado cables. That's the road the loop guard closed."],
+      q: "If you were in charge, what rule would you make so this never happens again?" },
+  ],
+  full: [
+    { title: "Briefing", preset: "baseline",
+      idea: "A [[broadcast]] is copied by every [[switch]] out every port except the one it came in on. On a network with no loops, it reaches everyone once and then stops.",
+      body: "On Nov 13, 2026, a router change at a remote FAA radio site in <b>El Dorado, Arkansas</b> flooded the FAA's network. 17 of 22 [[center|Centers]] became unstable and the FAA stopped every departure in the country. This map is a small model of that network. The [[rho|storm number ρ]] in the top bar reads the wiring and predicts what any broadcast will do.",
+      steps: [
+        {text: "Send one broadcast from <b>ZFW-VOICE</b> in slow motion.", check: () => S.seen.sentZFW, show: {dev: "ZFW-VOICE"}},
+        {text: "Count the copies as it spreads (shown under the chart).", check: () => S.seen.slowDone},
+        {text: "Tap the dotted word <b>broadcast</b> above to open the glossary.", check: () => S.seen.g_broadcast},
+      ],
+      hints: ["The blue Send button is in the toolbar above the map.", "Each pink dot is one copy. Copies stop when they reach a host or a switch with nowhere new to send them."],
+      q: "How many copies were sent in total? Why did it stop?" },
+    { title: "Healthy network", preset: "baseline",
+      idea: "Backup links create [[loop|loops]]. [[stp|Spanning tree]] keeps them safe by [[blocked|blocking]] one port per loop, but it only works if switches can hear each other's [[bpdu|BPDUs]].",
+      steps: [
+        {text: "Click <b>ZME-SW</b> and find its blocked ports (☒ on the map).", check: () => S.sel && S.sel.dev === "ZME-SW", show: {dev: "ZME-SW"}},
+        {text: "Shut down the <b>ZFW–ZME backup</b> cable, then bring it back.", check: () => S.seen.L4cycled, show: {link: "L4"}},
+        {text: "Turn spanning tree <b>off</b> on ZME-SW. Did ρ change?", check: () => !S.stp["ZME-SW"], show: {dev: "ZME-SW"}},
+        {text: "Now set ZME-SW's BPDUs to <b>dropped</b>. Watch ρ.", check: () => S.seen.coreAmp, show: {dev: "ZME-SW"}},
+      ],
+      hints: ["The ☒ squares sit on cables right next to the switch that blocked them.", "With STP off but BPDUs passed along, the neighbors still see the loop and block it themselves.", "Dropping BPDUs makes ZME-SW invisible to spanning tree. Now nobody can see the loop."],
+      q: "With spanning tree off on ZME-SW, why was the network still safe while BPDUs were passed along, and why did it storm once they were dropped?" },
+    { title: "The cutover", preset: "baseline",
+      idea: "During a [[cutover]], old and new paths are live at the same time. That's the riskiest moment for loops.",
+      body: "Work order FTI-ELD-0413: move El Dorado from copper to fiber. The new device <b>ELD-NEW</b> uses the \"standard remote-site template\", which turns [[stp|spanning tree]] <b>off</b>. ELD-OLD has had it off for years.",
+      steps: [
+        {text: "Install the <b>new fiber</b> (NOC-SW to ELD-NEW). Check ρ.", check: () => on("L14"), show: {link: "L14"}},
+        {text: "Install <b>cross-connect A</b>. Check ρ. Why is it still 0?", check: () => on("L15"), show: {link: "L15"}},
+        {text: "Make your prediction for cross-connect B.", check: () => S.predicted !== null},
+        {text: "Install <b>cross-connect B</b>.", check: () => on("L16"), show: {link: "L16"}},
+        {text: "Send a broadcast in slow motion and watch El Dorado.", check: () => S.seen.slowLoop},
+      ],
+      predict: {gate: "L16", q: "After cross-connect B is installed, what will ρ be?",
+        options: ["ρ stays 0: STP on the core will block it", "ρ = 1: a loop that circulates", "ρ > 1: a storm that multiplies"], answer: 1,
+        explain: "ρ = 1. The core's spanning tree sees the big loop through El Dorado and blocks ZME-SW Fa0/4. But the two cross-connects form a small loop between two switches with STP off. Nobody blocks it, so frames circle forever without multiplying."},
+      hints: ["Dotted cables aren't installed. Click one, then Install cable.", "After cross-connect A, look for a new ☒ near ZME-SW. Spanning tree on the core is protecting you.", "Cross-connect B makes a loop that never passes through a switch running spanning tree."],
+      q: "Why was cross-connect A safe but cross-connect B not?" },
+    { title: "Who can see the loop?", preset: "cutover",
+      idea: "A loop with ρ = 1 piles up load with every new broadcast. A loop with ρ > 1 multiplies on its own. Which one you get depends on whether [[bpdu|BPDUs]] get through.",
+      steps: [
+        {text: "Click ELD-NEW and set BPDUs to <b>dropped</b>. Watch ρ jump.", check: () => S.seen.amp, show: {dev: "ELD-NEW"}},
+        {text: "Switch to <b>live</b> mode and send one broadcast. Watch the chart.", check: () => S.seen.liveAmp},
+        {text: "Set BPDUs back to <b>passed along</b>, then send a broadcast in live mode.", check: () => S.seen.liveCirc},
+      ],
+      hints: ["The BPDU button only appears on switches with spanning tree off.", "Use Clear storm between tries so you can compare the two charts."],
+      q: "Explain circulating vs amplifying in your own words. Which one is worse, and why is the other one still dangerous?" },
+    { title: "Ground stop drill", preset: "storm",
+      idea: "[[arp|ARP]] broadcasts happen every second on any network. With a loop live, each one adds load until links fill.",
+      body: "It's 2036Z. The cutover is done, ARP chatter is normal, and the storm is spreading. You're the NOC.",
+      steps: [
+        {text: "Watch the Centers. Two down means a ground stop.", check: () => S.seen.gs},
+        {text: "Contain it: shut down the <b>new fiber</b>.", check: () => !on("L14"), show: {link: "L14"}},
+        {text: "Shut down the <b>old copper</b> link too.", check: () => !on("L6"), show: {link: "L6"}},
+        {text: "Get all three Centers back to normal (leave the cross-connects in).", check: () => S.seen.gsCleared && on("L15") && on("L16")},
+      ],
+      fact: "Real event: 18 minutes from first symptoms to the ground stop, and 4 h 21 min until it was lifted. The real operator blocked traffic from the El Dorado and Amarillo sites.",
+      hints: ["El Dorado has exactly two links to the rest of the country.", "Containment means isolating the problem, not fixing it."],
+      q: "What did you give up to get the Centers back? What would that mean for pilots near El Dorado?" },
+    { title: "Fix and restore", preset: "storm",
+      idea: "Containment isn't a fix. Find the root cause, fix every device built from the same template, then restore one link at a time.",
+      steps: [
+        {text: "Turn spanning tree <b>on</b> at ELD-NEW.", check: () => S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Turn spanning tree on at ELD-OLD.", check: () => S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Fix <b>AMA-SW</b> too. It uses the same template.", check: () => S.stp["AMA-SW"], show: {dev: "AMA-SW"}},
+        {text: "With every cable up, ρ = 0.", check: () => M.regime === "TREE" && ["L6", "L14", "L15", "L16"].every(on) && !S.routed},
+      ],
+      hints: ["Look for the pink STP OFF tags.", "After the fix, find the new ☒ on a cross-connect. That's spanning tree cancelling the spare cable."],
+      q: "Name the three conditions that had to line up for this storm. Which would you fix first, and why?" },
+    { title: "Shrink the blast radius", preset: "fixed",
+      idea: "[[router|Routers]] don't forward broadcasts. Put one at the edge of a site and a mistake inside the site can't reach the rest of the country.",
+      steps: [
+        {text: "Click <b>ELD-NEW</b> and choose <b>Install routed edge</b>.", check: () => S.routed, show: {dev: "ELD-NEW"}},
+        {text: "Re-make the mistake: spanning tree <b>off</b> on ELD-NEW.", check: () => S.routed && !S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Spanning tree off on ELD-OLD too.", check: () => S.routed && !S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Confirm the storm can't reach any Center.", check: () => S.routed && M.regime !== "TREE" && !CENTERS.some(([c, h]) => M.reachDevs.has(h))},
+      ],
+      hints: ["The routed edge replaces both of El Dorado's links to the core.", "Look at \"Storm can reach\" in the readout below the map."],
+      q: "The mistake still happened. Why is this a better outcome, and what does a routed design cost?" },
+    { title: "Change plan", preset: "baseline",
+      idea: "Most outages start with routine work. A method of procedure (MOP) makes routine work safe: one change at a time, a check after each, and a rollback plan.",
+      body: "The work order said <b>\"Rollback plan: N/A - routine.\"</b> Write a better plan, then prove it here: the same cutover, but ρ must stay 0 the whole time.",
+      steps: [
+        {text: "Fix the template first: spanning tree on at ELD-NEW <b>before</b> installing anything.", check: () => S.seen.planStpFirst, show: {dev: "ELD-NEW"}},
+        {text: "Spanning tree on at ELD-OLD.", check: () => S.stp["ELD-OLD"] && S.seen.planStart, show: {dev: "ELD-OLD"}},
+        {text: "Install the fiber and both cross-connects, one at a time.", check: () => ["L14", "L15", "L16"].every(on) && S.seen.planStart},
+        {text: "ρ stayed 0 the whole way.", check: () => S.seen.planRun},
+      ],
+      hints: ["If ρ leaves 0 at any point, press Reset this mission and try again.", "Order matters: protections first, cables second."],
+      q: "List three rollback triggers and the exact action each one causes." },
+  ],
+};
+const track = () => S.mode === "plain" ? TRACKS.plain : TRACKS.full;
+
