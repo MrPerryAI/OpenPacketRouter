@@ -1,40 +1,33 @@
 <title>El Dorado Storm Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: a NOC wallboard. A dark status strip runs across the top (rho, verdict,
-   Centers, Zulu clock, ground stop). Below: the mission briefing on the left and
-   the network drawn as an aeronautical chart on the right, with readouts under it. */
+/* Layout: a NOC wallboard. Dark status strip on top; mission coach on the left;
+   the network as a live canvas chart on the right (HTML device cards are painted
+   into the canvas with HTML-in-Canvas where supported); readouts underneath. */
 :root {
-  --bg: #e9eef1;            /* room */
-  --panel: #fbfcfc;         /* cards */
-  --chart: #f4f6ef;         /* sectional-chart paper, faint green */
-  --grid: #d3dccf;          /* graticule */
-  --ink: #12202b;
-  --ink2: #50606c;
-  --line: #c3cdd4;
-  --accent: #1f5fbf;        /* aviation blue: interface */
-  --magenta: #a8326f;       /* sectional magenta: changes, the El Dorado site */
-  --chip: #e1e8ec;
+  --bg: #e9eef1; --panel: #fbfcfc; --chart: #f4f6ef; --grid: #d3dccf;
+  --ink: #12202b; --ink2: #50606c; --line: #c3cdd4;
+  --accent: #1f5fbf; --magenta: #a8326f; --chip: #e1e8ec;
   --strip: #0f1d29; --strip2: #1b2c3a; --strip-ink: #e8eef2; --strip-ink2: #93a7b6;
-  --storm0: #e8a7c8; --storm1: #7a1748;   /* storm load: one hue, light -> dark */
+  --storm0: #e8a7c8; --storm1: #7a1748;
   --good: #0a7d0a; --warn: #a86f00; --crit: #c23030;
   --good-bg: #dff0df; --warn-bg: #f8ecd0; --crit-bg: #f7dede;
-  --s-good: #4cc34c; --s-warn: #fab219; --s-crit: #ff6b6b;   /* status on the dark strip */
+  --s-good: #4cc34c; --s-warn: #fab219; --s-crit: #ff6b6b;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0a1117; --panel: #111b23; --chart: #0e1a20; --grid: #1d2e33; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
+  --bg: #0a1117; --panel: #111b23; --chart: #0c171d; --grid: #1b2c31; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
   --accent: #5d9ef0; --magenta: #e275ad; --chip: #1a2832;
   --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
   --storm0: #6b2a4c; --storm1: #ffb3d6;
   --good: #46c046; --warn: #f1b43a; --crit: #ff7676; --good-bg: #13301a; --warn-bg: #382b10; --crit-bg: #3d1b1b;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #0a1117; --panel: #111b23; --chart: #0e1a20; --grid: #1d2e33; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
+  --bg: #0a1117; --panel: #111b23; --chart: #0c171d; --grid: #1b2c31; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
   --accent: #5d9ef0; --magenta: #e275ad; --chip: #1a2832;
   --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
   --storm0: #6b2a4c; --storm1: #ffb3d6;
@@ -42,33 +35,64 @@
   color-scheme: dark; }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.nt { text-transform: none; letter-spacing: 0; }
+html, body { min-height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 14px 28px; }
 h1, h2 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; text-wrap: balance; margin: 0; }
-h2 { font-size: 26px; line-height: 1.1; }
+h2 { font-size: 27px; line-height: 1.1; }
 h3 { margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink2); font-weight: 600; }
 p { margin: 0; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; }
 button:hover { border-color: var(--accent); }
-button:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 button[aria-pressed="true"] { background: var(--chip); border-color: var(--accent); }
 select, textarea { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
 textarea { width: 100%; min-height: 70px; resize: vertical; }
+.muted { color: var(--ink2); font-size: 13.5px; }
+
+/* ---------- intro */
+.intro { position: fixed; inset: 0; z-index: 50; background: #050b10; color: #e8eef2; overflow: auto;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.intro canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+.intro .inner { position: relative; max-width: 760px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding-block: 24px; }
+.intro .eyebrow { font: 600 12px var(--mono); letter-spacing: .2em; color: #e275ad; }
+.intro h1 { font-family: var(--display); font-size: clamp(44px, 9vw, 88px); line-height: .92; font-weight: 800; letter-spacing: -.01em; }
+.intro .tl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 16px; }
+.intro .tl dt { font: 600 15px var(--mono); color: #ff8a8a; }
+.intro .tl dd { margin: 0; color: #c7d3db; }
+.intro .tl > * { opacity: 0; animation: rise .6s ease forwards; }
+.intro .count { font-family: var(--display); font-size: clamp(36px, 7vw, 64px); font-weight: 700; color: #fff; line-height: 1; }
+.intro .count small { display: block; font: 500 14px var(--body); color: #93a7b6; margin-top: 6px; }
+.intro .who { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.intro .who button { text-align: left; background: rgba(255,255,255,.04); border: 1px solid #2a3c4a; color: #e8eef2; padding: 14px 16px; border-radius: 10px; display: flex; flex-direction: column; gap: 4px; }
+.intro .who button:hover { border-color: #e275ad; background: rgba(226,117,173,.08); }
+.intro .who b { font: 700 20px var(--display); letter-spacing: .02em; }
+.intro .who span { font-size: 13.5px; color: #a9b8c3; }
+.intro .skip { align-self: flex-start; background: transparent; color: #93a7b6; border-color: #2a3c4a; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .intro .tl > * { animation: none; opacity: 1; } }
 
 /* ---------- status strip */
-.strip { background: var(--strip); color: var(--strip-ink); border-radius: 12px; padding: 12px 18px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-bottom: 14px; }
-.strip .brand { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+.strip { background: var(--strip); color: var(--strip-ink); border-radius: 12px; padding: 12px 18px; position: relative; overflow: hidden;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; margin-bottom: 14px; }
+.strip.alarm { animation: alarm 1.4s ease-in-out infinite; }
+@keyframes alarm { 50% { box-shadow: inset 0 0 0 2px #ff4d4d, 0 0 28px rgba(255,60,60,.35); } }
+@media (prefers-reduced-motion: reduce) { .strip.alarm { animation: none; box-shadow: inset 0 0 0 2px #ff4d4d; } }
+.strip .brand { display: flex; flex-direction: column; min-width: 0; }
 .strip h1 { font-size: 28px; line-height: 1; color: var(--strip-ink); }
 .strip .brand span { color: var(--strip-ink2); font-size: 12.5px; }
+.modes { display: inline-flex; background: var(--strip2); border-radius: 8px; padding: 3px; gap: 2px; margin-right: auto; }
+.modes button { background: transparent; border: 0; color: var(--strip-ink2); padding: 5px 11px; font-size: 13px; font-weight: 600; border-radius: 6px; }
+.modes button[aria-pressed="true"] { background: var(--strip-ink); color: var(--strip); }
 .cell { display: flex; flex-direction: column; gap: 2px; }
 .cell .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: var(--strip-ink2); font-weight: 600; }
-.rho { display: flex; align-items: baseline; gap: 6px; }
 .rho .v { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: .9; font-variant-numeric: tabular-nums; }
-.rho .sym { font-family: var(--mono); color: var(--strip-ink2); font-size: 15px; }
 .verdict { display: inline-flex; gap: 6px; align-items: center; padding: 4px 11px; border-radius: 999px; font-weight: 600; font-size: 13.5px; border: 1px solid; white-space: nowrap; }
 .verdict.good { color: var(--s-good); border-color: var(--s-good); }
 .verdict.warn { color: var(--s-warn); border-color: var(--s-warn); }
@@ -79,116 +103,166 @@ textarea { width: 100%; min-height: 70px; resize: vertical; }
 .center span { font-size: 11.5px; font-weight: 600; color: var(--s-good); white-space: nowrap; }
 .center.warn { border-left-color: var(--s-warn); } .center.warn span { color: var(--s-warn); }
 .center.crit { border-left-color: var(--s-crit); } .center.crit span { color: var(--s-crit); }
-.zulu { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: .02em; }
+.zulu { font-family: var(--mono); font-size: 22px; font-weight: 500; }
 .groundstop { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .05em; padding: 4px 14px; border-radius: 6px; background: #b4232c; color: #fff; }
 .groundstop.lifted { background: transparent; border: 1px solid var(--s-good); color: var(--s-good); font-size: 17px; }
 
 /* ---------- console */
-.console { display: grid; grid-template-columns: minmax(290px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.console { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); gap: 14px; align-items: start; }
 @media (max-width: 1020px) { .console { grid-template-columns: minmax(0, 1fr); } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
 
 /* missions */
-.missions { display: flex; flex-direction: column; gap: 14px; position: sticky; top: env(safe-area-inset-top, 0px); }
-@media (max-width: 1020px) { .missions { position: static; } }
-.stepper { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
-.stepper button { padding: 0; height: 30px; font-family: var(--mono); font-size: 12px; border-radius: 4px; background: var(--chip); border-color: transparent; color: var(--ink2); }
-.stepper button.done { background: var(--good-bg); color: var(--good); }
-.stepper button.current { background: var(--accent); color: #fff; }
+.missions { display: flex; flex-direction: column; gap: 14px; }
+.track { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.stepper { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+.stepper button { padding: 0; height: 8px; border-radius: 4px; background: var(--chip); border: 0; }
+.stepper button.done { background: var(--good); }
+.stepper button.current { background: var(--accent); }
+.mission { display: flex; flex-direction: column; gap: 12px; }
 .mission .num { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--magenta); letter-spacing: .08em; text-transform: uppercase; }
-.mission .body { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
-.mission ol, .mission ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
-.goal { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--line); font-size: 14px; }
-.goal .tick { font-family: var(--mono); font-weight: 600; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink2); display: grid; place-items: center; flex: none; font-size: 12px; }
-.goal.met { border: 1px solid var(--good); background: var(--good-bg); }
-.goal.met .tick { background: var(--good); border-color: var(--good); color: #fff; }
-.goal .gl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink2); font-weight: 600; display: block; }
+.idea { border-radius: 10px; padding: 12px 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--panel)), var(--panel)); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); }
+.idea h3 { color: var(--accent); margin-bottom: 4px; }
+.idea p { font-size: 14.5px; }
+.mission .body { display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.steps li { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: start; padding: 8px 10px; border-radius: 8px; background: var(--chip); font-size: 14px; }
+.steps li.done { background: var(--good-bg); }
+.steps li.next { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--panel); }
+.steps .tick { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink2); display: grid; place-items: center; font: 600 12px var(--mono); }
+.steps li.done .tick { background: var(--good); border-color: var(--good); color: #fff; }
+.steps li.done .txt { color: var(--ink2); }
+.steps .show { font-size: 12px; padding: 2px 8px; }
+.predict { border: 1px solid var(--magenta); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.predict h3 { color: var(--magenta); }
+.predict .opts { display: flex; flex-direction: column; gap: 6px; }
+.predict .opts button { text-align: left; }
+.predict .opts button.pick { border-color: var(--magenta); background: color-mix(in srgb, var(--magenta) 10%, var(--panel)); }
+.predict .reveal { font-size: 14px; border-left: 3px solid var(--magenta); padding-left: 10px; }
+.hints { display: flex; flex-direction: column; gap: 6px; }
+.hints p { font-size: 14px; background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; }
 .q label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px; }
 .fact { font-size: 13px; color: var(--ink2); border-left: 3px solid var(--magenta); padding-left: 10px; }
 .mrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.term { all: unset; cursor: help; border-bottom: 1.5px dotted var(--accent); color: inherit; font-weight: 600; }
+.term:focus-visible { outline: 2px solid var(--accent); }
+.complete { border-radius: 10px; padding: 12px 14px; background: var(--good-bg); color: var(--good); font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* stage */
+/* stage + canvas map */
 .stage { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .mapcard { padding: 0; overflow: hidden; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .toolbar .sep { width: 1px; height: 26px; background: var(--line); }
-.toolbar .muted { margin-right: -2px; }
-.mapscroll { overflow-x: auto; }
+.mapscroll { overflow-x: auto; position: relative; }
+.mapwrap { position: relative; min-width: 680px; }
+canvas.fx { display: block; width: 100%; aspect-ratio: 1000 / 680; touch-action: manipulation; }
 .swipe { display: none; font-size: 12.5px; color: var(--ink2); padding: 8px 14px 0; }
-@media (max-width: 700px) { .swipe { display: block; } }
-svg.map { width: 100%; min-width: 660px; height: auto; display: block; background: var(--chart); }
-.map .grat { stroke: var(--grid); stroke-width: 1; }
-.map .gratlbl { fill: var(--ink2); font: 500 11px var(--mono); opacity: .8; }
-.map .site { fill: none; stroke: var(--magenta); stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .8; }
-.map .sitelbl { fill: var(--magenta); font: 600 12px var(--body); letter-spacing: .08em; }
-.map .link { fill: none; stroke: var(--ink2); stroke-width: 2.5; opacity: .55; cursor: pointer; }
-.map .link.absent { stroke-dasharray: 1 7; stroke-linecap: round; stroke-width: 3; opacity: .7; }
-.map .link.shut { stroke-dasharray: 9 6; opacity: .45; }
-.map .link.sel { stroke: var(--accent) !important; opacity: 1; stroke-width: 4; }
-.map .hit { fill: none; stroke: transparent; stroke-width: 20; cursor: pointer; }
-.map .flow { fill: none; stroke-linecap: round; stroke-dasharray: 2 12; pointer-events: none; animation: flow .7s linear infinite; }
-.map .glow { fill: none; pointer-events: none; opacity: .28; }
-@keyframes flow { to { stroke-dashoffset: -14; } }
-@media (prefers-reduced-motion: reduce) { .map .flow { animation: none; } }
-.map text { paint-order: stroke; stroke: var(--chart); stroke-width: 4px; stroke-linejoin: round; }
-.map .dev { cursor: pointer; }
-.map .dev .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
-.map .dev .ring { fill: none; stroke-width: 3; }
-.map .dev.sel .box { stroke: var(--accent); stroke-width: 3; }
-.map .dev .name { fill: var(--ink); font: 600 15px var(--mono); pointer-events: none; }
-.map .dev .tag { fill: var(--ink2); font: 400 12.5px var(--body); pointer-events: none; }
-.map .dev .tag.warn { fill: var(--warn); font-weight: 600; } .map .dev .tag.crit { fill: var(--crit); font-weight: 600; }
-.map .dev .hostc { fill: var(--panel); stroke: var(--ink2); stroke-width: 1.5; }
-.map .dev .glyph { fill: var(--ink2); font: 600 10px var(--mono); stroke: none; }
-.map .dev .hname { fill: var(--ink2); font: 500 11.5px var(--mono); }
-.map .pill { fill: var(--magenta); }
-.map .pilltxt { fill: #fff; font: 700 10.5px var(--body); letter-spacing: .08em; stroke: none; }
-.map .blk { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
-.map .blkx { stroke: var(--ink); stroke-width: 1.6; }
-.map .linklabel { fill: var(--ink2); font: 500 12px var(--body); pointer-events: none; }
-.map .pkt { fill: var(--magenta); stroke: var(--chart); stroke-width: 2; }
-.map .pktn { fill: #fff; font: 600 10px var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; stroke: none; }
+@media (max-width: 760px) { .swipe { display: block; } }
+.cardlayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.cardinner { position: absolute; left: 0; top: 0; width: 1000px; height: 680px; transform-origin: 0 0; }
+.cardinner .card { position: absolute; pointer-events: auto; transform: translate(-50%, -50%); }
+.cardinner .card.glitch { animation: jitter .18s steps(2) infinite; }
+@keyframes jitter { 50% { transform: translate(calc(-50% + 2px), calc(-50% - 1px)); } }
+@media (prefers-reduced-motion: reduce) { .cardinner .card.glitch { animation: none; } }
+
+/* device cards: real HTML, painted into the canvas when HTML-in-Canvas is available */
+.card { position: absolute; left: 0; top: 0; margin: 0; cursor: pointer; font: 600 15px/1.2 var(--mono); color: var(--ink);
+  background: var(--panel); border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 12px 7px; min-width: 128px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
+.card small { font: 400 11.5px/1.25 var(--body); color: var(--ink2); }
+.card.pl > span:not(.pill):not(.stat) { font: 600 16px/1.2 var(--body); }
+.card .pill { font: 700 9.5px/1 var(--body); letter-spacing: .08em; background: var(--magenta); color: #fff; padding: 3px 7px; border-radius: 99px; margin-bottom: 3px; }
+.card .stat { font: 700 10.5px/1.2 var(--body); letter-spacing: .04em; }
+.card.warn { border: 3px solid var(--warn); } .card.warn .stat { color: var(--warn); }
+.card.crit { border: 3px solid var(--crit); } .card.crit .stat { color: var(--crit); }
+.card.sel { border: 3px solid var(--accent); }
+.card.router { border-radius: 22px; }
+.card.host { background: transparent; border: 0; min-width: 0; padding: 0; gap: 3px; }
+.card.host .dot { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--ink2); background: var(--panel); display: grid; place-items: center; font: 600 10px var(--mono); color: var(--ink2); }
+.card.host .nm { font: 500 11.5px/1.2 var(--mono); color: var(--ink2); background: color-mix(in srgb, var(--chart) 85%, transparent); padding: 1px 4px; border-radius: 4px; }
+.card.host.sel .dot { border: 3px solid var(--accent); }
+.card:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--accent); }
+.card.host:focus-visible { box-shadow: none; } .card.host:focus-visible .dot { border: 3px solid var(--accent); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--ink2); padding: 10px 14px; border-top: 1px solid var(--line); }
 .legend span { display: inline-flex; gap: 7px; align-items: center; }
 .sw { width: 24px; height: 0; border-top: 2.5px solid var(--ink2); opacity: .7; display: inline-block; }
-.sw.d { border-top: 3px dotted var(--ink2); }
-.sw.s { border-top: 2.5px dashed var(--ink2); opacity: .5; }
-.sw.l { border-top: 4px solid var(--storm1); opacity: 1; }
+.sw.d { border-top: 3px dotted var(--ink2); } .sw.s { border-top: 2.5px dashed var(--ink2); opacity: .5; } .sw.l { border-top: 4px solid var(--storm1); opacity: 1; }
+.sw.p { border-top: 3px dashed var(--magenta); opacity: 1; }
+.badge { font: 600 11px var(--mono); color: var(--ink2); margin-left: auto; }
+
+/* coach toast */
+.coach { position: absolute; left: 12px; top: 12px; max-width: min(380px, calc(100% - 24px)); z-index: 5; background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent); border-radius: 10px; padding: 10px 12px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 4px; animation: pop .35s ease; }
+.coach.warn { border-left-color: var(--warn); } .coach.crit { border-left-color: var(--crit); } .coach.good { border-left-color: var(--good); }
+.coach b { font-family: var(--display); font-size: 19px; letter-spacing: .02em; }
+.coach p { font-size: 14px; }
+.coach .x { position: absolute; right: 6px; top: 4px; border: 0; background: transparent; font-size: 18px; padding: 2px 6px; color: var(--ink2); }
+@keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
 
 /* readouts */
 .readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
 .readout .panel { display: flex; flex-direction: column; gap: 10px; }
-.explain { font-size: 14px; }
+.explain { font-size: 14.5px; }
 dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0; font-size: 13.5px; }
-dl.kv dt { color: var(--ink2); }
-dl.kv dd { margin: 0; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+dl.kv dt { color: var(--ink2); } dl.kv dd { margin: 0; font-family: var(--mono); text-align: right; font-weight: 500; }
+.meter { height: 10px; border-radius: 5px; background: var(--chip); overflow: hidden; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--storm0), var(--storm1)); transition: width .3s; }
 .chart svg { width: 100%; height: 96px; display: block; }
-.chart .axis { stroke: var(--line); stroke-width: 1; }
-.chart .area { fill: var(--storm0); opacity: .45; }
-.chart .ln { fill: none; stroke: var(--storm1); stroke-width: 2; }
+.chart .axis { stroke: var(--line); stroke-width: 1; } .chart .area { fill: var(--storm0); opacity: .45; } .chart .ln { fill: none; stroke: var(--storm1); stroke-width: 2; }
 .chart text { fill: var(--ink2); font: 10px var(--mono); }
 .hopstats { font-family: var(--mono); font-size: 13px; color: var(--ink2); min-height: 1.5em; }
 .inspector { display: flex; flex-direction: column; gap: 8px; }
 .inspector .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .inspector .ports { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 2px 14px; font-family: var(--mono); font-size: 12.5px; }
 .inspector .ports .b { color: var(--magenta); font-weight: 600; }
-.muted { color: var(--ink2); font-size: 13.5px; }
-details summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+details.panel summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 canvas.matrix { width: 100%; max-width: 300px; aspect-ratio: 1; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; }
-footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95ch; }
+
+/* glossary popover */
+.gloss { position: absolute; z-index: 40; max-width: 320px; background: var(--strip); color: var(--strip-ink); border-radius: 10px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3); font-size: 14px; }
+.gloss b { font-family: var(--display); font-size: 19px; display: block; margin-bottom: 2px; }
+.gloss .an { color: #f5b6d4; margin-top: 6px; font-size: 13.5px; }
+footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95ch; display: flex; flex-direction: column; gap: 6px; }
+footer button { align-self: flex-start; font-size: 12.5px; padding: 3px 10px; }
 </style>
 
-<header class="strip">
-  <div class="brand"><h1>El Dorado Storm Lab</h1><span>FAA ground stop · 13 Nov 2026 · a network you can break</span></div>
-  <div class="cell"><span class="k">Storm math</span><div class="rho"><span class="v" id="rho">0</span><span class="sym">ρ</span></div></div>
+<div class="intro" id="intro" hidden>
+  <canvas id="introfx" aria-hidden="true"></canvas>
+  <div class="inner">
+    <span class="eyebrow">FRIDAY · 13 NOVEMBER 2026</span>
+    <h1>One router.<br>Every flight stopped.</h1>
+    <dl class="tl">
+      <dt style="animation-delay:.3s">3:36 PM</dt><dd style="animation-delay:.3s">Controllers across the country see radar and radio problems.</dd>
+      <dt style="animation-delay:1.1s">3:54 PM</dt><dd style="animation-delay:1.1s">The FAA stops every departure in the United States.</dd>
+      <dt style="animation-delay:1.9s">8:15 PM</dt><dd style="animation-delay:1.9s">The ground stop is lifted after 4 hours 21 minutes.</dd>
+      <dt style="animation-delay:2.7s">Cause</dt><dd style="animation-delay:2.7s">A router swap at a small radio site in El Dorado, Arkansas. Data began flooding the FAA's network.</dd>
+    </dl>
+    <div class="count"><span id="flights">0</span><small>flights canceled that day</small></div>
+    <h3 style="color:#93a7b6">Who's running the lab today?</h3>
+    <div class="who">
+      <button data-mode="plain"><b>Just curious</b><span>Plain English. A short story, no jargon.</span></button>
+      <button data-mode="student"><b>Networking student</b><span>Guided missions, hints, glossary and a coach.</span></button>
+      <button data-mode="engineer"><b>Network engineer</b><span>All the controls, the numbers and the matrix.</span></button>
+    </div>
+    <button class="skip" id="skip">Skip intro</button>
+  </div>
+</div>
+
+<header class="strip" id="strip">
+  <div class="brand"><h1>El Dorado Storm Lab</h1><span>FAA ground stop · 13 Nov 2026</span></div>
+  <div class="modes" role="group" aria-label="Who is this for">
+    <button data-mode="plain">Plain English</button><button data-mode="student">Student</button><button data-mode="engineer">Engineer</button>
+  </div>
+  <div class="cell"><span class="k" id="rhoK">Storm number ρ</span><div class="rho"><span class="v" id="rho">0</span></div></div>
   <div class="cell"><span class="k">Verdict</span><span id="verdict" class="verdict good" aria-live="polite"></span></div>
-  <div class="cell"><span class="k">Centers</span><div class="centers" id="centers"></div></div>
+  <div class="cell"><span class="k" id="centersK">Centers</span><div class="centers" id="centers"></div></div>
   <div class="cell"><span class="k">Zulu</span><span class="zulu" id="zulu">2036Z</span></div>
   <div class="groundstop" id="gs" hidden></div>
 </header>
 
 <main class="console">
   <aside class="panel missions" aria-label="Missions">
+    <div class="track"><h3 id="trackName">Missions</h3><span class="muted" id="trackCount"></span></div>
     <div class="stepper" id="mnav"></div>
     <article class="mission" id="mission"></article>
   </aside>
@@ -196,29 +270,29 @@ footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95c
   <section class="stage">
     <div class="panel mapcard">
       <div class="toolbar">
-        <label for="src" class="muted">Broadcast from</label>
+        <label for="src" class="muted" id="srcK">Broadcast from</label>
         <select id="src"></select>
         <button class="primary" id="send">Send one broadcast</button>
         <span class="sep"></span>
-        <button id="mode" aria-pressed="false" title="Slow motion shows each hop; live shows link load over time">Mode: slow motion</button>
+        <button id="mode" aria-pressed="false">Mode: slow motion</button>
         <button id="chatter" aria-pressed="false">ARP chatter: off</button>
         <button id="drain">Clear storm</button>
       </div>
       <p class="swipe">Swipe the map sideways to see the whole network.</p>
-      <div class="mapscroll"><svg class="map" id="map" viewBox="0 0 1000 680" role="img" aria-label="FTI-lite network drawn on a chart of the south-central United States"></svg></div>
-      <div class="legend">
-        <span><i class="sw"></i>cable up</span>
-        <span><i class="sw s"></i>shut down</span>
-        <span><i class="sw d"></i>not installed · click to install</span>
-        <span><i class="sw l"></i>storm traffic · darker is fuller</span>
-        <span><svg width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.5"/><path d="M4 4 L10 10 M10 4 L4 10" style="stroke:var(--ink);stroke-width:1.5"/></svg>port blocked by spanning tree</span>
+      <div class="mapscroll">
+        <div class="mapwrap" id="mapwrap">
+          <canvas class="fx" id="fx" aria-label="Network map. Device buttons are inside; use Tab to reach them."></canvas>
+          <div class="coach" id="coach" hidden role="status" aria-live="polite"></div>
+        </div>
       </div>
+      <div class="legend" id="legend"></div>
     </div>
 
     <div class="readout">
-      <div class="panel" aria-label="Storm math">
-        <h3>What the math says</h3>
+      <div class="panel" aria-label="What the math says">
+        <h3 id="mathK">What the math says</h3>
         <p class="explain" id="explain"></p>
+        <div id="meterWrap"></div>
         <dl class="kv" id="kv"></dl>
       </div>
       <div class="panel chart">
@@ -231,7 +305,7 @@ footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95c
         <div class="inspector" id="inspector"></div>
       </div>
     </div>
-    <details class="panel">
+    <details class="panel" id="matrixBox">
       <summary>Show the matrix behind ρ</summary>
       <p class="muted" style="margin-top:6px">Each row and column is one direction of one cable. A dot means "a frame on the row link becomes a frame on the column link one hop later." Magenta rows lie on a loop. In slow motion, blue rows are where frames are right now.</p>
       <canvas class="matrix" id="matrix" width="600" height="600"></canvas>
@@ -239,39 +313,41 @@ footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95c
   </section>
 </main>
 
+<div class="gloss" id="gloss" role="dialog" hidden></div>
+
 <footer>
-  Teaching model, not a reconstruction. As of Nov 17, 2026 the FAA has not said what protocol carried the flood. Site positions use real latitude and longitude; the network core is drawn off-map. Link delays and speeds are illustrative. The storm math (non-backtracking matrix spectral radius, renewal-equation growth) was checked against an independent packet simulator in the OpenPacketRouter proof of concept.
+  <p>Teaching model, not a reconstruction. As of Nov 17, 2026 the FAA has not said what protocol carried the flood. Site positions use real latitude and longitude; the network core is drawn off-map. Link delays and speeds are illustrative. The storm math (non-backtracking matrix spectral radius, renewal-equation growth) was checked against an independent packet simulator in the OpenPacketRouter proof of concept.</p>
+  <p id="hicNote"></p>
+  <button id="replay">Replay the intro</button>
 </footer>
 
 <script>
 "use strict";
 /* ========================================================================
    1. THE NETWORK  (same as the Packet Tracer lab)
-   Sites sit at their real longitude/latitude (latitude stretched 2x so the
-   region reads well). The FTI core is drawn off-map at the top.
+   Sites sit at their real longitude/latitude (latitude stretched 2x).
    ======================================================================== */
 const FE = 100e6, GE = 1e9, FRAME_BITS = 84 * 8, SWITCH_LAT = 5e-6, MS = 1e-3, US = 1e-6;
 const LON0 = -108, LAT0 = 37.5;
 const proj = (lon, lat) => [Math.round(40 + (lon - LON0) * 46), Math.round(70 + (LAT0 - lat) * 92)];
 const [ABQ, AMA, FTW, ELD, MEM] = [proj(-106.65, 35.08), proj(-101.83, 35.19), proj(-97.32, 32.75), proj(-92.67, 33.21), proj(-90.05, 35.15)];
 const DEV = {
-  "NOC-SW":   {kind: "switch", x: 470, y: 118, label: "NOC-SW", tag: "FTI core", prio: 4096, mac: 1},
-  "ZFW-SW":   {kind: "switch", x: FTW[0], y: FTW[1], label: "ZFW-SW", tag: "Fort Worth Center", center: "ZFW", prio: 32768, mac: 2},
-  "ZME-SW":   {kind: "switch", x: MEM[0], y: MEM[1], label: "ZME-SW", tag: "Memphis Center", center: "ZME", prio: 32768, mac: 9},
-  "ZAB-SW":   {kind: "switch", x: ABQ[0] + 30, y: ABQ[1], label: "ZAB-SW", tag: "Albuquerque Center", center: "ZAB", prio: 32768, mac: 3},
-  "AMA-SW":   {kind: "switch", x: AMA[0], y: AMA[1], label: "AMA-SW", tag: "Amarillo radar site", prio: 32768, mac: 5},
-  "ELD-OLD":  {kind: "switch", x: ELD[0] - 25, y: ELD[1] + 30, label: "ELD-OLD", tag: "", prio: 32768, mac: 6},
-  "ELD-NEW":  {kind: "switch", x: ELD[0] + 150, y: ELD[1] + 30, label: "ELD-NEW", tag: "", prio: 32768, mac: 7},
-  "ELD-RTR":  {kind: "router", x: ELD[0] + 150, y: ELD[1] - 80, label: "ELD-RTR", tag: "routed edge", routedOnly: true},
-  "NOC-MON":  {kind: "host", x: 610, y: 84, label: "NOC-MON", glyph: "M"},
-  "ZFW-VOICE":{kind: "host", x: FTW[0] - 150, y: FTW[1], label: "ZFW-VOICE", glyph: "V"},
-  "ZME-VOICE":{kind: "host", x: MEM[0] + 90, y: MEM[1] - 80, label: "ZME-VOICE", glyph: "V"},
-  "ZAB-VOICE":{kind: "host", x: ABQ[0] + 30, y: ABQ[1] - 100, label: "ZAB-VOICE", glyph: "V"},
-  "AMA-RADAR":{kind: "host", x: AMA[0], y: AMA[1] - 100, label: "AMA-RADAR", glyph: "R"},
-  "ELD-RADIO":{kind: "host", x: ELD[0] - 25, y: ELD[1] + 130, label: "ELD-RADIO", glyph: "RF"},
+  "NOC-SW":   {kind: "switch", x: 470, y: 118, label: "NOC-SW", tag: "FTI core", ptag: "Network HQ", psub: "", prio: 4096, mac: 1},
+  "ZFW-SW":   {kind: "switch", x: FTW[0], y: FTW[1], label: "ZFW-SW", tag: "Fort Worth Center", ptag: "Fort Worth", psub: "air traffic center", center: "ZFW", prio: 32768, mac: 2},
+  "ZME-SW":   {kind: "switch", x: MEM[0], y: MEM[1], label: "ZME-SW", tag: "Memphis Center", ptag: "Memphis", psub: "air traffic center", center: "ZME", prio: 32768, mac: 9},
+  "ZAB-SW":   {kind: "switch", x: ABQ[0] + 30, y: ABQ[1], label: "ZAB-SW", tag: "Albuquerque Center", ptag: "Albuquerque", psub: "air traffic center", center: "ZAB", prio: 32768, mac: 3},
+  "AMA-SW":   {kind: "switch", x: AMA[0], y: AMA[1], label: "AMA-SW", tag: "Amarillo radar site", ptag: "Amarillo", psub: "radar site", prio: 32768, mac: 5},
+  "ELD-OLD":  {kind: "switch", x: ELD[0] - 25, y: ELD[1] + 30, label: "ELD-OLD", tag: "", ptag: "Old junction", psub: "", prio: 32768, mac: 6},
+  "ELD-NEW":  {kind: "switch", x: ELD[0] + 150, y: ELD[1] + 30, label: "ELD-NEW", tag: "", ptag: "New junction", psub: "", prio: 32768, mac: 7},
+  "ELD-RTR":  {kind: "router", x: ELD[0] + 150, y: ELD[1] - 80, label: "ELD-RTR", tag: "routed edge", ptag: "Border gate", psub: "", routedOnly: true},
+  "NOC-MON":  {kind: "host", x: 610, y: 84, label: "NOC-MON", plabel: "HQ screen", glyph: "M"},
+  "ZFW-VOICE":{kind: "host", x: FTW[0] - 150, y: FTW[1], label: "ZFW-VOICE", plabel: "Fort Worth desk", glyph: "V"},
+  "ZME-VOICE":{kind: "host", x: MEM[0] + 90, y: MEM[1] - 80, label: "ZME-VOICE", plabel: "Memphis desk", glyph: "V"},
+  "ZAB-VOICE":{kind: "host", x: ABQ[0] + 30, y: ABQ[1] - 100, label: "ZAB-VOICE", plabel: "Albuquerque desk", glyph: "V"},
+  "AMA-RADAR":{kind: "host", x: AMA[0], y: AMA[1] - 100, label: "AMA-RADAR", plabel: "radar dish", glyph: "R"},
+  "ELD-RADIO":{kind: "host", x: ELD[0] - 25, y: ELD[1] + 130, label: "ELD-RADIO", plabel: "radio tower", glyph: "RF"},
 };
 const SITE = {x: ELD[0] - 105, y: ELD[1] - 40, w: 350, h: 215, label: "EL DORADO, AR · REMOTE RADIO SITE"};
-// id, a, aPort, b, bPort, propDelay(s), capacity, label, curve control point (optional)
 const LINKS = [
   ["L1", "NOC-SW", "Fa0/1", "ZFW-SW", "Fa0/1", 4*MS, FE, ""],
   ["L2", "NOC-SW", "Fa0/2", "ZME-SW", "Fa0/1", 6*MS, FE, ""],
@@ -293,6 +369,7 @@ const LINKS = [
   ["L18","ELD-RTR","Gi0/1", "ELD-NEW","Gi0/1", 1*US, FE, "", null, true],
 ].map(([id, a, ap, b, bp, prop, cap, label, ctrl, routedOnly]) => ({id, a, ap, b, bp, prop, cap, label, ctrl, routedOnly: !!routedOnly}));
 const LINK = Object.fromEntries(LINKS.map(l => [l.id, l]));
+const PLAIN_LINK = {L4: "spare road", L5: "spare road", L6: "old cable", L14: "new fiber", L15: "cable A", L16: "cable B"};
 const CENTERS = [["ZFW", "ZFW-VOICE", "L1"], ["ZME", "ZME-VOICE", "L2"], ["ZAB", "ZAB-VOICE", "L3"]];
 
 /* ========================================================================
@@ -302,13 +379,14 @@ const S = {
   link: {}, stp: {}, bpduPass: true, routed: false,
   live: false, chatter: false, broadcasts: [], t0: performance.now(),
   sel: null, mission: 0, seen: {}, gsStart: null, gsLast: null, history: [],
+  mode: "student", stepDone: [], predicted: null, hints: 0,
 };
 function preset(name) {
   for (const l of LINKS) S.link[l.id] = l.routedOnly ? "absent" : "up";
   for (const id of ["L14", "L15", "L16"]) S.link[id] = "absent";
   Object.assign(S.stp, {"NOC-SW": true, "ZFW-SW": true, "ZME-SW": true, "ZAB-SW": true,
                         "AMA-SW": false, "ELD-OLD": false, "ELD-NEW": false});
-  S.bpduPass = true; S.routed = false; S.chatter = false; S.live = false; S.broadcasts = []; S.sel = null; anim = null;
+  S.bpduPass = true; S.routed = false; S.chatter = false; S.live = false; S.broadcasts = []; S.sel = null;
   S.gsStart = null; S.gsLast = null; S.history = [];
   if (name === "cutover" || name === "storm") for (const id of ["L14", "L15", "L16"]) S.link[id] = "up";
   if (name === "storm") { S.chatter = true; S.live = true; }
@@ -524,391 +602,825 @@ function linkLoads(t) {
   return {R, load};
 }
 
-/* ========================================================================
-   6. MISSIONS
-   ======================================================================== */
-const MISSIONS = [
-  { title: "Briefing", preset: "baseline",
-    body: `<p>On Friday, Nov 13, 2026, technicians replaced a router at a remote FAA radio site in <b>El Dorado, Arkansas</b>. At 3:36 p.m. ET controllers saw radar and radio problems. At 3:54 p.m. the FAA stopped every departure in the country. The FAA says data began <b>flooding</b> its telecom network, and 17 of 22 en route Centers became unstable.</p>
-      <p>This lab is a small model of that network. The <b>storm math</b> in the top strip reads the map and computes one number, <b>ρ</b> (rho):</p>
-      <ul style="margin:0;padding-left:20px"><li><b>ρ = 0</b>: no loops. Every broadcast dies out.</li><li><b>ρ = 1</b>: a loop. Frames circle forever and every new broadcast adds more.</li><li><b>ρ &gt; 1</b>: a storm. Frames multiply every hop.</li></ul>
-      <p class="fact">How to use the map: click a cable or a device to inspect it. Dotted cables are not installed yet; click to install. "Send one broadcast" shows a broadcast hop by hop.</p>`,
-    goal: "Send one broadcast from ZFW-VOICE in slow motion.", check: () => S.seen.sentSlow,
-    q: "How many copies of your broadcast were sent in total? Why did it stop?" },
-  { title: "Healthy network", preset: "baseline",
-    body: `<p>The core switches run <b>spanning tree</b>. The two backup links (ZFW to ZME, ZME to ZAB) give redundancy, so spanning tree blocks one end of each. Look for the blocked-port squares.</p>
-      <ol><li>Click <b>ZME-SW</b> and read its port roles.</li><li>Click the <b>ZFW–ZME backup</b> cable and shut it down, then bring it back. What happens to ρ?</li><li>Click ZME-SW and turn <b>spanning tree off</b>. Did ρ change? Look at where the blocked ports moved.</li><li>Now set ZME-SW's BPDUs to <b>dropped</b>. Watch ρ.</li></ol>`,
-    goal: "Make ρ go above 1 with a change to a core switch.", check: () => S.seen.coreAmp,
-    q: "With spanning tree off on ZME-SW, why was the network still safe while BPDUs were passed along, and why did it storm once they were dropped?" },
-  { title: "The cutover", preset: "baseline",
-    body: `<p>Work order FTI-ELD-0413: move El Dorado from copper to fiber. The new device <b>ELD-NEW</b> uses the "standard remote-site template", which turns spanning tree <b>off</b>. ELD-OLD has had it off for years.</p>
-      <ol><li>Install the <b>new fiber</b> (NOC to ELD-NEW). Check ρ.</li><li>Install <b>cross-connect A</b>. Check ρ.</li><li>Before you install <b>cross-connect B</b>, write your prediction below.</li><li>Install cross-connect B.</li></ol>`,
-    goal: "Complete the cutover: fiber and both cross-connects installed.", check: () => ["L14","L15","L16"].every(id => S.link[id] === "up"),
-    q: "Prediction before cross-connect B: what will ρ be, and why?" },
-  { title: "Who can see the loop?", preset: "cutover",
-    body: `<p>Switches with spanning tree <b>off</b> can still pass other switches' BPDUs along (real Cisco gear does). Then the <b>core</b> sees the big loop through El Dorado and blocks it. If they <b>drop</b> BPDUs instead, the core is blind.</p>
-      <ol><li>Click any El Dorado switch and use the <b>BPDU</b> setting to switch between the two.</li><li>Compare ρ, the doubling time, and the storm reach.</li><li>In <b>Live</b> mode, send single broadcasts and watch the busiest-link chart in each case.</li></ol>`,
-    goal: "See both a circulating loop (ρ = 1) and an amplifying storm (ρ > 1).", check: () => S.seen.circ && S.seen.amp,
-    q: "Explain the difference between 'circulating' and 'amplifying' in your own words. Which one is more dangerous, and why is the other one still bad?" },
-  { title: "Ground stop", preset: "storm",
-    body: `<p>It is 2036Z. The cutover is done, ARP chatter is normal, and the storm is spreading. You are the NOC.</p>
-      <ol><li>Watch the Centers in the top strip and on the map. When two Centers are down, the FAA calls a ground stop.</li><li><b>Contain it</b>: shut down El Dorado's links to the core (the fiber and the old copper) so every Center recovers.</li></ol>
-      <p class="fact">Real event: 18 minutes from first symptoms to ground stop, and 4 h 21 min until it was lifted. The real operator blocked traffic from the El Dorado and Amarillo sites.</p>`,
-    goal: "Get all three Centers back to normal while the cross-connects stay installed.", check: () => S.seen.gsCleared && S.link.L15 === "up" && S.link.L16 === "up",
-    q: "What did you give up to get the Centers back? What would that mean for pilots near El Dorado?" },
-  { title: "Fix and restore", preset: "storm",
-    body: `<p>Containment is not a fix. Find the root cause and restore El Dorado safely.</p>
-      <ol><li>Turn spanning tree <b>on</b> at ELD-NEW and ELD-OLD. Do Amarillo too: it uses the same template.</li><li>Reconnect the fiber and the copper <b>one at a time</b>, watching ρ.</li></ol>`,
-    goal: "ρ = 0 with the fiber, the copper and both cross-connects all up.", check: () => M.regime === "TREE" && ["L6","L14","L15","L16"].every(id => S.link[id] === "up") && !S.routed,
-    q: "Name the three conditions that had to line up for this storm. Which one would you fix first, and why?" },
-  { title: "Shrink the blast radius", preset: "fixed",
-    body: `<p>Someone will make a config mistake again. The better question: how far can it spread? Routers do not forward broadcasts.</p>
-      <ol><li>Click <b>ELD-NEW</b> and choose <b>Install routed edge</b>. ELD-RTR replaces the direct links to the core.</li><li>Re-make the original mistake: turn spanning tree <b>off</b> on ELD-NEW and ELD-OLD.</li><li>Look at the storm reach and the Centers.</li></ol>`,
-    goal: "A storm inside El Dorado that cannot reach any Center.", check: () => S.routed && M.regime !== "TREE" && !CENTERS.some(([c, h]) => M.reachDevs.has(h)),
-    q: "The mistake still happened. Why is this a better outcome, and what does a routed design cost?" },
-  { title: "Change plan", preset: "baseline",
-    body: `<p>Project managers own the plan, not the cables. The work order said <b>"Rollback plan: N/A - routine."</b></p>
-      <ol><li>Rewrite the El Dorado cutover as a method of procedure: steps, a check after each step, and rollback triggers.</li><li>Use this lab as your test bench: run your plan step by step and prove ρ never leaves 0.</li><li>The template is already at Amarillo and is headed to dozens more sites. How do you roll it out?</li></ol>`,
-    goal: "Run your plan from the baseline with ρ staying at 0 the whole way.", check: () => S.seen.planRun,
-    q: "List three rollback triggers and the exact action each one causes." },
-];
-function storeGet(k, d) { try { const v = localStorage.getItem("edsl:" + k); return v === null ? d : JSON.parse(v); } catch { return d; } }
-function storeSet(k, v) { try { localStorage.setItem("edsl:" + k, JSON.stringify(v)); } catch {} }
-let done = storeGet("done", {});
-function renderNav() {
-  const nav = document.getElementById("mnav"); nav.innerHTML = "";
-  MISSIONS.forEach((m, i) => { const b = document.createElement("button");
-    b.textContent = i; b.title = m.title; b.className = (i === S.mission ? "current " : "") + (done[i] ? "done" : "");
-    b.setAttribute("aria-label", `Mission ${i}: ${m.title}${done[i] ? " (complete)" : ""}`);
-    b.onclick = () => openMission(i); nav.appendChild(b); });
-}
-function openMission(i) {
-  S.mission = i; S.seen = {}; storeSet("mission", i);
-  preset(MISSIONS[i].preset);
-  if (i === 7) S.seen.planStart = true;
-  const m = MISSIONS[i], el = document.getElementById("mission");
-  el.innerHTML = `<div class="num">Mission ${i} of ${MISSIONS.length - 1}</div><h2>${m.title}</h2><div class="body">${m.body}
-    <div class="goal" id="goal"><span class="tick"></span><span><span class="gl">Goal</span>${m.goal}</span></div>
-    <div class="q"><label for="ans">${m.q}</label><textarea id="ans" placeholder="Your answer (saved in this browser only)"></textarea></div>
-    <div class="mrow"><button id="reset">Reset this mission</button>${i < MISSIONS.length - 1 ? '<button id="next">Next mission</button>' : ""}</div></div>`;
-  const ans = document.getElementById("ans"); ans.value = storeGet("ans" + i, "");
-  ans.oninput = () => storeSet("ans" + i, ans.value);
-  document.getElementById("reset").onclick = () => openMission(i);
-  const nx = document.getElementById("next"); if (nx) nx.onclick = () => openMission(i + 1);
-  renderNav(); renderAll();
-}
-function checkGoal() {
-  const m = MISSIONS[S.mission]; let ok = false; try { ok = !!m.check(); } catch {}
-  if (ok && !done[S.mission]) { done[S.mission] = true; storeSet("done", done); renderNav(); }
-  const g = document.getElementById("goal"); if (!g) return;
-  g.classList.toggle("met", ok || !!done[S.mission]);
-  g.querySelector(".tick").textContent = (ok || done[S.mission]) ? "✓" : "";
-}
 
 /* ========================================================================
-   7. RENDERING
+   6. CONTENT: words per audience, glossary, mission tracks
    ======================================================================== */
-const svg = document.getElementById("map");
-const NS = "http://www.w3.org/2000/svg";
-const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
-const txt = (attrs, parent, s) => { const t = el("text", attrs, parent); t.textContent = s; return t; };
-function pathOf(l) { const A = DEV[l.a], B = DEV[l.b];
-  return l.ctrl ? `M${A.x},${A.y} Q${l.ctrl[0]},${l.ctrl[1]} ${B.x},${B.y}` : `M${A.x},${A.y} L${B.x},${B.y}`; }
+const WORDS = {
+  rhoK:     {plain: "Echo score", student: "Storm number <span class=\"nt\">ρ</span>", engineer: "<span class=\"nt\">ρ(B)</span>"},
+  tree:     {plain: "✓ Quiet", student: "✓ No loops", engineer: "✓ Tree · ρ = 0"},
+  circ:     {plain: "⟳ Endless echo", student: "⟳ Loop · circulating", engineer: "⟳ Circulating · ρ = 1"},
+  amp:      {plain: "▲ Echo storm", student: "▲ Storm · amplifying", engineer: "▲ Amplifying · ρ > 1"},
+  centersK: {plain: "Air traffic centers", student: "Centers", engineer: "ARTCCs"},
+  srcK:     {plain: "Shout from", student: "Broadcast from", engineer: "Source"},
+  send:     {plain: "Shout one message", student: "Send one broadcast", engineer: "Send broadcast"},
+  slow:     {plain: "Watch: step by step", student: "Mode: slow motion", engineer: "Mode: hop-by-hop"},
+  live:     {plain: "Watch: real time", student: "Mode: live", engineer: "Mode: live"},
+  chatter:  {plain: "Everyday chatter", student: "ARP chatter", engineer: "ARP chatter"},
+  drain:    {plain: "Quiet everything", student: "Clear storm", engineer: "Clear storm"},
+  stpOff:   {plain: "LOOP GUARD OFF", student: "STP OFF", engineer: "STP OFF"},
+  stp:      {plain: "Loop guard", student: "Spanning tree", engineer: "STP"},
+  bpdu:     {plain: "Loop-guard notes", student: "BPDUs", engineer: "BPDUs"},
+  mathK:    {plain: "What's happening", student: "What the math says", engineer: "Model"},
+  track:    {plain: "The story", student: "Missions", engineer: "Missions"},
+};
+const T = k => (WORDS[k] && (WORDS[k][S.mode] ?? WORDS[k].student)) || k;
+const devTag = d => S.mode === "plain" ? (DEV[d].ptag || DEV[d].tag) : DEV[d].tag;
+const devName = d => S.mode === "plain" && DEV[d].plabel ? DEV[d].plabel : DEV[d].label;
+const linkName = id => { const l = LINK[id]; return S.mode === "plain" ? (PLAIN_LINK[id] || `${devName(l.a)} ↔ ${devName(l.b)}`) : `${l.a} ${l.ap} ↔ ${l.b} ${l.bp}`; };
+
+const GLOSS = {
+  switch:    {t: "Switch", s: "A device that connects computers on the same network. It forwards each frame toward its destination, and copies broadcasts out every port except the one they came in on.", p: "A junction. It passes every message along to everything plugged into it.", a: "Like a mail room that copies any letter addressed to \"everyone\" into every mailbox."},
+  broadcast: {t: "Broadcast", s: "A frame addressed to every device on the network (destination MAC FF:FF:FF:FF:FF:FF). Switches flood it out every port except the one it arrived on.", p: "A message shouted to everyone at once.", a: "Like an announcement over a school PA system."},
+  arp:       {t: "ARP", s: "Address Resolution Protocol. Before a computer can talk to 10.200.0.50, it broadcasts \"who has 10.200.0.50?\". Networks do this constantly. It is normal chatter.", p: "Computers constantly asking \"who's at this address?\" by shouting.", a: "Like calling out a name in a crowded room to find someone."},
+  loop:      {t: "Loop", s: "More than one path between the same switches. A broadcast can travel around the loop and come back, again and again. Ethernet frames have no TTL, so nothing kills them.", p: "A circle in the wiring. Messages can go around and around.", a: "Like two microphones facing two speakers: the sound feeds back forever."},
+  stp:       {t: "Spanning tree (STP)", s: "A protocol switches use to find loops. They elect a root bridge, pick one best path to it, and block every other port so exactly one path remains.", p: "Loop guard. The junctions agree to close one road so messages can't go in circles.", a: "Like closing one bridge across a river so traffic can't drive in circles."},
+  bpdu:      {t: "BPDU", s: "Bridge Protocol Data Unit: the hello message spanning tree sends to discover loops. A switch with STP off may pass them along or drop them.", p: "The note loop guards pass to each other to spot circles.", a: "Like lighthouses flashing to each other to map the coast."},
+  blocked:   {t: "Blocked port", s: "A port spanning tree has turned off for data. The cable stays plugged in as a backup, ready if another link fails.", p: "A road that's closed on purpose so there are no circles.", a: "Like a locked emergency exit: there if you need it."},
+  rho:       {t: "ρ (rho), the storm number", s: "The largest eigenvalue of the network's flooding matrix. ρ = 0: no loops, broadcasts die out. ρ = 1: a loop, frames circle forever. ρ > 1: a storm, frames multiply every hop.", p: "Echo score. 0 is quiet. 1 is an echo that never stops. More than 1 is an echo that gets louder every time.", a: "Like a rumor: 0 means nobody repeats it, 1 means it goes around forever, 2 means everyone tells two friends."},
+  center:    {t: "Center (ARTCC)", s: "An Air Route Traffic Control Center. The FAA has 22; each handles high-altitude traffic over a big region. They rely on the FTI network for radar and radio.", p: "A big air traffic control building that guides planes between airports.", a: ""},
+  router:    {t: "Router", s: "A device that connects different networks. Routers do not forward broadcasts, so they end a broadcast domain.", p: "A border gate between neighborhoods. Shouting doesn't get through it.", a: "Like a closed door between two rooms."},
+  cutover:   {t: "Cutover", s: "The moment traffic moves from old equipment to new. During a cutover both paths are often live at once, which is exactly when loops appear.", p: "Switching from the old equipment to the new.", a: ""},
+  trunk:     {t: "Trunk", s: "A link that carries several VLANs at once. Here every core link is a trunk, so a storm on one VLAN shares the cable with all the others.", p: "A main road that carries many kinds of traffic.", a: ""},
+};
+function termHTML(html) {
+  return html.replace(/\[\[(\w+)(?:\|([^\]]+))?\]\]/g, (_, k, label) => `<button type="button" class="term" data-g="${k}">${label || GLOSS[k].t.split(" (")[0].toLowerCase()}</button>`);
+}
+
+const on = id => S.link[id] === "up";
+const TRACKS = {
+  plain: [
+    { title: "Meet the network", preset: "baseline",
+      idea: "This is a tiny copy of the network that lets air traffic control centers talk to radar and radio sites. Each box is a [[switch|junction]] that passes messages along.",
+      steps: [
+        {text: "Press <b>Shout one message</b>. Watch the Fort Worth desk's message travel to everyone.", check: () => S.seen.sentSlow, show: {dev: "ZFW-VOICE"}},
+        {text: "Watch it stop once everyone has heard it.", check: () => S.seen.slowDone},
+      ],
+      hints: ["The button is blue, just above the map.", "Messages are the pink dots. Each junction copies them to every other cable."],
+      q: "In your own words: why did the message stop?" },
+    { title: "A small change at El Dorado", preset: "baseline",
+      idea: "On Nov 13, technicians in El Dorado, Arkansas plugged in a new junction. Its [[stp|loop guard]] was switched off. So was the old junction's.",
+      steps: [
+        {text: "Click the long dotted <b>new fiber</b> and press <b>Plug in</b>.", check: () => on("L14"), show: {link: "L14"}},
+        {text: "Plug in <b>cable A</b> between the old and new junctions.", check: () => on("L15"), show: {link: "L15"}},
+        {text: "Make your prediction below before the last cable.", check: () => S.predicted !== null},
+        {text: "Plug in <b>cable B</b>.", check: () => on("L16"), show: {link: "L16"}},
+        {text: "Shout a message and watch what happens at El Dorado.", check: () => S.seen.slowLoop, show: {dev: "ELD-RADIO"}},
+      ],
+      predict: {gate: "L16", q: "What happens when you plug in cable B?",
+        options: ["Nothing. It's just a spare cable.", "Messages start going around in circles.", "The network gets faster."], answer: 1,
+        explain: "Two cables between the same two junctions make a circle. With the loop guard off, any message that gets in goes around forever."},
+      hints: ["Dotted lines are cables that aren't plugged in yet. Click one to plug it in.", "Watch the echo score in the dark bar at the top after each cable."],
+      q: "Why didn't the technicians notice a problem when they plugged in cable A?" },
+    { title: "The country goes quiet", preset: "cutover",
+      idea: "Computers send small \"who's there?\" messages all the time ([[arp|everyday chatter]]). With a circle in the wiring, every one gets trapped and repeats forever.",
+      steps: [
+        {text: "Turn on <b>Everyday chatter</b>.", check: () => S.chatter},
+        {text: "Watch the air traffic centers go down. Two down means a ground stop.", check: () => S.seen.gs},
+        {text: "Cut El Dorado off: click the <b>new fiber</b> and unplug it.", check: () => !on("L14"), show: {link: "L14"}},
+        {text: "Unplug El Dorado's <b>old cable</b> too.", check: () => !on("L6"), show: {link: "L6"}},
+        {text: "Watch all three centers recover.", check: () => S.seen.gsCleared},
+      ],
+      hints: ["The centers are the three tiles in the dark bar. Red means down.", "El Dorado is connected to the rest of the country by two long cables: the new fiber and the old cable."],
+      q: "The centers came back, but what did El Dorado lose? What would that mean for pilots flying nearby?",
+      fact: "In real life it took 18 minutes from the first problems to the ground stop, and 4 hours 21 minutes to lift it." },
+    { title: "Fix it for good", preset: "cutover",
+      idea: "Unplugging isn't a fix. The real fix is to switch the [[stp|loop guard]] back on. Then the junctions agree to close one road and the circle is broken.",
+      steps: [
+        {text: "Click the <b>new junction</b> and turn its loop guard on.", check: () => S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Turn the loop guard on at the <b>old junction</b> too.", check: () => S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Turn on everyday chatter. Keep every center normal for 5 seconds.", check: () => S.seen.calm5},
+      ],
+      hints: ["Look for the pink LOOP GUARD OFF tags on the map.", "After the fix, look for a ☒ on one of the El Dorado cables. That's the road the loop guard closed."],
+      q: "If you were in charge, what rule would you make so this never happens again?" },
+  ],
+  full: [
+    { title: "Briefing", preset: "baseline",
+      idea: "A [[broadcast]] is copied by every [[switch]] out every port except the one it came in on. On a network with no loops, it reaches everyone once and then stops.",
+      body: "On Nov 13, 2026, a router change at a remote FAA radio site in <b>El Dorado, Arkansas</b> flooded the FAA's network. 17 of 22 [[center|Centers]] became unstable and the FAA stopped every departure in the country. This map is a small model of that network. The [[rho|storm number ρ]] in the top bar reads the wiring and predicts what any broadcast will do.",
+      steps: [
+        {text: "Send one broadcast from <b>ZFW-VOICE</b> in slow motion.", check: () => S.seen.sentZFW, show: {dev: "ZFW-VOICE"}},
+        {text: "Count the copies as it spreads (shown under the chart).", check: () => S.seen.slowDone},
+        {text: "Tap the dotted word <b>broadcast</b> above to open the glossary.", check: () => S.seen.g_broadcast},
+      ],
+      hints: ["The blue Send button is in the toolbar above the map.", "Each pink dot is one copy. Copies stop when they reach a host or a switch with nowhere new to send them."],
+      q: "How many copies were sent in total? Why did it stop?" },
+    { title: "Healthy network", preset: "baseline",
+      idea: "Backup links create [[loop|loops]]. [[stp|Spanning tree]] keeps them safe by [[blocked|blocking]] one port per loop, but it only works if switches can hear each other's [[bpdu|BPDUs]].",
+      steps: [
+        {text: "Click <b>ZME-SW</b> and find its blocked ports (☒ on the map).", check: () => S.sel && S.sel.dev === "ZME-SW", show: {dev: "ZME-SW"}},
+        {text: "Shut down the <b>ZFW–ZME backup</b> cable, then bring it back.", check: () => S.seen.L4cycled, show: {link: "L4"}},
+        {text: "Turn spanning tree <b>off</b> on ZME-SW. Did ρ change?", check: () => !S.stp["ZME-SW"], show: {dev: "ZME-SW"}},
+        {text: "Now set ZME-SW's BPDUs to <b>dropped</b>. Watch ρ.", check: () => S.seen.coreAmp, show: {dev: "ZME-SW"}},
+      ],
+      hints: ["The ☒ squares sit on cables right next to the switch that blocked them.", "With STP off but BPDUs passed along, the neighbors still see the loop and block it themselves.", "Dropping BPDUs makes ZME-SW invisible to spanning tree. Now nobody can see the loop."],
+      q: "With spanning tree off on ZME-SW, why was the network still safe while BPDUs were passed along, and why did it storm once they were dropped?" },
+    { title: "The cutover", preset: "baseline",
+      idea: "During a [[cutover]], old and new paths are live at the same time. That's the riskiest moment for loops.",
+      body: "Work order FTI-ELD-0413: move El Dorado from copper to fiber. The new device <b>ELD-NEW</b> uses the \"standard remote-site template\", which turns [[stp|spanning tree]] <b>off</b>. ELD-OLD has had it off for years.",
+      steps: [
+        {text: "Install the <b>new fiber</b> (NOC-SW to ELD-NEW). Check ρ.", check: () => on("L14"), show: {link: "L14"}},
+        {text: "Install <b>cross-connect A</b>. Check ρ. Why is it still 0?", check: () => on("L15"), show: {link: "L15"}},
+        {text: "Make your prediction for cross-connect B.", check: () => S.predicted !== null},
+        {text: "Install <b>cross-connect B</b>.", check: () => on("L16"), show: {link: "L16"}},
+        {text: "Send a broadcast in slow motion and watch El Dorado.", check: () => S.seen.slowLoop},
+      ],
+      predict: {gate: "L16", q: "After cross-connect B is installed, what will ρ be?",
+        options: ["ρ stays 0: STP on the core will block it", "ρ = 1: a loop that circulates", "ρ > 1: a storm that multiplies"], answer: 1,
+        explain: "ρ = 1. The core's spanning tree sees the big loop through El Dorado and blocks ZME-SW Fa0/4. But the two cross-connects form a small loop between two switches with STP off. Nobody blocks it, so frames circle forever without multiplying."},
+      hints: ["Dotted cables aren't installed. Click one, then Install cable.", "After cross-connect A, look for a new ☒ near ZME-SW. Spanning tree on the core is protecting you.", "Cross-connect B makes a loop that never passes through a switch running spanning tree."],
+      q: "Why was cross-connect A safe but cross-connect B not?" },
+    { title: "Who can see the loop?", preset: "cutover",
+      idea: "A loop with ρ = 1 piles up load with every new broadcast. A loop with ρ > 1 multiplies on its own. Which one you get depends on whether [[bpdu|BPDUs]] get through.",
+      steps: [
+        {text: "Click ELD-NEW and set BPDUs to <b>dropped</b>. Watch ρ jump.", check: () => S.seen.amp, show: {dev: "ELD-NEW"}},
+        {text: "Switch to <b>live</b> mode and send one broadcast. Watch the chart.", check: () => S.seen.liveAmp},
+        {text: "Set BPDUs back to <b>passed along</b>, then send a broadcast in live mode.", check: () => S.seen.liveCirc},
+      ],
+      hints: ["The BPDU button only appears on switches with spanning tree off.", "Use Clear storm between tries so you can compare the two charts."],
+      q: "Explain circulating vs amplifying in your own words. Which one is worse, and why is the other one still dangerous?" },
+    { title: "Ground stop drill", preset: "storm",
+      idea: "[[arp|ARP]] broadcasts happen every second on any network. With a loop live, each one adds load until links fill.",
+      body: "It's 2036Z. The cutover is done, ARP chatter is normal, and the storm is spreading. You're the NOC.",
+      steps: [
+        {text: "Watch the Centers. Two down means a ground stop.", check: () => S.seen.gs},
+        {text: "Contain it: shut down the <b>new fiber</b>.", check: () => !on("L14"), show: {link: "L14"}},
+        {text: "Shut down the <b>old copper</b> link too.", check: () => !on("L6"), show: {link: "L6"}},
+        {text: "Get all three Centers back to normal (leave the cross-connects in).", check: () => S.seen.gsCleared && on("L15") && on("L16")},
+      ],
+      fact: "Real event: 18 minutes from first symptoms to the ground stop, and 4 h 21 min until it was lifted. The real operator blocked traffic from the El Dorado and Amarillo sites.",
+      hints: ["El Dorado has exactly two links to the rest of the country.", "Containment means isolating the problem, not fixing it."],
+      q: "What did you give up to get the Centers back? What would that mean for pilots near El Dorado?" },
+    { title: "Fix and restore", preset: "storm",
+      idea: "Containment isn't a fix. Find the root cause, fix every device built from the same template, then restore one link at a time.",
+      steps: [
+        {text: "Turn spanning tree <b>on</b> at ELD-NEW.", check: () => S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Turn spanning tree on at ELD-OLD.", check: () => S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Fix <b>AMA-SW</b> too. It uses the same template.", check: () => S.stp["AMA-SW"], show: {dev: "AMA-SW"}},
+        {text: "With every cable up, ρ = 0.", check: () => M.regime === "TREE" && ["L6", "L14", "L15", "L16"].every(on) && !S.routed},
+      ],
+      hints: ["Look for the pink STP OFF tags.", "After the fix, find the new ☒ on a cross-connect. That's spanning tree cancelling the spare cable."],
+      q: "Name the three conditions that had to line up for this storm. Which would you fix first, and why?" },
+    { title: "Shrink the blast radius", preset: "fixed",
+      idea: "[[router|Routers]] don't forward broadcasts. Put one at the edge of a site and a mistake inside the site can't reach the rest of the country.",
+      steps: [
+        {text: "Click <b>ELD-NEW</b> and choose <b>Install routed edge</b>.", check: () => S.routed, show: {dev: "ELD-NEW"}},
+        {text: "Re-make the mistake: spanning tree <b>off</b> on ELD-NEW.", check: () => S.routed && !S.stp["ELD-NEW"], show: {dev: "ELD-NEW"}},
+        {text: "Spanning tree off on ELD-OLD too.", check: () => S.routed && !S.stp["ELD-OLD"], show: {dev: "ELD-OLD"}},
+        {text: "Confirm the storm can't reach any Center.", check: () => S.routed && M.regime !== "TREE" && !CENTERS.some(([c, h]) => M.reachDevs.has(h))},
+      ],
+      hints: ["The routed edge replaces both of El Dorado's links to the core.", "Look at \"Storm can reach\" in the readout below the map."],
+      q: "The mistake still happened. Why is this a better outcome, and what does a routed design cost?" },
+    { title: "Change plan", preset: "baseline",
+      idea: "Most outages start with routine work. A method of procedure (MOP) makes routine work safe: one change at a time, a check after each, and a rollback plan.",
+      body: "The work order said <b>\"Rollback plan: N/A - routine.\"</b> Write a better plan, then prove it here: the same cutover, but ρ must stay 0 the whole time.",
+      steps: [
+        {text: "Fix the template first: spanning tree on at ELD-NEW <b>before</b> installing anything.", check: () => S.seen.planStpFirst, show: {dev: "ELD-NEW"}},
+        {text: "Spanning tree on at ELD-OLD.", check: () => S.stp["ELD-OLD"] && S.seen.planStart, show: {dev: "ELD-OLD"}},
+        {text: "Install the fiber and both cross-connects, one at a time.", check: () => ["L14", "L15", "L16"].every(on) && S.seen.planStart},
+        {text: "ρ stayed 0 the whole way.", check: () => S.seen.planRun},
+      ],
+      hints: ["If ρ leaves 0 at any point, press Reset this mission and try again.", "Order matters: protections first, cables second."],
+      q: "List three rollback triggers and the exact action each one causes." },
+  ],
+};
+const track = () => S.mode === "plain" ? TRACKS.plain : TRACKS.full;
+
+/* ========================================================================
+   7. RENDERER  (canvas map + HTML device cards)
+   With HTML-in-Canvas (Edge/Chrome 157+, or older Chromium with the
+   canvas-draw-element flag) the cards are real <button>s inside the canvas,
+   painted with drawElementImage() so effects can wrap around them; they stay
+   focusable and clickable. Without it, the same buttons sit on a layer above.
+   ======================================================================== */
+const fx = document.getElementById("fx"), mapwrap = document.getElementById("mapwrap");
+const HIC = typeof CanvasRenderingContext2D !== "undefined" && "drawElementImage" in CanvasRenderingContext2D.prototype;
+if (HIC) { fx.setAttribute("layoutsubtree", ""); fx.setAttribute("content", "drawable"); }
+const ctx = fx.getContext("2d");
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let K = 1, DPR = 1;
+let cardInner = null;
+if (!HIC) { const layer = document.createElement("div"); layer.className = "cardlayer"; cardInner = document.createElement("div"); cardInner.className = "cardinner";
+  layer.appendChild(cardInner); mapwrap.appendChild(layer); }
+function resize() {
+  const r = fx.getBoundingClientRect(); if (!r.width) return;
+  DPR = Math.min(2, window.devicePixelRatio || 1); K = r.width / 1000;
+  fx.width = Math.round(r.width * DPR); fx.height = Math.round(r.width * .68 * DPR);
+  if (cardInner) cardInner.style.transform = `scale(${K})`;
+  bgDirty = true;
+}
+new ResizeObserver(resize).observe(fx);
+
+let PAL = {};
+function readPalette() { const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim();
+  PAL = {chart: g("--chart"), grid: g("--grid"), ink: g("--ink"), ink2: g("--ink2"), accent: g("--accent"), magenta: g("--magenta"),
+    storm0: g("--storm0"), storm1: g("--storm1"), good: g("--good"), warn: g("--warn"), crit: g("--crit"), panel: g("--panel"),
+    dark: matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light" || document.documentElement.dataset.theme === "dark"};
+  bgDirty = true; }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readPalette);
+new MutationObserver(readPalette).observe(document.documentElement, {attributes: true, attributeFilter: ["data-theme"]});
+
+const lerp = (a, b, t) => a + (b - a) * t;
+function lerpColor(a, b, t) { const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16));
+  return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
 function pointOn(l, t, fromA) { const A = DEV[l.a], B = DEV[l.b]; if (!fromA) t = 1 - t;
   if (!l.ctrl) return [A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t];
   const [cx, cy] = l.ctrl, u = 1 - t; return [u*u*A.x + 2*u*t*cx + t*t*B.x, u*u*A.y + 2*u*t*cy + t*t*B.y]; }
+function tracePath(c, l) { const A = DEV[l.a], B = DEV[l.b]; c.beginPath(); c.moveTo(A.x, A.y);
+  if (l.ctrl) c.quadraticCurveTo(l.ctrl[0], l.ctrl[1], B.x, B.y); else c.lineTo(B.x, B.y); }
+const linkVisible = l => l.routedOnly ? S.routed : !(S.routed && (l.id === "L6" || l.id === "L14"));
 
-// chart furniture: graticule with real coordinates, the core band, the El Dorado site
-const gBase = el("g", {}, svg);
-const TOP = 168;
-el("line", {x1: 0, y1: TOP, x2: 1000, y2: TOP, class: "grat", "stroke-dasharray": "2 4"}, gBase);
-txt({x: 14, y: TOP - 8, class: "gratlbl"}, gBase, "NETWORK CORE · NOT TO SCALE");
-for (let lon = -106; lon <= -90; lon += 2) { const [x] = proj(lon, 35);
-  el("line", {x1: x, y1: TOP, x2: x, y2: 680, class: "grat"}, gBase);
-  txt({x: x + 4, y: 672, class: "gratlbl"}, gBase, `${-lon}°W`); }
-for (let lat = 36; lat >= 32; lat--) { const [, y] = proj(-100, lat);
-  el("line", {x1: 0, y1: y, x2: 1000, y2: y, class: "grat"}, gBase);
-  txt({x: 6, y: y - 5, class: "gratlbl"}, gBase, `${lat}°N`); }
-el("rect", {x: SITE.x, y: SITE.y, width: SITE.w, height: SITE.h, rx: 14, class: "site"}, gBase);
-txt({x: SITE.x + 14, y: SITE.y + 19, class: "sitelbl"}, gBase, SITE.label);
-
-const gLinks = el("g", {}, svg), gFlow = el("g", {}, svg), gPorts = el("g", {}, svg), gDev = el("g", {}, svg), gPkt = el("g", {}, svg);
-const linkEls = {}, flowEls = {};
-for (const l of LINKS) {
-  const g = el("g", {}, gLinks);
-  const p = el("path", {d: pathOf(l), class: "link"}, g);
-  const hit = el("path", {d: pathOf(l), class: "hit", tabindex: 0, role: "button", "aria-label": `Cable ${l.a} ${l.ap} to ${l.b} ${l.bp}`}, g);
-  hit.onclick = () => select({link: l.id});
-  hit.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select({link: l.id}); } };
-  if (l.label) {
-    const xc = l.id === "L15" || l.id === "L16";
-    const [x, y] = pointOn(l, l.id === "L5" ? .22 : l.id === "L14" ? .42 : l.id === "L6" ? .62 : .5, true);
-    txt({x: xc ? x : x + 8, y: l.id === "L16" ? y + 17 : y - 8, "text-anchor": xc ? "middle" : "start", class: "linklabel"}, g, l.label);
-  }
-  linkEls[l.id] = {g, p};
-  const fg = el("g", {opacity: 0}, gFlow);
-  flowEls[l.id] = {g: fg, glow: el("path", {d: pathOf(l), class: "glow"}, fg), dash: el("path", {d: pathOf(l), class: "flow"}, fg)};
+/* ---- static background: chart paper, graticule, site outline */
+let bg = document.createElement("canvas"), bgDirty = true;
+function drawBg() {
+  bg.width = fx.width; bg.height = fx.height; const c = bg.getContext("2d");
+  c.setTransform(DPR * K, 0, 0, DPR * K, 0, 0);
+  c.fillStyle = PAL.chart; c.fillRect(0, 0, 1000, 680);
+  c.strokeStyle = PAL.grid; c.lineWidth = 1; c.fillStyle = PAL.ink2; c.font = "500 11px 'IBM Plex Mono', monospace";
+  const TOP = 168; c.setLineDash([2, 4]); c.beginPath(); c.moveTo(0, TOP); c.lineTo(1000, TOP); c.stroke(); c.setLineDash([]);
+  c.globalAlpha = .8; c.fillText(S.mode === "plain" ? "NETWORK HQ (NOT ON THE MAP)" : "NETWORK CORE · NOT TO SCALE", 14, TOP - 8); c.globalAlpha = 1;
+  for (let lon = -106; lon <= -90; lon += 2) { const [x] = proj(lon, 35); c.beginPath(); c.moveTo(x, TOP); c.lineTo(x, 680); c.stroke(); c.globalAlpha = .8; c.fillText(`${-lon}°W`, x + 4, 672); c.globalAlpha = 1; }
+  for (let lat = 36; lat >= 32; lat--) { const [, y] = proj(-100, lat); c.beginPath(); c.moveTo(0, y); c.lineTo(1000, y); c.stroke(); c.globalAlpha = .8; c.fillText(`${lat}°N`, 6, y - 5); c.globalAlpha = 1; }
+  c.strokeStyle = PAL.magenta; c.lineWidth = 1.5; c.setLineDash([6, 5]); c.globalAlpha = .8;
+  c.beginPath(); c.roundRect(SITE.x, SITE.y, SITE.w, SITE.h, 14); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+  c.fillStyle = PAL.magenta; c.font = "600 12px 'IBM Plex Sans', sans-serif"; c.fillText(SITE.label, SITE.x + 14, SITE.y + 19);
+  bgDirty = false;
 }
-const devEls = {};
+
+/* ---- device cards (real HTML) */
+const cards = {};
 for (const [name, d] of Object.entries(DEV)) {
-  const g = el("g", {class: "dev", tabindex: 0, role: "button", "aria-label": name}, gDev);
-  if (d.kind === "host") {
-    el("circle", {cx: d.x, cy: d.y, r: 12, class: "hostc"}, g);
-    txt({x: d.x, y: d.y + 3.5, "text-anchor": "middle", class: "glyph"}, g, d.glyph);
-    txt({x: d.x, y: d.y + 28, "text-anchor": "middle", class: "hname"}, g, d.label);
-  } else {
-    const ring = el("rect", {x: d.x - 66, y: d.y - 25, width: 132, height: 50, rx: 10, class: "ring", stroke: "none"}, g);
-    el("rect", {x: d.x - 60, y: d.y - 19, width: 120, height: 38, rx: d.kind === "router" ? 19 : 6, class: "box"}, g);
-    txt({x: d.x, y: d.y + 5, "text-anchor": "middle", class: "name"}, g, d.label);
-    const tag = txt({x: d.x, y: d.y + 40, "text-anchor": "middle", class: "tag"}, g, d.tag);
-    devEls[name + ":ring"] = ring; devEls[name + ":tag"] = tag;
-    if (d.kind === "switch") {
-      const pg = el("g", {}, g);
-      el("rect", {x: d.x - 30, y: d.y - 36, width: 60, height: 15, rx: 7.5, class: "pill"}, pg);
-      txt({x: d.x, y: d.y - 25, "text-anchor": "middle", class: "pilltxt"}, pg, "STP OFF");
-      devEls[name + ":stp"] = pg;
-    }
-  }
-  g.onclick = () => select({dev: name});
-  g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select({dev: name}); } };
-  devEls[name] = g;
+  const b = document.createElement("button"); b.type = "button"; b.className = "card " + d.kind; b.dataset.dev = name;
+  b.onclick = e => { e.stopPropagation(); select({dev: name}); };
+  if (HIC) { b.setAttribute("drawable", ""); fx.appendChild(b); }
+  else { b.style.left = d.x + "px"; b.style.top = (d.kind === "host" ? d.y + 12 : d.y) + "px"; cardInner.appendChild(b); }
+  cards[name] = {el: b, html: "", cls: "", m: ""};
 }
-function select(s) { S.sel = s; renderAll(); }
-
-function lerpColor(a, b, t) { const pa = a.match(/\w\w/g).map(h => parseInt(h, 16)), pb = b.match(/\w\w/g).map(h => parseInt(h, 16));
-  return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-
-// Center health = storm load on the Center's voice position or its uplink from the core
-function centerHealth(loads) {
-  const out = {};
-  for (const [c, host, up] of CENTERS) {
-    let L = 0; M.edges.forEach((e, i) => { if (e.head === host || (e.link === up && e.tail === "NOC-SW")) L = Math.max(L, loads ? loads[i] : 0); });
-    out[c] = {L, cls: L >= 0.6 ? "crit" : L >= 0.05 ? "warn" : "good"};
-  }
-  return out;
-}
-
-function renderMap(loads) {
-  const H = centerHealth(loads);
-  for (const l of LINKS) {
-    const st = S.link[l.id]; const {g, p} = linkEls[l.id];
-    const visible = l.routedOnly ? S.routed : !(S.routed && (l.id === "L6" || l.id === "L14"));
-    g.style.display = visible ? "" : "none";
-    p.setAttribute("class", "link " + (st === "absent" ? "absent" : st === "shut" ? "shut" : "") + (S.sel && S.sel.link === l.id ? " sel" : ""));
-  }
+function updateCards(H) {
   for (const [name, d] of Object.entries(DEV)) {
-    const g = devEls[name]; g.style.display = d.routedOnly && !S.routed ? "none" : "";
-    g.setAttribute("class", "dev" + (S.sel && S.sel.dev === name ? " sel" : ""));
-    if (devEls[name + ":stp"]) devEls[name + ":stp"].style.display = S.stp[name] ? "none" : "";
-    if (d.center) {
-      const h = H[d.center], ring = devEls[name + ":ring"], tag = devEls[name + ":tag"];
-      ring.setAttribute("stroke", h.cls === "good" ? "none" : css(h.cls === "crit" ? "--crit" : "--warn"));
-      tag.setAttribute("class", "tag " + (h.cls === "good" ? "" : h.cls));
-      tag.textContent = d.tag + (h.cls === "crit" ? " · ▲ DOWN" : h.cls === "warn" ? " · ● DEGRADED" : "");
+    const c = cards[name]; let html, cls = "card " + d.kind;
+    if (d.kind === "host") html = `<span class="dot">${d.glyph}</span><span class="nm">${devName(name)}</span>`;
+    else {
+      const plain = S.mode === "plain"; const h = d.center ? H[d.center] : null;
+      const stat = h && h.cls !== "good" ? `<span class="stat">${h.cls === "crit" ? "▲ DOWN" : "● DEGRADED"}</span>` : "";
+      if (h) cls += " " + h.cls;
+      const pill = d.kind === "switch" && !S.stp[name] ? `<span class="pill">${T("stpOff")}</span>` : "";
+      const main = plain ? (d.ptag || d.label) : d.label, sub = plain ? (d.psub ?? "") : d.tag;
+      if (plain) cls += " pl";
+      html = `${pill}<span>${main}</span>${sub ? `<small>${sub}</small>` : ""}${stat}`;
     }
+    if (S.sel && S.sel.dev === name) cls += " sel";
+    if (!HIC && glitching.has(name)) cls += " glitch";
+    const hidden = d.routedOnly && !S.routed;
+    if (c.html !== html) { c.el.innerHTML = html; c.html = html; }
+    if (c.cls !== cls) { c.el.className = cls; c.cls = cls; }
+    if (c.el.hidden !== hidden) c.el.hidden = hidden;
+    const al = `${d.label}${d.tag ? ", " + d.tag : ""}${d.kind === "switch" ? (S.stp[name] ? ", spanning tree on" : ", spanning tree off") : ""}`;
+    if (c.al !== al) { c.el.setAttribute("aria-label", al); c.al = al; }
   }
-  gPorts.innerHTML = "";
+}
+
+/* ---- effects state */
+let particles = [], spawnAcc = new Float64Array(0), waves = [], banners = [], confetti = [], shakeUntil = 0, glitching = new Set();
+let anim = null, highlight = null, lastT = performance.now();
+function wave(x, y, color, maxR = 120, dur = 1100) { if (!REDUCED) waves.push({x, y, color, maxR, dur, t0: performance.now()}); }
+function banner(text, color) { banners = [{text, color, t0: performance.now()}]; }
+function shake(ms) { if (!REDUCED) shakeUntil = performance.now() + ms; }
+function burstConfetti() { if (REDUCED) return; const cols = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
+  for (let i = 0; i < 140; i++) confetti.push({x: 500 + (Math.random() - .5) * 200, y: 200, vx: (Math.random() - .5) * 520, vy: -Math.random() * 520 - 120,
+    r: Math.random() * 6.28, vr: (Math.random() - .5) * 12, w: 6 + Math.random() * 6, h: 3 + Math.random() * 4, c: cols[i % cols.length], t0: performance.now()}); }
+
+function devPoint(name) { const d = DEV[name]; return [d.x, d.y]; }
+function drawFrame(now) {
+  if (!M || !fx.width) return;
+  if (bgDirty) drawBg();
+  const live = S.live ? linkLoads(nowS()) : null, loads = live ? live.load : null;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, fx.width, fx.height);
+  let sx = 0, sy = 0; if (now < shakeUntil) { const a = 5 * (shakeUntil - now) / 600; sx = (Math.random() - .5) * a * 2; sy = (Math.random() - .5) * a * 2; }
+  ctx.drawImage(bg, sx * DPR, sy * DPR);
+  ctx.setTransform(DPR * K, 0, 0, DPR * K, sx * DPR, sy * DPR);
+  const t = now / 1000;
+
+  // links
+  const perLink = {}, loopLink = new Set();
+  M.edges.forEach((e, i) => { if (loads) perLink[e.link] = Math.max(perLink[e.link] || 0, loads[i]); if (M.inComp[i] >= 0) loopLink.add(e.link); });
+  ctx.lineCap = "round";
+  for (const l of LINKS) {
+    if (!linkVisible(l)) continue;
+    const st = S.link[l.id], sel = S.sel && S.sel.link === l.id;
+    const v = perLink[l.id] || 0;
+    if (v > .003) { tracePath(ctx, l); ctx.strokeStyle = lerpColor(PAL.storm0, PAL.storm1, Math.min(1, v)); ctx.globalAlpha = .28; ctx.lineWidth = 8 + 14 * v; ctx.stroke(); ctx.globalAlpha = 1; }
+    tracePath(ctx, l);
+    ctx.setLineDash(st === "absent" ? [1, 8] : st === "shut" ? [9, 6] : []);
+    ctx.lineWidth = sel ? 4.5 : st === "absent" ? 3 : 2.5;
+    ctx.strokeStyle = sel ? PAL.accent : PAL.ink2; ctx.globalAlpha = sel ? 1 : st === "up" ? .6 : st === "shut" ? .4 : .75;
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    if (loopLink.has(l.id)) { // marching "loop" outline
+      tracePath(ctx, l); ctx.setLineDash([10, 8]); ctx.lineDashOffset = REDUCED ? 0 : -t * 40; ctx.strokeStyle = PAL.magenta; ctx.lineWidth = 3;
+      ctx.shadowColor = PAL.magenta; ctx.shadowBlur = 10; ctx.stroke(); ctx.shadowBlur = 0; ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    }
+    const lbl = S.mode === "plain" ? PLAIN_LINK[l.id] : l.label;
+    if (lbl) { const xc = l.id === "L15" || l.id === "L16";
+      const [x, y] = pointOn(l, l.id === "L5" ? .22 : l.id === "L14" ? .42 : l.id === "L6" ? .62 : .5, true);
+      ctx.font = "500 12px 'IBM Plex Sans', sans-serif"; ctx.textAlign = xc ? "center" : "left";
+      const tx = xc ? x : x + 8, ty = l.id === "L16" ? y + 17 : y - 8;
+      ctx.lineWidth = 4; ctx.strokeStyle = PAL.chart; ctx.strokeText(lbl, tx, ty); ctx.fillStyle = PAL.ink2; ctx.fillText(lbl, tx, ty); ctx.textAlign = "left"; }
+  }
+  // blocked ports
   const act = activeLinks();
   for (const key of M.blocked) {
-    const [dev, port] = key.split("|");
-    const l = act.find(l => (l.a === dev && l.ap === port) || (l.b === dev && l.bp === port)); if (!l) continue;
+    const [dev, port] = key.split("|"); const l = act.find(l => (l.a === dev && l.ap === port) || (l.b === dev && l.bp === port)); if (!l) continue;
     const len = Math.hypot(DEV[l.b].x - DEV[l.a].x, DEV[l.b].y - DEV[l.a].y);
     const [x, y] = pointOn(l, l.ctrl && len > 400 ? .25 : Math.min(.45, 130 / len), l.a === dev);
-    el("rect", {x: x - 7, y: y - 7, width: 14, height: 14, rx: 2, class: "blk"}, gPorts);
-    el("path", {d: `M${x-3.5},${y-3.5} L${x+3.5},${y+3.5} M${x+3.5},${y-3.5} L${x-3.5},${y+3.5}`, class: "blkx"}, gPorts);
+    ctx.fillStyle = PAL.panel; ctx.strokeStyle = PAL.ink; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.roundRect(x - 8, y - 8, 16, 16, 3); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - 4, y - 4); ctx.lineTo(x + 4, y + 4); ctx.moveTo(x + 4, y - 4); ctx.lineTo(x - 4, y + 4); ctx.stroke();
   }
-  const per = {};
-  if (loads) M.edges.forEach((e, i) => per[e.link] = Math.max(per[e.link] || 0, loads[i]));
-  const c0 = css("--storm0"), c1 = css("--storm1");
-  for (const l of LINKS) { const f = flowEls[l.id]; const v = per[l.id] || 0;
-    if (v > 0.002 && S.live) { const col = lerpColor(c0, c1, Math.min(1, v));
-      f.g.setAttribute("opacity", 1);
-      f.dash.setAttribute("stroke", col); f.dash.setAttribute("stroke-width", 3 + 4 * v);
-      f.glow.setAttribute("stroke", col); f.glow.setAttribute("stroke-width", 8 + 12 * v);
-      f.dash.style.animationDuration = (1.1 - .8 * v) + "s"; }
-    else f.g.setAttribute("opacity", 0); }
-}
-
-function fmt(x) { return x >= 1e6 ? (x / 1e6).toFixed(1) + "M" : x >= 1e4 ? Math.round(x / 1e3) + "k" : Math.round(x).toLocaleString(); }
-function renderMath(R, loads) {
-  document.getElementById("rho").textContent = M.rho < 1e-9 ? "0" : M.rho.toFixed(3).replace(/\.?0+$/, "");
-  const v = document.getElementById("verdict");
-  const V = {TREE: ["good", "✓ No loops"], CIRCULATING: ["warn", "⟳ Loop · circulating"], AMPLIFYING: ["crit", "▲ Storm · amplifying"]}[M.regime];
-  v.className = "verdict " + V[0]; v.textContent = V[1];
-  document.getElementById("explain").textContent = {
-    TREE: "Every broadcast dies out after a few hops. Spanning tree (or the cabling) leaves no way back.",
-    CIRCULATING: "A broadcast that reaches the loop circles forever without multiplying. Each new broadcast adds more looping frames, so load piles up.",
-    AMPLIFYING: "Frames multiply every time they pass a switch with more than one looped way out. Growth is exponential."}[M.regime];
-  const kv = []; const reachHosts = [...M.reachDevs].filter(d => DEV[d].kind === "host");
-  kv.push(["Links on a loop", M.loops.reduce((s, c) => s + c.length, 0) + " of " + M.n]);
-  kv.push(["Storm can reach", reachHosts.length ? reachHosts.length + " hosts" : "nothing"]);
-  if (M.regime === "CIRCULATING") {
-    const {y} = steadyRates(document.getElementById("src").value || "ZFW-VOICE");
-    let worst = 0; M.edges.forEach((e, i) => worst = Math.max(worst, y[i] / e.cap));
-    kv.push(["One broadcast adds", worst > 0 ? Math.round(worst * 100) + "% load" : "nothing (never reaches the loop)"]);
-    kv.push(["Broadcasts to fill a link", worst > 0 ? String(Math.ceil(1 / worst)) : "never"]);
+  // storm particles
+  if (loads && !REDUCED) {
+    const dt = Math.min(.05, (now - lastT) / 1000);
+    if (spawnAcc.length !== M.n) spawnAcc = new Float64Array(M.n);
+    for (let i = 0; i < M.n; i++) { const v = loads[i]; if (v < .003) continue; spawnAcc[i] += dt * (6 + 70 * v);
+      while (spawnAcc[i] >= 1) { spawnAcc[i]--; particles.push({e: i, p: 0, sp: .9 + .9 * v, v}); } }
+    if (particles.length > 1400) particles.splice(0, particles.length - 1400);
+    ctx.globalCompositeOperation = PAL.dark ? "lighter" : "source-over";
+    for (const q of particles) { q.p += dt * q.sp; const e = M.edges[q.e]; if (!e || q.p > 1) { q.dead = true; continue; }
+      const l = LINK[e.link]; const [x, y] = pointOn(l, q.p, l.a === e.tail);
+      ctx.fillStyle = lerpColor(PAL.storm0, PAL.storm1, Math.min(1, q.v)); ctx.beginPath(); ctx.arc(x, y, 2 + 2.2 * q.v, 0, 6.283); ctx.fill(); }
+    ctx.globalCompositeOperation = "source-over"; particles = particles.filter(q => !q.dead);
+  } else particles = [];
+  // guided highlight
+  if (highlight && (S.mode !== "engineer" || now < highlight.until)) {
+    const pulse = .5 + .5 * Math.sin(t * 5);
+    ctx.strokeStyle = PAL.accent; ctx.shadowColor = PAL.accent; ctx.shadowBlur = 14;
+    if (highlight.dev && !(DEV[highlight.dev].routedOnly && !S.routed)) { const [x, y] = devPoint(highlight.dev);
+      ctx.lineWidth = 3; ctx.globalAlpha = .4 + .6 * pulse; ctx.beginPath(); ctx.ellipse(x, y, 84 + 8 * pulse, 40 + 6 * pulse, 0, 0, 6.283); ctx.stroke(); }
+    if (highlight.link && linkVisible(LINK[highlight.link])) { tracePath(ctx, LINK[highlight.link]); ctx.lineWidth = 10 + 6 * pulse; ctx.globalAlpha = .18 + .25 * pulse; ctx.stroke(); }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   }
-  if (M.regime === "AMPLIFYING") kv.push(["Frames double every", (Math.log(2) / M.r * 1000).toFixed(2) + " ms"]);
-  if (S.live) { let busy = 0; for (const x of loads) busy = Math.max(busy, x); kv.push(["Busiest link now", Math.round(busy * 100) + "%"]); }
-  document.getElementById("kv").innerHTML = kv.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
-  // centers in the strip
-  const H = centerHealth(loads); let down = 0;
-  document.getElementById("centers").innerHTML = CENTERS.map(([c]) => { const h = H[c]; if (h.cls === "crit") down++;
-    const word = {crit: "▲ Down", warn: "● Degraded", good: "✓ Normal"}[h.cls];
-    return `<div class="center ${h.cls}"><b>${c}</b><span>${word}${h.L > 0.004 ? " · " + Math.round(h.L * 100) + "%" : ""}</span></div>`; }).join("");
-  const gs = document.getElementById("gs"); const t = performance.now();
-  if (down >= 2) { if (!S.gsStart) S.gsStart = t; S.gsLast = null;
-    const s = Math.floor((t - S.gsStart) / 1000); gs.hidden = false; gs.className = "groundstop";
-    gs.textContent = `GROUND STOP ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
-  else if (S.gsStart) { const s = Math.floor((t - S.gsStart) / 1000); S.gsLast = s; S.gsStart = null; S.seen.gsCleared = true;
-    gs.hidden = false; gs.className = "groundstop lifted"; gs.textContent = `Ground stop lifted after ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
-  else if (S.gsLast === null) gs.hidden = true;
-  if (M.regime === "CIRCULATING") S.seen.circ = true;
-  if (M.regime === "AMPLIFYING") { S.seen.amp = true; if (["NOC-SW","ZFW-SW","ZME-SW","ZAB-SW"].some(d => !S.stp[d])) S.seen.coreAmp = true; }
-  if (S.mission === 7) { if (M.regime !== "TREE") S.seen.planStart = false;
-    if (S.seen.planStart && ["L6","L14","L15","L16"].every(id => S.link[id] === "up")) S.seen.planRun = true; }
-}
-
-function renderChart() {
-  const svgc = document.getElementById("chart"); const H = S.history; const now_ = now();
-  const pts = H.filter(h => h[0] > now_ - 20).map(h => [300 * (1 - (now_ - h[0]) / 20), 88 - 80 * h[1]]);
-  let s = `<line class="axis" x1="0" y1="88" x2="300" y2="88"/><line class="axis" x1="0" y1="8" x2="300" y2="8" stroke-dasharray="3 3"/>
-           <text x="2" y="19">100%</text><text x="2" y="84">0%</text>`;
-  if (pts.length > 1) { const d = pts.map(p => p.join(",")).join(" ");
-    s += `<polygon class="area" points="${pts[0][0]},88 ${d} ${pts[pts.length-1][0]},88"/><polyline class="ln" points="${d}"/>`; }
-  else s += `<text x="150" y="52" text-anchor="middle">Switch to live mode to plot load</text>`;
-  svgc.innerHTML = s;
-}
-
-function renderInspector() {
-  const box = document.getElementById("inspector");
-  if (!S.sel) { box.innerHTML = `<p class="muted">Click a cable or a device on the map. Dotted cables are not installed yet.</p>`; return; }
-  if (S.sel.link) {
-    const l = LINK[S.sel.link], st = S.link[l.id];
-    const optional = ["L14", "L15", "L16"].includes(l.id);
-    const onLoop = M.edges.some((e, i) => e.link === l.id && M.inComp[i] >= 0);
-    box.innerHTML = `<p class="mono" style="font-weight:600">${l.a} ${l.ap} ↔ ${l.b} ${l.bp}</p>
-      <p class="muted">${l.label ? l.label + " · " : ""}${l.cap >= GE ? "Gigabit" : "FastEthernet"} · ${l.prop >= 1e-3 ? (l.prop * 1e3) + " ms" : "local patch"} · ${st === "absent" ? "not installed" : st === "shut" ? "shut down" : "up"}${onLoop ? ' · <b style="color:var(--magenta)">on a loop</b>' : ""}</p>
-      <div class="row">${st === "absent" ? `<button class="primary" data-act="install">Install cable</button>` :
-        `<button data-act="toggle">${st === "up" ? "Shut down" : "No shutdown"}</button>${optional ? `<button data-act="remove">Remove cable</button>` : ""}`}</div>`;
-  } else {
-    const d = S.sel.dev, D = DEV[d];
-    if (D.kind === "switch") {
-      const ports = activeLinks().filter(l => l.a === d || l.b === d).map(l => {
-        const port = l.a === d ? l.ap : l.bp, other = l.a === d ? l.b : l.a; const blk = M.blocked.has(d + "|" + port);
-        return `<span>${port} → ${other}</span><span class="${blk ? "b" : ""}">${blk ? "BLOCKED" : "forwarding"}</span>`; }).join("");
-      box.innerHTML = `<p class="mono" style="font-weight:600">${d} <span class="muted">· ${D.tag}${D.prio === 4096 ? " · STP root" : ""}</span></p>
-        <div class="row"><button data-act="stp" aria-pressed="${!!S.stp[d]}">Spanning tree: ${S.stp[d] ? "ON" : "OFF"}</button>
-        ${!S.stp[d] ? `<button data-act="bpdu" aria-pressed="${S.bpduPass}">BPDUs: ${S.bpduPass ? "passed along" : "dropped"}</button>` : ""}
-        ${d === "ELD-NEW" ? `<button data-act="routed">${S.routed ? "Remove routed edge" : "Install routed edge"}</button>` : ""}</div>
-        <div class="ports">${ports || '<span class="muted">No cables up.</span>'}</div>`;
-    } else if (D.kind === "router") {
-      box.innerHTML = `<p class="mono" style="font-weight:600">${d}</p><p class="muted">Routers never forward broadcasts. The broadcast domain ends here.</p>`;
-    } else {
-      box.innerHTML = `<p class="mono" style="font-weight:600">${d}</p><p class="muted">Receives broadcasts and never forwards them.</p>
-        <div class="row"><button data-act="sendfrom">Send a broadcast from here</button></div>`;
-    }
+  // health glow behind Centers
+  const H = centerHealth(loads);
+  for (const [name, d] of Object.entries(DEV)) { if (!d.center || H[d.center].cls === "good") continue;
+    const col = H[d.center].cls === "crit" ? PAL.crit : PAL.warn; const r = 90 + (REDUCED ? 0 : 12 * Math.sin(t * 6));
+    const g = ctx.createRadialGradient(d.x, d.y, 10, d.x, d.y, r); g.addColorStop(0, col + "66"); g.addColorStop(1, col + "00");
+    ctx.fillStyle = g; ctx.fillRect(d.x - r, d.y - r, 2 * r, 2 * r); }
+  // slow-motion comets
+  if (anim) drawComets(now);
+  // shockwaves
+  waves = waves.filter(w => now - w.t0 < w.dur);
+  for (const w of waves) { const k = Math.min(1, Math.max(0, (now - w.t0) / w.dur)); ctx.strokeStyle = w.color; ctx.globalAlpha = 1 - k; ctx.lineWidth = 3 * (1 - k) + 1;
+    ctx.beginPath(); ctx.arc(w.x, w.y, w.maxR * (1 - Math.pow(1 - k, 3)), 0, 6.283); ctx.stroke(); } ctx.globalAlpha = 1;
+  // device cards
+  updateCards(H);
+  glitching = new Set();
+  if (loads) for (const [name, d] of Object.entries(DEV)) if (d.center && H[d.center].cls === "crit") glitching.add(name);
+  if (HIC) for (const [name, d] of Object.entries(DEV)) {
+    const c = cards[name]; if (c.el.hidden) continue;
+    const w = c.el.offsetWidth, h = c.el.offsetHeight; if (!w) continue;
+    const x = d.x - w / 2, y = d.kind === "host" ? d.y - 13 : d.y - h / 2;
+    try {
+      if (glitching.has(name) && !REDUCED && Math.random() < .55) {
+        ctx.globalAlpha = .7;
+        for (let s = 0; s < 3; s++) { const sy0 = Math.random() * h * .8, sh = 4 + Math.random() * 9;
+          ctx.drawElementImage(c.el, 0, sy0, w, sh, x + (Math.random() - .5) * 18, y + sy0, w, sh); }
+        ctx.globalAlpha = 1;
+      }
+      const m = ctx.drawElementImage(c.el, x, y);
+      if (m && typeof m.toString === "function") { const s = m.toString(); if (s !== c.m) { c.el.style.transform = s; c.m = s; } }
+      if (glitching.has(name)) { ctx.fillStyle = PAL.crit; ctx.globalAlpha = .08 + (REDUCED ? 0 : .08 * Math.random()); ctx.fillRect(x, y, w, h); ctx.globalAlpha = 1; }
+    } catch (err) { /* no snapshot yet: drawn on the next paint */ }
   }
-  box.querySelectorAll("button[data-act]").forEach(b => b.onclick = () => act(b.dataset.act));
-}
-function act(a) {
-  const s = S.sel;
-  if (a === "install") S.link[s.link] = "up";
-  if (a === "toggle") S.link[s.link] = S.link[s.link] === "up" ? "shut" : "up";
-  if (a === "remove") S.link[s.link] = "absent";
-  if (a === "stp") S.stp[s.dev] = !S.stp[s.dev];
-  if (a === "bpdu") S.bpduPass = !S.bpduPass;
-  if (a === "routed") setRouted(!S.routed);
-  if (a === "sendfrom") { document.getElementById("src").value = s.dev; send(); return; }
-  recompute();
+  // banners
+  banners = banners.filter(b => now - b.t0 < 1800);
+  for (const b of banners) { const k = Math.max(0, (now - b.t0) / 1800), a = k < .15 ? k / .15 : k > .7 ? (1 - k) / .3 : 1;
+    ctx.globalAlpha = a; ctx.font = `800 ${58 + 10 * k}px 'Barlow Condensed', sans-serif`; ctx.textAlign = "center";
+    ctx.lineWidth = 8; ctx.strokeStyle = PAL.chart; ctx.strokeText(b.text, 500, 360); ctx.fillStyle = b.color; ctx.fillText(b.text, 500, 360);
+    ctx.textAlign = "left"; ctx.globalAlpha = 1; }
+  // confetti
+  if (confetti.length) { const dt = Math.min(.05, (now - lastT) / 1000);
+    confetti = confetti.filter(p => now - p.t0 < 2600);
+    for (const p of confetti) { p.vy += 900 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.globalAlpha = 1 - (now - p.t0) / 2600; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore(); } }
+  // ground stop vignette
+  if (S.gsStart) { const a = .16 + (REDUCED ? 0 : .1 * Math.sin(t * 4)); const g = ctx.createRadialGradient(500, 340, 260, 500, 340, 640);
+    g.addColorStop(0, "rgba(220,40,40,0)"); g.addColorStop(1, `rgba(220,40,40,${a})`); ctx.fillStyle = g; ctx.fillRect(0, 0, 1000, 680); }
+  lastT = now;
+  return loads;
 }
 
 /* ========================================================================
-   8. SLOW MOTION  (hop-by-hop: x_{k+1} = B^T x_k, drawn on the map)
+   8. SLOW MOTION  (hop-by-hop: x_{k+1} = B^T x_k, drawn as comets)
    ======================================================================== */
-let anim = null;
-function send() {
-  const host = document.getElementById("src").value;
-  if (S.live) { S.broadcasts.push({t: now(), host}); if (S.broadcasts.length > 400) S.broadcasts.shift(); return; }
-  S.seen.sentSlow = host === "ZFW-VOICE" || S.seen.sentSlow;
-  const xs = [inject(host)]; for (let k = 0; k < 40; k++) { const nx = step(xs[k]); if (!nx.some(v => v)) break; xs.push(nx); }
-  anim = {xs, k: 0, start: performance.now(), total: 0, host};
-}
-function drawAnim(t) {
-  gPkt.innerHTML = "";
-  if (!anim) return;
-  const HOP = matchMedia("(prefers-reduced-motion: reduce)").matches ? 1100 : 750;
-  const k = Math.floor((t - anim.start) / HOP), f = ((t - anim.start) % HOP) / HOP;
+function fmt(x) { return x >= 1e6 ? (x / 1e6).toFixed(1) + "M" : x >= 1e4 ? Math.round(x / 1e3) + "k" : Math.round(x).toLocaleString(); }
+function drawComets(now) {
+  const HOP = REDUCED ? 1100 : 800;
+  const k = Math.floor((now - anim.start) / HOP), f = ((now - anim.start) % HOP) / HOP;
   if (k >= anim.xs.length) {
     const total = anim.xs.reduce((s, x) => s + x.reduce((a, b) => a + b, 0), 0);
-    document.getElementById("hopstats").textContent = anim.xs.length >= 41
-      ? `Stopped watching after 40 hops. ${fmt(total)} copies sent and it is still going.`
-      : `Done after ${anim.xs.length} hops. ${fmt(total)} copies sent in total.`;
-    anim = null; drawMatrix(null); return;
+    const still = anim.xs.length >= 41;
+    document.getElementById("hopstats").textContent = still ? `Stopped watching after 40 hops: ${fmt(total)} copies so far, and it's still going.` : `Done after ${anim.xs.length} hops. ${fmt(total)} copies sent in total.`;
+    S.seen.slowDone = true; onSlowDone(still, total); anim = null; drawMatrix(null); return;
   }
   const x = anim.xs[k]; let inflight = 0, total = 0;
   for (let j = 0; j <= k; j++) for (const v of anim.xs[j]) total += v;
   M.edges.forEach((e, i) => { if (!x[i]) return; inflight += x[i];
-    const l = LINK[e.link]; const [px, py] = pointOn(l, f, l.a === e.tail);
-    el("circle", {cx: px, cy: py, r: x[i] > 1 ? 10 : 6, class: "pkt"}, gPkt);
-    if (x[i] > 1) el("text", {x: px, y: py, class: "pktn"}, gPkt).textContent = fmt(x[i]); });
+    const l = LINK[e.link], fromA = l.a === e.tail;
+    for (let tr = 5; tr >= 0; tr--) { const p = Math.max(0, f - tr * .035); const [px, py] = pointOn(l, p, fromA);
+      ctx.fillStyle = PAL.magenta; ctx.globalAlpha = tr ? .12 * (6 - tr) : 1; if (!tr) { ctx.shadowColor = PAL.magenta; ctx.shadowBlur = 14; }
+      ctx.beginPath(); ctx.arc(px, py, tr ? 4 : (x[i] > 1 ? 11 : 7), 0, 6.283); ctx.fill(); ctx.shadowBlur = 0; }
+    ctx.globalAlpha = 1;
+    if (x[i] > 1) { const [px, py] = pointOn(l, f, fromA); ctx.fillStyle = "#fff"; ctx.font = "600 10px 'IBM Plex Mono', monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(fmt(x[i]), px, py); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; } });
   document.getElementById("hopstats").textContent = `Hop ${k + 1}: ${fmt(inflight)} copies in flight · ${fmt(total)} sent so far`;
   drawMatrix(x);
 }
-
-/* ========================================================================
-   9. MATRIX VIEW
-   ======================================================================== */
 function drawMatrix(x) {
-  const cv = document.getElementById("matrix"); if (!cv || !cv.closest("details").open) return;
-  const ctx = cv.getContext("2d"), N = M.n, W = cv.width, c = W / Math.max(N, 1);
-  ctx.fillStyle = css("--panel"); ctx.fillRect(0, 0, W, W);
+  const cv = document.getElementById("matrix"); if (!cv || !document.getElementById("matrixBox").open || !M) return;
+  const c = cv.getContext("2d"), N = M.n, W = cv.width, s = W / Math.max(N, 1);
+  c.fillStyle = PAL.panel; c.fillRect(0, 0, W, W);
   for (let i = 0; i < N; i++) {
-    if (M.inComp[i] >= 0) { ctx.fillStyle = css("--magenta"); ctx.globalAlpha = .14; ctx.fillRect(0, i * c, W, c); ctx.globalAlpha = 1; }
-    if (x && x[i]) { ctx.fillStyle = css("--accent"); ctx.globalAlpha = .3; ctx.fillRect(0, i * c, W, c); ctx.globalAlpha = 1; }
-    ctx.fillStyle = css("--ink");
-    for (const j of M.out[i]) { ctx.beginPath(); ctx.arc(j * c + c / 2, i * c + c / 2, Math.max(1.5, c * .32), 0, 7); ctx.fill(); }
+    if (M.inComp[i] >= 0) { c.fillStyle = PAL.magenta; c.globalAlpha = .14; c.fillRect(0, i * s, W, s); c.globalAlpha = 1; }
+    if (x && x[i]) { c.fillStyle = PAL.accent; c.globalAlpha = .3; c.fillRect(0, i * s, W, s); c.globalAlpha = 1; }
+    c.fillStyle = PAL.ink; for (const j of M.out[i]) { c.beginPath(); c.arc(j * s + s / 2, i * s + s / 2, Math.max(1.5, s * .32), 0, 7); c.fill(); }
   }
 }
 
 /* ========================================================================
+   9. INTERFACE: strip, missions, coach, glossary, inspector, readouts
+   ======================================================================== */
+const $ = id => document.getElementById(id);
+const nowS = () => (performance.now() - S.t0) / 1000;
+function storeGet(k, d) { try { const v = localStorage.getItem("edsl3:" + k); return v === null ? d : JSON.parse(v); } catch { return d; } }
+function storeSet(k, v) { try { localStorage.setItem("edsl3:" + k, JSON.stringify(v)); } catch {} }
+const trackKey = () => S.mode === "plain" ? "plain" : "full";
+let done = storeGet("done", {plain: {}, full: {}});
+
+function centerHealth(loads) {
+  const out = {};
+  for (const [c, host, up] of CENTERS) {
+    let L = 0; if (M) M.edges.forEach((e, i) => { if (e.head === host || (e.link === up && e.tail === "NOC-SW")) L = Math.max(L, loads ? loads[i] : 0); });
+    out[c] = {L, cls: L >= .6 ? "crit" : L >= .05 ? "warn" : "good"};
+  }
+  return out;
+}
+function select(s) { S.sel = s; hideGloss(); renderAll(); }
+
+/* ---- coach */
+let coachTimer = null;
+function coach(title, body, tone = "info") {
+  const c = $("coach"); c.className = "coach " + tone; c.hidden = false;
+  c.innerHTML = `<button class="x" aria-label="Dismiss">×</button><b>${title}</b><p>${termHTML(body)}</p>`;
+  c.querySelector(".x").onclick = () => { c.hidden = true; };
+  clearTimeout(coachTimer); coachTimer = setTimeout(() => { c.hidden = true; }, S.mode === "engineer" ? 6000 : 11000);
+}
+const say = (plain, student, engineer) => S.mode === "plain" ? plain : S.mode === "engineer" ? (engineer || student) : student;
+
+/* ---- reacting to model changes */
+let prevRegime = null, prevBlocked = 0, saidBlocked = false;
+function onModelChange() {
+  if (prevRegime !== null && prevRegime !== M.regime) {
+    const loopPts = []; M.loops.forEach(cp => cp.forEach(i => { const e = M.edges[i]; const l = LINK[e.link]; loopPts.push(pointOn(l, .5, true)); }));
+    if (M.regime === "CIRCULATING") {
+      loopPts.forEach(([x, y]) => wave(x, y, PAL.magenta, 140)); banner(S.mode === "plain" ? "CIRCLE!" : "LOOP FORMED", PAL.magenta);
+      const [t, b] = say(["You made a circle", "There are two ways between the same junctions now. Any message that gets in will go around forever."],
+        ["Loop formed · ρ = 1", "There's a [[loop]] spanning tree can't see. A broadcast that reaches it circles forever. It won't multiply, but every new broadcast adds more."],
+        ["ρ: 0 → 1", "A simple cycle in edge space. Load grows linearly with each broadcast that reaches it."]);
+      coach(t, b, "warn");
+    } else if (M.regime === "AMPLIFYING") {
+      loopPts.forEach(([x, y]) => wave(x, y, PAL.crit, 180)); banner(S.mode === "plain" ? "ECHO STORM" : "STORM", PAL.crit); shake(500);
+      const dbl = (Math.log(2) / M.r * 1000).toFixed(2);
+      const [t, b] = say(["Echo storm!", "Messages now multiply every time they go around. The network fills up in a blink."],
+        [`Storm · ρ = ${M.rho.toFixed(2)}`, `Frames now multiply every lap and double every ${dbl} ms. Nothing in Ethernet will ever stop them.`],
+        [`ρ = ${M.rho.toFixed(4)}`, `Renewal growth r = ${M.r.toFixed(1)}/s, doubling every ${dbl} ms.`]);
+      coach(t, b, "crit");
+    } else if (prevRegime !== "TREE") {
+      banner(S.mode === "plain" ? "QUIET" : "LOOP BROKEN", PAL.good);
+      const [t, b] = say(["Circle broken", "Messages die out again."], ["Loop broken · ρ = 0", "There's exactly one path between any two switches again."], ["ρ → 0", "Edge graph is acyclic."]);
+      coach(t, b, "good");
+    }
+  } else if (M.blocked.size > prevBlocked && prevRegime !== null && !saidBlocked && S.mode !== "engineer") {
+    saidBlocked = true;
+    const [t, b] = say(["A road just closed", "See the ☒? The loop guard closed one road so messages can't go in circles."],
+      ["Spanning tree blocked a port", "See the new ☒? [[stp|Spanning tree]] turned off one end of a loop so it can't storm. The cable stays as a backup."]);
+    coach(t, b, "good");
+  }
+  prevRegime = M.regime; prevBlocked = M.blocked.size;
+}
+function onSlowDone(still, total) {
+  if (still) coach(...say(["It never stops", "The message is stuck in the circle. It will go around forever."], ["Still going after 40 hops", "This broadcast will never stop on its own. Only breaking the loop ends it."]), "warn");
+  else coach(...say(["Everyone heard it once", `${total} copies, then silence. No circles, so nothing came back.`], [`${total} copies, then silence`, "Every switch copied the broadcast once. With no loops, nothing came back."], [`${total} transmissions`, "B is nilpotent: x_k = 0 after a few hops."]), "good");
+}
+
+/* ---- strip */
+let rhoShown = 0, rhoT = 0, gsWasDown = false, calmSince = null;
+function renderStrip(loads) {
+  $("rhoK").innerHTML = T("rhoK"); $("centersK").textContent = T("centersK");
+  rhoT = M.rho;
+  const v = $("verdict"); const V = {TREE: ["good", T("tree")], CIRCULATING: ["warn", T("circ")], AMPLIFYING: ["crit", T("amp")]}[M.regime];
+  v.className = "verdict " + V[0]; v.textContent = V[1];
+  const H = centerHealth(loads); let down = 0;
+  $("centers").innerHTML = CENTERS.map(([c]) => { const h = H[c]; if (h.cls === "crit") down++;
+    const name = S.mode === "plain" ? {ZFW: "Fort Worth", ZME: "Memphis", ZAB: "Albuquerque"}[c] : c;
+    const word = {crit: "▲ Down", warn: "● Degraded", good: "✓ Normal"}[h.cls];
+    return `<div class="center ${h.cls}"><b>${name}</b><span>${word}${h.L > .004 ? " · " + Math.round(h.L * 100) + "%" : ""}</span></div>`; }).join("");
+  const gs = $("gs"), t = performance.now();
+  if (down >= 2) {
+    if (!S.gsStart) { S.gsStart = t; S.seen.gs = true; shake(700); banner("GROUND STOP", PAL.crit);
+      coach(...say(["Ground stop", "Two air traffic centers can't hear their radios. In real life the FAA stopped every departure in the country."],
+        ["Ground stop", "Two Centers are down. That's what the FAA did on Nov 13: stop every departure. Contain it: cut El Dorado off from the core."],
+        ["Ground stop", "≥ 2 ARTCCs saturated. Isolate the source site."]), "crit"); }
+    S.gsLast = null; const s = Math.floor((t - S.gsStart) / 1000); gs.hidden = false; gs.className = "groundstop";
+    gs.textContent = `GROUND STOP ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; $("strip").classList.add("alarm");
+  } else {
+    $("strip").classList.remove("alarm");
+    if (S.gsStart) { const s = Math.floor((t - S.gsStart) / 1000); S.gsLast = s; S.gsStart = null; S.seen.gsCleared = true;
+      banner("CENTERS BACK", PAL.good); coach(...say(["Planes can fly again", `The ground stop lasted ${s} seconds here. The real one lasted 4 hours 21 minutes.`],
+        ["Ground stop lifted", `Contained in ${s} s. Now find the root cause before reconnecting El Dorado.`]), "good");
+      gs.hidden = false; gs.className = "groundstop lifted"; gs.textContent = `Ground stop lifted after ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+    else if (S.gsLast === null) gs.hidden = true;
+  }
+  if (S.chatter && S.live && CENTERS.every(([c]) => H[c].cls === "good")) { calmSince = calmSince || t; if (t - calmSince > 5000) S.seen.calm5 = true; } else calmSince = null;
+  if (M.regime === "CIRCULATING") S.seen.circ = true;
+  if (M.regime === "AMPLIFYING") { S.seen.amp = true; if (["NOC-SW", "ZFW-SW", "ZME-SW", "ZAB-SW"].some(d => !S.stp[d])) S.seen.coreAmp = true; }
+  if (trackKey() === "full" && S.mission === 7) {
+    if (M.regime !== "TREE" && S.seen.planStart) { S.seen.planStart = false; coach("ρ left 0", "The plan failed a check. Press Reset this mission and try a different order.", "warn"); }
+    if (S.seen.planStart && ["L6", "L14", "L15", "L16"].every(on) && S.stp["ELD-NEW"] && S.stp["ELD-OLD"]) S.seen.planRun = true;
+  }
+}
+
+/* ---- readouts */
+function renderReadouts(loads) {
+  $("mathK").textContent = T("mathK");
+  const plain = S.mode === "plain", eng = S.mode === "engineer";
+  $("explain").innerHTML = termHTML({
+    TREE: plain ? "No circles in the wiring. Every message reaches everyone once, then stops." : "Every broadcast dies out after a few hops. Spanning tree (or the cabling) leaves no way back.",
+    CIRCULATING: plain ? "There's a circle in the wiring. Messages that get in go around forever, and every new message adds to the pile." : "A broadcast that reaches the [[loop]] circles forever without multiplying. Each new broadcast adds more looping frames, so load piles up.",
+    AMPLIFYING: plain ? "Messages are multiplying every time they go around. The network fills up almost instantly." : "Frames multiply every time they pass a switch with more than one looped way out. Growth is exponential."}[M.regime]);
+  let busy = 0; if (loads) for (const x of loads) busy = Math.max(busy, x);
+  $("meterWrap").innerHTML = S.live ? `<div class="muted" style="margin-bottom:4px">${plain ? "Busiest cable" : "Busiest link"}: <b class="mono">${Math.round(busy * 100)}% full</b></div><div class="meter"><i style="width:${Math.round(busy * 100)}%"></i></div>` : "";
+  const kv = []; const reach = [...M.reachDevs].filter(d => DEV[d].kind === "host");
+  if (plain) {
+    kv.push(["Circle in the wiring?", M.regime === "TREE" ? "no" : "yes"]);
+    kv.push(["Places a stuck message reaches", reach.length ? String(reach.length) : "none"]);
+  } else {
+    kv.push(["Links on a loop", M.loops.reduce((s, c) => s + c.length, 0) + " of " + M.n]);
+    kv.push(["Storm can reach", reach.length ? reach.length + " hosts" : "nothing"]);
+    if (M.regime === "CIRCULATING") {
+      const {y} = steadyRates($("src").value || "ZFW-VOICE"); let worst = 0; M.edges.forEach((e, i) => worst = Math.max(worst, y[i] / e.cap));
+      kv.push(["One broadcast adds", worst > 0 ? Math.round(worst * 100) + "% load" : "nothing"]);
+      kv.push(["Broadcasts to fill a link", worst > 0 ? String(Math.ceil(1 / worst)) : "never"]);
+    }
+    if (M.regime === "AMPLIFYING") kv.push(["Frames double every", (Math.log(2) / M.r * 1000).toFixed(2) + " ms"]);
+    if (eng) { kv.push(["ρ(B)", M.rho.toFixed(6)]); kv.push(["|E| directed", String(M.n)]); kv.push(["Blocked ports", String(M.blocked.size)]);
+      if (M.r) kv.push(["Growth r", M.r.toFixed(2) + " /s"]); }
+  }
+  $("kv").innerHTML = kv.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+}
+function renderChart() {
+  const H = S.history, n = nowS();
+  const pts = H.filter(h => h[0] > n - 20).map(h => [300 * (1 - (n - h[0]) / 20), 88 - 80 * h[1]]);
+  let s = `<line class="axis" x1="0" y1="88" x2="300" y2="88"/><line class="axis" x1="0" y1="8" x2="300" y2="8" stroke-dasharray="3 3"/><text x="2" y="19">100%</text><text x="2" y="84">0%</text>`;
+  if (pts.length > 1) { const d = pts.map(p => p.join(",")).join(" "); s += `<polygon class="area" points="${pts[0][0]},88 ${d} ${pts[pts.length - 1][0]},88"/><polyline class="ln" points="${d}"/>`; }
+  else s += `<text x="150" y="52" text-anchor="middle">${S.mode === "plain" ? "Switch to real time to see traffic" : "Switch to live mode to plot load"}</text>`;
+  $("chart").innerHTML = s;
+}
+
+/* ---- inspector */
+function renderInspector() {
+  const box = $("inspector"), plain = S.mode === "plain";
+  const picker = `<label class="muted" for="cablePick">${plain ? "Pick a cable" : "Cables"}</label>
+    <select id="cablePick"><option value="">Choose…</option>${LINKS.filter(linkVisible).map(l => `<option value="${l.id}" ${S.sel && S.sel.link === l.id ? "selected" : ""}>${linkName(l.id)}${S.link[l.id] === "absent" ? " (not installed)" : S.link[l.id] === "shut" ? " (shut)" : ""}</option>`).join("")}</select>`;
+  let body = "";
+  if (!S.sel) body = `<p class="muted">${plain ? "Click a box or a cable on the map." : "Click a device or a cable on the map. Dotted cables are not installed yet."}</p>`;
+  else if (S.sel.link) {
+    const l = LINK[S.sel.link], st = S.link[l.id], optional = ["L14", "L15", "L16"].includes(l.id);
+    const onLoop = M.edges.some((e, i) => e.link === l.id && M.inComp[i] >= 0);
+    body = `<p class="mono" style="font-weight:600">${linkName(l.id)}</p>
+      <p class="muted">${plain ? (st === "absent" ? "Not plugged in" : st === "shut" ? "Switched off" : "Working") : `${l.label ? l.label + " · " : ""}${l.cap >= GE ? "Gigabit" : "FastEthernet"} · ${l.prop >= 1e-3 ? (l.prop * 1e3) + " ms" : "local patch"} · ${st === "absent" ? "not installed" : st === "shut" ? "shut down" : "up"}`}${onLoop ? ` · <b style="color:var(--magenta)">${plain ? "part of a circle" : "on a loop"}</b>` : ""}</p>
+      <div class="row">${st === "absent" ? `<button class="primary" data-act="install">${plain ? "Plug in" : "Install cable"}</button>` :
+        `<button data-act="toggle">${st === "up" ? (plain ? "Unplug" : "Shut down") : (plain ? "Plug back in" : "No shutdown")}</button>${optional && !plain ? `<button data-act="remove">Remove cable</button>` : ""}`}</div>`;
+  } else {
+    const d = S.sel.dev, D = DEV[d];
+    if (D.kind === "switch") {
+      const ports = activeLinks().filter(l => l.a === d || l.b === d).map(l => { const port = l.a === d ? l.ap : l.bp, other = l.a === d ? l.b : l.a, blk = M.blocked.has(d + "|" + port);
+        return `<span>${plain ? devName(other) : port + " → " + other}</span><span class="${blk ? "b" : ""}">${blk ? (plain ? "closed" : "BLOCKED") : (plain ? "open" : "forwarding")}</span>`; }).join("");
+      body = `<p class="mono" style="font-weight:600">${plain ? D.ptag + (D.psub ? " " + D.psub : "") : d} <span class="muted">· ${plain ? d : D.tag}${D.prio === 4096 && !plain ? " · STP root" : ""}</span></p>
+        <div class="row"><button data-act="stp" aria-pressed="${!!S.stp[d]}">${T("stp")}: ${S.stp[d] ? "ON" : "OFF"}</button>
+        ${!S.stp[d] && !plain ? `<button data-act="bpdu" aria-pressed="${S.bpduPass}">${T("bpdu")}: ${S.bpduPass ? "passed along" : "dropped"}</button>` : ""}
+        ${d === "ELD-NEW" && !plain ? `<button data-act="routed">${S.routed ? "Remove routed edge" : "Install routed edge"}</button>` : ""}</div>
+        <div class="ports">${ports || '<span class="muted">No cables up.</span>'}</div>`;
+    } else if (D.kind === "router") body = `<p class="mono" style="font-weight:600">${d}</p><p class="muted">${termHTML("[[router|Routers]] never forward broadcasts. The broadcast domain ends here.")}</p>`;
+    else body = `<p class="mono" style="font-weight:600">${devName(d)}</p><p class="muted">${plain ? "A computer. It hears messages but never passes them on." : "Receives broadcasts and never forwards them."}</p><div class="row"><button data-act="sendfrom">${plain ? "Shout from here" : "Send a broadcast from here"}</button></div>`;
+  }
+  box.innerHTML = body + `<div class="row" style="margin-top:4px">${picker}</div>`;
+  box.querySelectorAll("button[data-act]").forEach(b => b.onclick = () => act(b.dataset.act));
+  $("cablePick").onchange = e => { if (e.target.value) select({link: e.target.value}); };
+}
+function act(a) {
+  const s = S.sel, m = track()[S.mission];
+  if (a === "install") {
+    if (m.predict && m.predict.gate === s.link && S.predicted === null && S.mode !== "engineer") {
+      coach(...say(["Make a guess first", "Before you plug in this cable, pick what you think will happen. Scientists predict first!"], ["Prediction first", "Commit to a prediction in the mission panel before installing this cable."]), "warn");
+      const p = document.querySelector(".predict"); if (p) { p.scrollIntoView({behavior: REDUCED ? "auto" : "smooth", block: "center"}); p.animate?.([{boxShadow: "0 0 0 0 transparent"}, {boxShadow: "0 0 0 6px var(--magenta)"}, {boxShadow: "0 0 0 0 transparent"}], {duration: 900}); }
+      return;
+    }
+    S.link[s.link] = "up";
+  }
+  if (a === "toggle") { S.link[s.link] = S.link[s.link] === "up" ? "shut" : "up";
+    if (s.link === "L4") { if (S.link.L4 === "shut") S.seen.L4shut = true; else if (S.seen.L4shut) S.seen.L4cycled = true; } }
+  if (a === "remove") S.link[s.link] = "absent";
+  if (a === "stp") { S.stp[s.dev] = !S.stp[s.dev];
+    if (s.dev === "ELD-NEW" && S.stp[s.dev] && ["L14", "L15", "L16"].every(id => S.link[id] === "absent")) S.seen.planStpFirst = true; }
+  if (a === "bpdu") S.bpduPass = !S.bpduPass;
+  if (a === "routed") setRouted(!S.routed);
+  if (a === "sendfrom") { $("src").value = s.dev; send(); return; }
+  recompute();
+}
+
+/* ---- missions */
+function renderNav() {
+  const tr = track(), nav = $("mnav"); nav.innerHTML = "";
+  $("trackName").textContent = T("track"); $("trackCount").textContent = `${Object.keys(done[trackKey()] || {}).length} of ${tr.length} done`;
+  tr.forEach((m, i) => { const b = document.createElement("button");
+    b.className = (i === S.mission ? "current " : "") + (done[trackKey()][i] ? "done" : "");
+    b.setAttribute("aria-label", `${i + 1}. ${m.title}${done[trackKey()][i] ? " (complete)" : ""}`); b.title = m.title;
+    b.onclick = () => openMission(i); nav.appendChild(b); });
+}
+function openMission(i) {
+  const tr = track(); i = Math.max(0, Math.min(i, tr.length - 1));
+  S.mission = i; S.seen = {}; S.stepDone = []; S.predicted = null; S.hints = 0; storeSet("m_" + trackKey(), i);
+  anim = null; particles = []; prevRegime = null;
+  preset(tr[i].preset);
+  if (trackKey() === "full" && i === 7) S.seen.planStart = true;
+  if (S.mode === "engineer") $("matrixBox").open = true;
+  renderMission(); renderNav(); renderAll();
+}
+function renderMission() {
+  const tr = track(), i = S.mission, m = tr[i], eng = S.mode === "engineer", plain = S.mode === "plain";
+  const el = $("mission");
+  el.innerHTML = `<div><div class="num">${plain ? "Chapter" : "Mission"} ${i + 1} of ${tr.length}</div><h2>${m.title}</h2></div>
+    ${!eng ? `<div class="idea"><h3>${plain ? "The idea" : "Key idea"}</h3><p>${termHTML(m.idea)}</p></div>` : ""}
+    ${m.body ? `<div class="body"><p>${termHTML(m.body)}</p></div>` : ""}
+    <ul class="steps" id="steps">${m.steps.map((s, k) => `<li data-k="${k}"><span class="tick">${k + 1}</span><span class="txt">${termHTML(s.text)}</span>${s.show ? `<button class="show" data-k="${k}">Show me</button>` : "<span></span>"}</li>`).join("")}</ul>
+    ${m.predict && !eng ? `<div class="predict" id="predict"><h3>${plain ? "Your guess" : "Predict first"}</h3><p>${m.predict.q}</p><div class="opts">${m.predict.options.map((o, k) => `<button data-o="${k}">${o}</button>`).join("")}</div><div class="reveal" id="reveal" hidden></div></div>` : ""}
+    ${m.fact ? `<p class="fact">${m.fact}</p>` : ""}
+    ${!eng && m.hints ? `<div class="hints" id="hints"><button id="hintBtn">Show a hint</button></div>` : ""}
+    <div class="complete" id="complete" hidden><span>✓ ${plain ? "Chapter" : "Mission"} complete</span>${i < tr.length - 1 ? `<button id="next2">Next ${plain ? "chapter" : "mission"}</button>` : ""}</div>
+    <div class="q"><label for="ans">${m.q}</label><textarea id="ans" placeholder="Your answer (saved in this browser only)"></textarea></div>
+    <div class="mrow"><button id="reset">Reset this ${plain ? "chapter" : "mission"}</button>${i < tr.length - 1 ? `<button id="next">Next</button>` : ""}</div>`;
+  const ans = $("ans"); ans.value = storeGet(`ans_${trackKey()}_${i}`, ""); ans.oninput = () => storeSet(`ans_${trackKey()}_${i}`, ans.value);
+  $("reset").onclick = () => openMission(i);
+  for (const id of ["next", "next2"]) if ($(id)) $(id).onclick = () => openMission(i + 1);
+  el.querySelectorAll(".show").forEach(b => b.onclick = () => { const s = m.steps[+b.dataset.k].show; highlight = {...s, until: performance.now() + 4500};
+    $("mapwrap").scrollIntoView({behavior: REDUCED ? "auto" : "smooth", block: "center"}); if (s.link) select({link: s.link}); });
+  el.querySelectorAll(".predict .opts button").forEach(b => b.onclick = () => { S.predicted = +b.dataset.o;
+    el.querySelectorAll(".predict .opts button").forEach(x => { x.classList.toggle("pick", x === b); x.disabled = true; });
+    $("reveal").hidden = false; $("reveal").innerHTML = `<b>${plain ? "Guess locked in." : "Locked in."}</b> ${plain ? "Now plug in the cable and see." : "Now install the cable and test it."}`; updateSteps(); });
+  if ($("hintBtn")) $("hintBtn").onclick = () => { if (S.hints < m.hints.length) { const p = document.createElement("p"); p.textContent = "Hint: " + m.hints[S.hints++]; $("hints").insertBefore(p, $("hintBtn")); }
+    $("hintBtn").textContent = S.hints < m.hints.length ? "Show another hint" : "No more hints"; $("hintBtn").disabled = S.hints >= m.hints.length; };
+  updateSteps();
+}
+function updateSteps() {
+  const m = track()[S.mission]; if (!m || !$("steps") || $("steps").children.length !== m.steps.length || !$("complete")) return;
+  let next = -1;
+  m.steps.forEach((s, k) => { let ok = false; try { ok = !!s.check(); } catch {} if (ok) S.stepDone[k] = true; });
+  const items = $("steps").children;
+  m.steps.forEach((s, k) => { const li = items[k], d = !!S.stepDone[k]; if (!d && next < 0) next = k;
+    li.classList.toggle("done", d); li.querySelector(".tick").textContent = d ? "✓" : k + 1; });
+  [...items].forEach((li, k) => li.classList.toggle("next", k === next));
+  highlight = next >= 0 && m.steps[next].show && S.mode !== "engineer" ? {...m.steps[next].show} : (highlight && highlight.until ? highlight : null);
+  if (m.predict && S.predicted !== null && S.link[m.predict.gate] === "up" && $("reveal") && !$("reveal").dataset.shown) {
+    const right = S.predicted === m.predict.answer; $("reveal").dataset.shown = "1";
+    $("reveal").innerHTML = `<b>${right ? "You called it." : "Not quite."}</b> ${m.predict.explain}`;
+  }
+  const all = m.steps.every((s, k) => S.stepDone[k]);
+  $("complete").hidden = !all;
+  if (all && !done[trackKey()][S.mission]) { done[trackKey()][S.mission] = true; storeSet("done", done); renderNav();
+    burstConfetti(); banner(S.mode === "plain" ? "CHAPTER COMPLETE" : "MISSION COMPLETE", PAL.good);
+    coach(...say(["Nice work!", "Write your answer below, then go to the next chapter."], ["Mission complete", "Answer the question in the panel, then move on."]), "good"); }
+}
+
+/* ---- glossary */
+const gloss = $("gloss");
+function hideGloss() { gloss.hidden = true; }
+document.addEventListener("click", e => {
+  const t = e.target.closest(".term");
+  if (!t) { if (!e.target.closest("#gloss")) hideGloss(); return; }
+  const g = GLOSS[t.dataset.g]; S.seen["g_" + t.dataset.g] = true;
+  const def = S.mode === "plain" ? g.p : g.s;
+  gloss.innerHTML = `<b>${g.t}</b>${def}${g.a ? `<div class="an">${g.a}</div>` : ""}`;
+  gloss.hidden = false;
+  const r = t.getBoundingClientRect(), w = Math.min(320, innerWidth - 32);
+  gloss.style.left = Math.max(16, Math.min(innerWidth - w - 16, r.left + scrollX)) + "px"; gloss.style.top = (r.bottom + scrollY + 8) + "px";
+  updateSteps();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { hideGloss(); $("coach").hidden = true; } });
+
+/* ---- toolbar, mode, map clicks */
+function renderToolbar() {
+  $("srcK").textContent = T("srcK"); $("send").textContent = T("send");
+  $("mode").textContent = S.live ? T("live") : T("slow"); $("mode").setAttribute("aria-pressed", S.live);
+  $("chatter").textContent = `${T("chatter")}: ${S.chatter ? "on" : "off"}`; $("chatter").setAttribute("aria-pressed", S.chatter);
+  $("drain").textContent = T("drain");
+  const cur = $("src").value || "ZFW-VOICE";
+  $("src").innerHTML = Object.keys(DEV).filter(d => DEV[d].kind === "host").map(h => `<option value="${h}" ${h === cur ? "selected" : ""}>${devName(h)}</option>`).join("");
+  document.querySelectorAll(".modes button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === S.mode));
+  $("matrixBox").hidden = S.mode === "plain";
+  const plain = S.mode === "plain";
+  $("legend").innerHTML = `<span><i class="sw"></i>${plain ? "working cable" : "cable up"}</span><span><i class="sw s"></i>${plain ? "switched off" : "shut down"}</span>
+    <span><i class="sw d"></i>${plain ? "not plugged in · click it" : "not installed · click to install"}</span><span><i class="sw p"></i>${plain ? "part of a circle" : "on a loop"}</span>
+    <span><i class="sw l"></i>${plain ? "stuck messages" : "storm traffic"}</span>
+    <span><svg width="16" height="16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="3" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.5"/><path d="M5 5 L11 11 M11 5 L5 11" style="stroke:var(--ink);stroke-width:1.5"/></svg>${plain ? "road closed by loop guard" : "port blocked by spanning tree"}</span>
+    <span class="badge">${HIC ? "HTML-in-Canvas ✓" : "standard rendering"}</span>`;
+}
+function setMode(m) {
+  const wasPlain = S.mode === "plain"; S.mode = m; storeSet("mode", m); bgDirty = true; saidBlocked = false;
+  if (wasPlain !== (m === "plain")) openMission(storeGet("m_" + trackKey(), 0)); else { renderMission(); renderNav(); renderAll(); }
+}
+document.querySelectorAll(".modes button").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+fx.addEventListener("click", e => {
+  const r = fx.getBoundingClientRect(), x = (e.clientX - r.left) / K, y = (e.clientY - r.top) / K;
+  let best = null, bd = 14;
+  for (const l of LINKS) { if (!linkVisible(l)) continue; for (let i = 0; i <= 40; i++) { const [px, py] = pointOn(l, i / 40, true); const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = l.id; } } }
+  select(best ? {link: best} : null);
+});
+
+function send() {
+  const host = $("src").value || "ZFW-VOICE";
+  if (S.live) { S.broadcasts.push({t: nowS(), host}); if (S.broadcasts.length > 400) S.broadcasts.shift();
+    if (M.regime === "AMPLIFYING") S.seen.liveAmp = true; if (M.regime === "CIRCULATING") S.seen.liveCirc = true;
+    const [x, y] = [DEV[host].x, DEV[host].y]; wave(x, y, PAL.accent, 60, 700); updateSteps(); return; }
+  S.seen.sentSlow = true; if (host === "ZFW-VOICE") S.seen.sentZFW = true; if (M.regime !== "TREE") S.seen.slowLoop = true;
+  const xs = [inject(host)]; for (let k = 0; k < 40; k++) { const nx = step(xs[k]); if (!nx.some(v => v)) break; xs.push(nx); }
+  anim = {xs, start: performance.now()}; wave(DEV[host].x, DEV[host].y, PAL.magenta, 60, 700); updateSteps();
+}
+$("send").onclick = send;
+$("src").onchange = () => renderAll();
+$("mode").onclick = () => { S.live = !S.live; anim = null; renderAll(); updateSteps(); };
+$("chatter").onclick = () => { S.chatter = !S.chatter; if (S.chatter) S.live = true; renderAll(); updateSteps(); };
+$("drain").onclick = () => { S.broadcasts = []; S.history = []; particles = []; renderAll(); };
+$("matrixBox").addEventListener("toggle", () => drawMatrix(null));
+
+/* ---- intro */
+let introRAF = null;
+function showIntro() {
+  const intro = $("intro"); intro.hidden = false;
+  const cv = $("introfx"), c = cv.getContext("2d"), t0 = performance.now();
+  const blips = Array.from({length: 22}, () => ({a: Math.random() * 6.283, r: .2 + Math.random() * .75}));
+  const tick = now => {
+    const w = cv.width = innerWidth * DPR, h = cv.height = innerHeight * DPR, R = Math.min(w, h) * .48, cx = w * .78, cy = h * .5;
+    c.clearRect(0, 0, w, h); c.strokeStyle = "rgba(120,170,200,.10)"; c.lineWidth = DPR;
+    for (let k = 1; k <= 4; k++) { c.beginPath(); c.arc(cx, cy, R * k / 4, 0, 6.283); c.stroke(); }
+    const ang = REDUCED ? 0 : ((now - t0) / 2200) * 6.283 % 6.283;
+    for (let k = 0; k < 40; k++) { c.fillStyle = `rgba(226,117,173,${.09 * (1 - k / 40)})`; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, R, ang - k * .02 - .02, ang - k * .02); c.fill(); }
+    const stormy = (now - t0) > 1900;
+    for (const b of blips) { const d = ((ang - b.a) % 6.283 + 6.283) % 6.283; const a = Math.max(0, 1 - d / 2.5);
+      c.fillStyle = stormy ? `rgba(255,90,90,${.25 + .75 * a})` : `rgba(140,220,170,${.2 + .8 * a})`;
+      c.beginPath(); c.arc(cx + Math.cos(b.a) * R * b.r, cy + Math.sin(b.a) * R * b.r, 3 * DPR, 0, 6.283); c.fill(); }
+    const k = Math.min(1, Math.max(0, (now - t0 - 2900) / 2200)); $("flights").textContent = Math.round(12462 * (1 - Math.pow(1 - k, 3))).toLocaleString();
+    introRAF = requestAnimationFrame(tick);
+  };
+  introRAF = requestAnimationFrame(tick);
+}
+function closeIntro(mode) { $("intro").hidden = true; cancelAnimationFrame(introRAF); storeSet("intro", true); if (mode) setMode(mode); }
+document.querySelectorAll(".intro .who button").forEach(b => b.onclick = () => closeIntro(b.dataset.mode));
+$("skip").onclick = () => closeIntro(null);
+$("replay").onclick = () => showIntro();
+
+/* ========================================================================
    10. MAIN LOOP
    ======================================================================== */
-function recompute() { buildModel(); renderAll(); }
+function recompute() { buildModel(); onModelChange(); renderAll(); }
+let lastLoads = null;
 function renderAll() {
-  const {load} = S.live ? linkLoads(now()) : {load: new Float64Array(M.n)};
-  renderMap(load); renderMath(null, load); renderInspector(); checkGoal(); drawMatrix(null); renderChart();
-  document.getElementById("mode").textContent = "Mode: " + (S.live ? "live" : "slow motion");
-  document.getElementById("mode").setAttribute("aria-pressed", S.live);
-  document.getElementById("chatter").textContent = "ARP chatter: " + (S.chatter ? "on" : "off");
-  document.getElementById("chatter").setAttribute("aria-pressed", S.chatter);
-  document.getElementById("send").textContent = S.live ? "Send a broadcast" : "Send one broadcast";
+  if (!M) return;
+  const loads = S.live ? linkLoads(nowS()).load : null; lastLoads = loads;
+  renderToolbar(); renderStrip(loads); renderReadouts(loads); renderInspector(); renderChart(); updateSteps(); drawMatrix(null);
 }
-const hosts = Object.keys(DEV).filter(d => DEV[d].kind === "host");
-document.getElementById("src").innerHTML = hosts.map(h => `<option ${h === "ZFW-VOICE" ? "selected" : ""}>${h}</option>`).join("");
-document.getElementById("send").onclick = send;
-document.getElementById("src").onchange = () => renderAll();
-document.getElementById("mode").onclick = () => { S.live = !S.live; anim = null; gPkt.innerHTML = ""; renderAll(); };
-document.getElementById("chatter").onclick = () => { S.chatter = !S.chatter; if (S.chatter) S.live = true; renderAll(); };
-document.getElementById("drain").onclick = () => { S.broadcasts = []; S.history = []; renderAll(); };
-document.querySelector("details").addEventListener("toggle", () => drawMatrix(null));
-
 let lastTick = 0, lastChat = 0;
-function frame(t) {
-  if (S.live) {
-    const tn = now();
-    if (S.chatter && tn - lastChat > 0.5) { lastChat = tn; S.broadcasts.push({t: tn, host: hosts[Math.floor(Math.random() * hosts.length)]}); if (S.broadcasts.length > 400) S.broadcasts.shift(); }
-    if (t - lastTick > 200) { lastTick = t;
-      const {load} = linkLoads(tn); let busy = 0; for (const x of load) busy = Math.max(busy, x);
-      S.history.push([tn, busy]); S.history = S.history.filter(h => h[0] > tn - 21);
-      renderMap(load); renderMath(null, load); renderChart(); checkGoal();
-      const z = new Date(Date.UTC(2026, 10, 13, 20, 36) + tn * 1000);
-      document.getElementById("zulu").textContent = String(z.getUTCHours()).padStart(2, "0") + String(z.getUTCMinutes()).padStart(2, "0") + "Z";
-    }
-  } else drawAnim(t);
+function frame() {
   requestAnimationFrame(frame);
+  try { tickFrame(performance.now()); } catch (err) { console.warn(err); }
 }
-openMission(Math.min(storeGet("mission", 0), MISSIONS.length - 1));
+function tickFrame(t) {
+  if (S.live) { const n = nowS();
+    if (S.chatter && n - lastChat > .5) { lastChat = n; const hosts = Object.keys(DEV).filter(d => DEV[d].kind === "host");
+      S.broadcasts.push({t: n, host: hosts[Math.floor(Math.random() * hosts.length)]}); if (S.broadcasts.length > 400) S.broadcasts.shift(); } }
+  const loads = drawFrame(t);
+  if (Math.abs(rhoShown - rhoT) > 1e-4) { rhoShown += (rhoT - rhoShown) * (REDUCED ? 1 : .12); if (Math.abs(rhoShown - rhoT) < 1e-3) rhoShown = rhoT;
+    $("rho").textContent = rhoShown < 1e-6 ? "0" : rhoShown.toFixed(rhoShown === rhoT ? 3 : 2).replace(/\.?0+$/, ""); }
+  if (t - lastTick > 200) { lastTick = t;
+    if (S.live) { let busy = 0; if (loads) for (const x of loads) busy = Math.max(busy, x); const n = nowS();
+      S.history.push([n, busy]); S.history = S.history.filter(h => h[0] > n - 21);
+      const z = new Date(Date.UTC(2026, 10, 13, 20, 36) + n * 1000); $("zulu").textContent = String(z.getUTCHours()).padStart(2, "0") + String(z.getUTCMinutes()).padStart(2, "0") + "Z"; }
+    renderStrip(loads); renderReadouts(loads); renderChart(); updateSteps(); }
+}
+fx.addEventListener("paint", () => drawFrame(performance.now()));
+
+readPalette();
+S.mode = storeGet("mode", "student");
+$("hicNote").textContent = HIC ? "Device cards are real HTML buttons painted into the map canvas with the HTML-in-Canvas API." : "Tip: open this page in Microsoft Edge or Chrome 157 or newer to get the full HTML-in-Canvas effects.";
+resize();
+openMission(storeGet("m_" + trackKey(), 0));
+if (!storeGet("intro", false)) showIntro();
 requestAnimationFrame(frame);
 </script>

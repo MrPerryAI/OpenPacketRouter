@@ -8,7 +8,7 @@ Today's tools force a choice. **Packet Tracer** is easy, but it only imitates Ci
 
 | Path | What it is |
 |---|---|
-| [`web/index.html`](web/index.html) | **El Dorado Storm Lab.** A single-file, browser-based lab on the Nov 13, 2026 FAA ground stop. Students break the network and watch live storm math. Runs on Chromebooks with no install. |
+| [`web/index.html`](web/index.html) | **El Dorado Storm Lab.** A single-file, browser-based lab on the Nov 13, 2026 FAA ground stop, with three audience modes: Plain English (a 4-chapter story), Student (8 guided missions with self-checking steps, hints, glossary, predictions and a coach) and Engineer. Uses the HTML-in-Canvas API (Edge/Chrome 157+) to paint real HTML device cards into the animated map; other browsers get a simpler fallback. |
 | [`poc/storm-math/`](poc/storm-math/) | **Proof of concept #1.** Predicts broadcast storms from the network layout alone, checked against an independent packet simulator. |
 | [`docs/vision.md`](docs/vision.md) | Design ideas: multiple detail levels, storm math, graceful-restart handoff, Git-style shared state, and vendor quirk layers. |
 
@@ -40,7 +40,9 @@ python3 run_report.py
 ## Using the lab with a class
 
 - **Open it:** the file `web/index.html` works offline in any modern browser. To host it, turn on GitHub Pages for this repo (Settings → Pages → deploy from branch `main`); the lab will then be at `/web/`.
-- **Missions 0–7:** briefing → healthy network → the cutover → who can see the loop → ground stop drill → fix and restore → shrink the blast radius → change plan. Each mission has a goal the lab checks automatically and a written-response question. Answers are saved only in each student's browser.
+- **Browser:** use Microsoft Edge or Chrome 157 or newer for the full effects (HTML-in-Canvas). Other browsers still work, with simpler effects.
+- **Modes:** students pick one in the intro, or switch from the top bar. *Plain English* is a short story for anyone. *Student* gives first-year students key ideas, self-checking steps with "Show me" highlights, hints, tap-to-define glossary terms, a forced prediction before the key cable, and a coach that explains each event. *Engineer* removes the scaffolding and shows the matrix.
+- **Student missions 1–8:** briefing → healthy network → the cutover → who can see the loop → ground stop drill → fix and restore → shrink the blast radius → change plan. Written answers are saved only in each student's browser.
 - **Companion Packet Tracer lab:** the same network with Cisco CLI is in a separate repo. The storm math here was used to correct that lab's answer key.
 
 ## Accuracy
