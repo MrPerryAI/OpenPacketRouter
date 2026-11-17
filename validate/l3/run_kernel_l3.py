@@ -32,26 +32,36 @@ def sysctl(ns, key, val):
     nsx(ns, "sh", "-c", f"echo {val} > /proc/sys/{key.replace('.', '/')}")
 
 
+def no_ipv6(ns=None, iface=None):
+    """IPv6 interfaces chatter on their own (DAD, router solicitations, MLD), and the
+    engine doesn't model IPv6. Turn it off; kernels without IPv6 just skip this."""
+    keys = [f"net.ipv6.conf.{iface}.disable_ipv6"] if iface else ["net.ipv6.conf.all.disable_ipv6", "net.ipv6.conf.default.disable_ipv6"]
+    for k in keys:
+        cmd = f"[ -e /proc/sys/{k.replace('.', '/')} ] && echo 1 > /proc/sys/{k.replace('.', '/')} || true"
+        (nsx(ns, "sh", "-c", cmd) if ns else sh("sh", "-c", cmd))
+
+
 class KernelNet:
     def __init__(self, spec):
         self.spec = spec; self.procs = []; self.ifmap = {}
         os.makedirs("/run/netns", exist_ok=True)
+        no_ipv6()  # veth pairs are created here before moving into their namespaces
         self.ns = {n["name"]: "n-" + n["name"] for n in spec["nodes"]}
         for n in spec["nodes"]:
-            ns = self.ns[n["name"]]; sh("ip", "netns", "add", ns); sh("ip", "-n", ns, "link", "set", "lo", "up")
+            ns = self.ns[n["name"]]; sh("ip", "netns", "add", ns); no_ipv6(ns); sh("ip", "-n", ns, "link", "set", "lo", "up")
             for k, v in [("net.ipv4.conf.all.send_redirects", 0), ("net.ipv4.conf.default.send_redirects", 0), ("net.ipv4.icmp_ratelimit", 0),
                          ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0),
                          ("net.ipv4.ip_forward", 1 if n["kind"] == "router" else 0)]:
                 sysctl(ns, k, v)
             if n["kind"] == "switch":
-                sh("ip", "-n", ns, "link", "add", "br0", "type", "bridge", "stp_state", "0"); sh("ip", "-n", ns, "link", "set", "br0", "up")
+                sh("ip", "-n", ns, "link", "add", "br0", "type", "bridge", "stp_state", "0"); no_ipv6(ns, "br0"); sh("ip", "-n", ns, "link", "set", "br0", "up")
         kind = {n["name"]: n["kind"] for n in spec["nodes"]}
         for k, (a, b, *_rest) in enumerate(spec["links"]):
             ta, tb = f"va{k}", f"vb{k}"
             sh("ip", "link", "add", ta, "type", "veth", "peer", "name", tb)
             for tmp, ref in ((ta, a), (tb, b)):
                 node, ifn = ref.split(":"); ns = self.ns[node]
-                sh("ip", "link", "set", tmp, "netns", ns, "name", ifn)
+                sh("ip", "link", "set", tmp, "netns", ns, "name", ifn); no_ipv6(ns, ifn)
                 if kind[node] == "switch": sh("ip", "-n", ns, "link", "set", ifn, "master", "br0")
                 sh("ip", "-n", ns, "link", "set", ifn, "up")
                 sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
