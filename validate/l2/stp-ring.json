@@ -1,0 +1,132 @@
+{
+ "name": "STP ring with a hub-like switch",
+ "about": "Four STP switches in a ring, two parallel cables between SW3 and SW4 (port priority decides which one carries traffic), a slow 100-cost cable SW1\u2013SW4, and an unmanaged switch (no STP) between SW2 and SW3 that passes BPDUs through like a hub. Cutting SW1\u2013SW2 is an indirect failure for SW3 and SW4: they must wait max age before they give up on the old path.",
+ "nodes": [
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   },
+   "ports": {
+    "t2": {
+     "priority": 64
+    }
+   }
+  },
+  {
+   "name": "SW4",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   },
+   "ports": {
+    "up": {
+     "cost": 100
+    }
+   }
+  },
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6,
+    "priority": 4096
+   },
+   "ports": {
+    "down": {
+     "cost": 100
+    }
+   }
+  },
+  {
+   "name": "HUB",
+   "kind": "switch"
+  },
+  {
+   "name": "PC1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "PC2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "PC4",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.4/24"
+   }
+  },
+  {
+   "name": "PC-HUB",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.9/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:right",
+   "SW2:left"
+  ],
+  [
+   "SW2:right",
+   "HUB:p1"
+  ],
+  [
+   "HUB:p2",
+   "SW3:left"
+  ],
+  [
+   "SW3:t1",
+   "SW4:t1"
+  ],
+  [
+   "SW3:t2",
+   "SW4:t2"
+  ],
+  [
+   "SW4:up",
+   "SW1:down"
+  ],
+  [
+   "PC1:eth0",
+   "SW1:f1"
+  ],
+  [
+   "PC2:eth0",
+   "SW2:f1"
+  ],
+  [
+   "PC4:eth0",
+   "SW4:f1"
+  ],
+  [
+   "PC-HUB:eth0",
+   "HUB:p3"
+  ]
+ ]
+}

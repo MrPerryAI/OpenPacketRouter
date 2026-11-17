@@ -1,0 +1,130 @@
+{
+ "name": "VLAN trunk and router-on-a-stick",
+ "about": "Two switches joined by an 802.1Q trunk carrying VLAN 10 (staff) and VLAN 20 (students). A router with one cable and two VLAN subinterfaces routes between them. PC-WRONG has a VLAN 10 address but sits on a VLAN 20 port.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "ports": {
+    "f1": {
+     "vlan": 10
+    },
+    "f2": {
+     "vlan": 20
+    },
+    "f3": {
+     "vlan": 20
+    },
+    "trunk": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "router": {
+     "trunk": [
+      10,
+      20
+     ],
+     "native": null
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "ports": {
+    "f1": {
+     "vlan": 10
+    },
+    "f2": {
+     "vlan": 20
+    },
+    "trunk": {
+     "trunk": [
+      10,
+      20
+     ]
+    }
+   }
+  },
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0.10": "10.10.0.1/24",
+    "eth0.20": "10.20.0.1/24"
+   }
+  },
+  {
+   "name": "STAFF-1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.11/24"
+   },
+   "gw": "10.10.0.1"
+  },
+  {
+   "name": "STUDENT-1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.20.0.21/24"
+   },
+   "gw": "10.20.0.1"
+  },
+  {
+   "name": "STAFF-2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.12/24"
+   },
+   "gw": "10.10.0.1"
+  },
+  {
+   "name": "STUDENT-2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.20.0.22/24"
+   },
+   "gw": "10.20.0.1"
+  },
+  {
+   "name": "PC-WRONG",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.99/24"
+   },
+   "gw": "10.10.0.1"
+  }
+ ],
+ "links": [
+  [
+   "SW1:trunk",
+   "SW2:trunk"
+  ],
+  [
+   "R1:eth0",
+   "SW1:router"
+  ],
+  [
+   "STAFF-1:eth0",
+   "SW1:f1"
+  ],
+  [
+   "STUDENT-1:eth0",
+   "SW1:f2"
+  ],
+  [
+   "PC-WRONG:eth0",
+   "SW1:f3"
+  ],
+  [
+   "STAFF-2:eth0",
+   "SW2:f1"
+  ],
+  [
+   "STUDENT-2:eth0",
+   "SW2:f2"
+  ]
+ ]
+}

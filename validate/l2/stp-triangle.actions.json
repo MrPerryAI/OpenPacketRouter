@@ -1,0 +1,68 @@
+[
+ {
+  "at": 0.5,
+  "do": "ping",
+  "src": "PC-A",
+  "dst": "10.0.0.2",
+  "note": "ports are listening: nothing gets through"
+ },
+ {
+  "at": 4.6,
+  "do": "ping",
+  "src": "PC-A",
+  "dst": "10.0.0.2",
+  "note": "ports are learning: still nothing gets through"
+ },
+ {
+  "at": 12,
+  "do": "stp"
+ },
+ {
+  "at": 12.5,
+  "do": "ping",
+  "src": "PC-A",
+  "dst": "10.0.0.2",
+  "note": "converged: the A\u2013B cable is blocked, so the path goes through the core"
+ },
+ {
+  "at": 14,
+  "do": "ping",
+  "src": "PC-B",
+  "dst": "10.0.0.3"
+ },
+ {
+  "at": 24,
+  "do": "observe",
+  "seconds": 8
+ },
+ {
+  "at": 33,
+  "do": "link",
+  "cable": "SW-CORE:g2",
+  "up": false,
+  "note": "cut SW-B's root port cable (a direct failure: SW-B notices at once)"
+ },
+ {
+  "at": 34,
+  "do": "stp",
+  "note": "SW-B's blocked port g2 becomes its root port and starts listening"
+ },
+ {
+  "at": 35,
+  "do": "ping",
+  "src": "PC-B",
+  "dst": "10.0.0.3",
+  "note": "not yet: SW-B's new root port is still listening"
+ },
+ {
+  "at": 43,
+  "do": "ping",
+  "src": "PC-B",
+  "dst": "10.0.0.3",
+  "note": "two forward delays after the cut: through SW-A"
+ },
+ {
+  "at": 47,
+  "do": "stp"
+ }
+]

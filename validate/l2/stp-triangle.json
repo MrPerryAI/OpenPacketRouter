@@ -1,0 +1,81 @@
+{
+ "name": "STP triangle",
+ "about": "Three switches wired in a loop. Spanning tree elects SW-CORE root (lowest priority) and blocks one port (on SW-B). Cutting SW-B's root-port cable is a direct failure: SW-B's blocked port takes over after two forward delays. Timers are shortened (hello 2s, forward delay 4s, max age 6s) so the run takes a minute.",
+ "nodes": [
+  {
+   "name": "SW-A",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   }
+  },
+  {
+   "name": "SW-B",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   }
+  },
+  {
+   "name": "SW-CORE",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6,
+    "priority": 4096
+   }
+  },
+  {
+   "name": "PC-A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "PC-B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "PC-CORE",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.3/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW-CORE:g1",
+   "SW-A:g1"
+  ],
+  [
+   "SW-CORE:g2",
+   "SW-B:g1"
+  ],
+  [
+   "SW-A:g2",
+   "SW-B:g2"
+  ],
+  [
+   "PC-A:eth0",
+   "SW-A:f1"
+  ],
+  [
+   "PC-B:eth0",
+   "SW-B:f1"
+  ],
+  [
+   "PC-CORE:eth0",
+   "SW-CORE:f1"
+  ]
+ ]
+}

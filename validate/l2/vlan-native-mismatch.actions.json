@@ -1,0 +1,20 @@
+[
+ {
+  "do": "ping",
+  "src": "PC-A",
+  "dst": "10.0.0.2",
+  "note": "VLAN 1 on SW1 reaches VLAN 99 on SW2: the leak"
+ },
+ {
+  "do": "ping",
+  "src": "PC-A",
+  "dst": "10.0.0.3",
+  "note": "same VLAN number, but SW2 puts SW1's untagged frames in VLAN 99"
+ },
+ {
+  "do": "ping",
+  "src": "PC-D",
+  "dst": "10.0.10.2",
+  "note": "tagged VLAN 10 is fine"
+ }
+]

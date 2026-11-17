@@ -1,0 +1,106 @@
+{
+ "name": "Native VLAN mismatch",
+ "about": "SW1's trunk sends VLAN 1 untagged; SW2's trunk treats untagged frames as VLAN 99. Untagged traffic leaks between VLAN 1 on SW1 and VLAN 99 on SW2, and VLAN 1 is split in two. Tagged VLAN 10 is unaffected.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "ports": {
+    "f1": {
+     "vlan": 1
+    },
+    "f2": {
+     "vlan": 10
+    },
+    "trunk": {
+     "trunk": [
+      10
+     ],
+     "native": 1
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "ports": {
+    "f1": {
+     "vlan": 99
+    },
+    "f2": {
+     "vlan": 1
+    },
+    "f3": {
+     "vlan": 10
+    },
+    "trunk": {
+     "trunk": [
+      10
+     ],
+     "native": 99
+    }
+   }
+  },
+  {
+   "name": "PC-A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "PC-D",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.10.1/24"
+   }
+  },
+  {
+   "name": "PC-B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "PC-C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.3/24"
+   }
+  },
+  {
+   "name": "PC-E",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.10.2/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:trunk",
+   "SW2:trunk"
+  ],
+  [
+   "PC-A:eth0",
+   "SW1:f1"
+  ],
+  [
+   "PC-D:eth0",
+   "SW1:f2"
+  ],
+  [
+   "PC-B:eth0",
+   "SW2:f1"
+  ],
+  [
+   "PC-C:eth0",
+   "SW2:f2"
+  ],
+  [
+   "PC-E:eth0",
+   "SW2:f3"
+  ]
+ ]
+}

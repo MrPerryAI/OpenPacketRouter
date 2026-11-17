@@ -1,0 +1,184 @@
+{
+ "name": "Spanning tree over VLAN trunks",
+ "about": "Three switches with trunks in a triangle and one spanning tree for all VLANs (as in Linux; Cisco's PVST+ would run one per VLAN). The blocked trunk carries nothing in any VLAN; inter-VLAN traffic hairpins through the router on SW1.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6,
+    "priority": 4096
+   },
+   "ports": {
+    "to2": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "to3": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "router": {
+     "trunk": [
+      10,
+      20
+     ],
+     "native": null
+    },
+    "f1": {
+     "vlan": 10
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   },
+   "ports": {
+    "to1": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "to3": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "f1": {
+     "vlan": 10
+    },
+    "f2": {
+     "vlan": 20
+    }
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "hello": 2,
+    "forwardDelay": 4,
+    "maxAge": 6
+   },
+   "ports": {
+    "to1": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "to2": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "f1": {
+     "vlan": 10
+    },
+    "f2": {
+     "vlan": 20
+    }
+   }
+  },
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0.10": "10.10.0.1/24",
+    "eth0.20": "10.20.0.1/24"
+   }
+  },
+  {
+   "name": "STAFF-1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.11/24"
+   },
+   "gw": "10.10.0.1"
+  },
+  {
+   "name": "STAFF-2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.12/24"
+   },
+   "gw": "10.10.0.1"
+  },
+  {
+   "name": "STUDENT-2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.20.0.22/24"
+   },
+   "gw": "10.20.0.1"
+  },
+  {
+   "name": "STAFF-3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.10.0.13/24"
+   },
+   "gw": "10.10.0.1"
+  },
+  {
+   "name": "STUDENT-3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.20.0.23/24"
+   },
+   "gw": "10.20.0.1"
+  }
+ ],
+ "links": [
+  [
+   "SW1:to2",
+   "SW2:to1"
+  ],
+  [
+   "SW1:to3",
+   "SW3:to1"
+  ],
+  [
+   "SW2:to3",
+   "SW3:to2"
+  ],
+  [
+   "R1:eth0",
+   "SW1:router"
+  ],
+  [
+   "STAFF-1:eth0",
+   "SW1:f1"
+  ],
+  [
+   "STAFF-2:eth0",
+   "SW2:f1"
+  ],
+  [
+   "STUDENT-2:eth0",
+   "SW2:f2"
+  ],
+  [
+   "STAFF-3:eth0",
+   "SW3:f1"
+  ],
+  [
+   "STUDENT-3:eth0",
+   "SW3:f2"
+  ]
+ ]
+}

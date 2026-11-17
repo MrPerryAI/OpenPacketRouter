@@ -1,0 +1,26 @@
+[
+ {
+  "at": 12,
+  "do": "stp"
+ },
+ {
+  "at": 12.5,
+  "do": "ping",
+  "src": "STAFF-2",
+  "dst": "10.10.0.13",
+  "note": "same VLAN, but the SW2\u2013SW3 trunk is blocked: via SW1"
+ },
+ {
+  "at": 14,
+  "do": "ping",
+  "src": "STUDENT-3",
+  "dst": "10.10.0.12",
+  "note": "between VLANs through the router"
+ },
+ {
+  "at": 24,
+  "do": "observe",
+  "seconds": 4,
+  "note": "BPDUs travel untagged on trunks"
+ }
+]

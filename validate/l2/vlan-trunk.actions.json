@@ -1,0 +1,31 @@
+[
+ {
+  "do": "ping",
+  "src": "STAFF-1",
+  "dst": "10.10.0.12",
+  "note": "same VLAN across the trunk: tagged 10 on the trunk, students hear nothing"
+ },
+ {
+  "do": "ping",
+  "src": "STUDENT-2",
+  "dst": "10.20.0.1",
+  "note": "gateway on the router's VLAN 20 subinterface"
+ },
+ {
+  "do": "ping",
+  "src": "STAFF-2",
+  "dst": "10.20.0.21",
+  "note": "between VLANs: up the trunk tagged 10, back down tagged 20"
+ },
+ {
+  "do": "traceroute",
+  "src": "STUDENT-1",
+  "dst": "10.10.0.12"
+ },
+ {
+  "do": "ping",
+  "src": "PC-WRONG",
+  "dst": "10.10.0.1",
+  "note": "wrong VLAN: its ARP only reaches VLAN 20, where nobody has 10.10.0.1"
+ }
+]

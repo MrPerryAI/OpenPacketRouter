@@ -1,0 +1,54 @@
+[
+ {
+  "at": 12,
+  "do": "stp"
+ },
+ {
+  "at": 12.5,
+  "do": "ping",
+  "src": "PC2",
+  "dst": "10.0.0.4",
+  "note": "through the hub-like switch and SW3, then the preferred parallel cable"
+ },
+ {
+  "at": 14,
+  "do": "ping",
+  "src": "PC-HUB",
+  "dst": "10.0.0.1"
+ },
+ {
+  "at": 24,
+  "do": "observe",
+  "seconds": 8
+ },
+ {
+  "at": 33,
+  "do": "link",
+  "cable": "SW1:right",
+  "up": false,
+  "note": "cut SW1\u2013SW2"
+ },
+ {
+  "at": 33.5,
+  "do": "ping",
+  "src": "PC2",
+  "dst": "10.0.0.1",
+  "note": "SW3 and SW4 still trust the old path until max age runs out"
+ },
+ {
+  "at": 44,
+  "do": "stp",
+  "note": "max age ran out (somewhere in 37\u201339s, depending on when the last hello passed): SW4's 100-cost root port is learning"
+ },
+ {
+  "at": 49,
+  "do": "ping",
+  "src": "PC2",
+  "dst": "10.0.0.1",
+  "note": "back, the long way round over the 100-cost cable"
+ },
+ {
+  "at": 53,
+  "do": "stp"
+ }
+]
