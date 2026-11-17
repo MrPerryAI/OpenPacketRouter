@@ -43,6 +43,38 @@ python3 run_report.py
 - **Browser:** use Microsoft Edge or Chrome 157 or newer for the full effects (HTML-in-Canvas). Other browsers still work, with simpler effects.
 - **Modes:** students pick one in the intro, or switch from the top bar. *Plain English* is a short story for anyone. *Student* gives first-year students key ideas, self-checking steps with "Show me" highlights, hints, tap-to-define glossary terms, a forced prediction before the key cable, and a coach that explains each event. *Engineer* removes the scaffolding and shows the matrix.
 - **Student missions 1–8:** briefing → healthy network → the cutover → who can see the loop → ground stop drill → fix and restore → shrink the blast radius → change plan. Written answers are saved only in each student's browser.
+- **Score report and scoreboard:** students earn points for steps, finished missions, predictions, written answers and fast ground stop containment, and lose a few points per hint. **Score report** in the top bar shows the breakdown and copies it as text. The class scoreboard works two ways:
+  - **Published Claude link:** scores are shared live through the page's own storage. Students must be signed in to Claude and given **Contributor** ("can use") access from the Share menu; view-only students can see the board but not post. Names show as first name and last initial. The teacher (owner) gets a *Clear scoreboard* button.
+  - **Class server (no Claude accounts needed):** run it on any computer on the school network, such as a Mac with Docker, and students open `http://<that-computer's-IP>:8080`. Each student types a display name.
+
+### Run the class server on a Mac with Docker
+
+```bash
+git clone https://github.com/MrPerryAI/OpenPacketRouter.git
+```
+
+```bash
+cd OpenPacketRouter
+```
+
+```bash
+TEACHER_KEY=pick-a-secret docker compose up -d --build
+```
+
+Find the Mac's IP address under System Settings → Network, then give students `http://<IP>:8080`. Scores persist in a Docker volume across restarts. To clear the board:
+
+```bash
+curl -X DELETE "http://localhost:8080/api/scores?key=pick-a-secret"
+```
+
+To stop the server:
+
+```bash
+docker compose down
+```
+
+The school network must allow student devices to reach the Mac on port 8080, and macOS may ask to allow incoming connections the first time. Anyone on the network who opens the page can post a score, so treat the board as a classroom game, not a gradebook.
+
 - **Companion Packet Tracer lab:** the same network with Cisco CLI is in a separate repo. The storm math here was used to correct that lab's answer key.
 
 ## Accuracy

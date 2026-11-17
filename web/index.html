@@ -15,6 +15,7 @@
   --good: #0a7d0a; --warn: #a86f00; --crit: #c23030;
   --good-bg: #dff0df; --warn-bg: #f8ecd0; --crit-bg: #f7dede;
   --s-good: #4cc34c; --s-warn: #fab219; --s-crit: #ff6b6b;
+  --icon: #2a6fb0; --icon2: #1d4f80;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -25,6 +26,7 @@
   --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
   --storm0: #6b2a4c; --storm1: #ffb3d6;
   --good: #46c046; --warn: #f1b43a; --crit: #ff7676; --good-bg: #13301a; --warn-bg: #382b10; --crit-bg: #3d1b1b;
+  --icon: #4a8fd8; --icon2: #2c6aa8;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #0a1117; --panel: #111b23; --chart: #0c171d; --grid: #1b2c31; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
@@ -32,6 +34,7 @@
   --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
   --storm0: #6b2a4c; --storm1: #ffb3d6;
   --good: #46c046; --warn: #f1b43a; --crit: #ff7676; --good-bg: #13301a; --warn-bg: #382b10; --crit-bg: #3d1b1b;
+  --icon: #4a8fd8; --icon2: #2c6aa8;
   color-scheme: dark; }
 
 * { box-sizing: border-box; }
@@ -167,8 +170,12 @@ canvas.fx { display: block; width: 100%; aspect-ratio: 1000 / 680; touch-action:
 
 /* device cards: real HTML, painted into the canvas when HTML-in-Canvas is available */
 .card { position: absolute; left: 0; top: 0; margin: 0; cursor: pointer; font: 600 15px/1.2 var(--mono); color: var(--ink);
-  background: var(--panel); border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 12px 7px; min-width: 128px;
-  display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
+  background: var(--panel); border: 1.5px solid var(--ink); border-radius: 8px; padding: 6px 12px 7px 8px; min-width: 128px;
+  display: grid; grid-template-columns: 34px auto; column-gap: 8px; align-items: center; white-space: nowrap; text-align: left; }
+.card .ic { grid-row: 1 / span 4; width: 34px; height: 34px; display: block; }
+.card .tx { display: flex; flex-direction: column; gap: 1px; }
+.card.router { grid-template-columns: auto; justify-items: center; text-align: center; padding: 6px 14px 7px; border-radius: 16px; }
+.card.router .ic { grid-row: auto; width: 46px; height: 46px; margin-bottom: 2px; }
 .card small { font: 400 11.5px/1.25 var(--body); color: var(--ink2); }
 .card.pl > span:not(.pill):not(.stat) { font: 600 16px/1.2 var(--body); }
 .card .pill { font: 700 9.5px/1 var(--body); letter-spacing: .08em; background: var(--magenta); color: #fff; padding: 3px 7px; border-radius: 99px; margin-bottom: 3px; }
@@ -176,9 +183,10 @@ canvas.fx { display: block; width: 100%; aspect-ratio: 1000 / 680; touch-action:
 .card.warn { border: 3px solid var(--warn); } .card.warn .stat { color: var(--warn); }
 .card.crit { border: 3px solid var(--crit); } .card.crit .stat { color: var(--crit); }
 .card.sel { border: 3px solid var(--accent); }
-.card.router { border-radius: 22px; }
 .card.host { background: transparent; border: 0; min-width: 0; padding: 0; gap: 3px; }
-.card.host .dot { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--ink2); background: var(--panel); display: grid; place-items: center; font: 600 10px var(--mono); color: var(--ink2); }
+.card.host { display: flex; flex-direction: column; align-items: center; }
+.card.host .dot { width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--ink2); background: var(--panel); display: grid; place-items: center; color: var(--ink2); }
+.card.host .dot svg { width: 20px; height: 20px; display: block; }
 .card.host .nm { font: 500 11.5px/1.2 var(--mono); color: var(--ink2); background: color-mix(in srgb, var(--chart) 85%, transparent); padding: 1px 4px; border-radius: 4px; }
 .card.host.sel .dot { border: 3px solid var(--accent); }
 .card:focus-visible { outline: none; box-shadow: inset 0 0 0 3px var(--accent); }
@@ -217,6 +225,30 @@ dl.kv dt { color: var(--ink2); } dl.kv dd { margin: 0; font-family: var(--mono);
 .inspector .ports .b { color: var(--magenta); font-weight: 600; }
 details.panel summary { cursor: pointer; font-weight: 600; font-size: 14px; }
 canvas.matrix { width: 100%; max-width: 300px; aspect-ratio: 1; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* score, scoreboard, report */
+.score .v { font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
+.score button { background: transparent; color: var(--strip-ink2); border: 1px solid var(--strip2); font-size: 11.5px; padding: 2px 8px; margin-top: 3px; }
+.board { display: flex; flex-direction: column; gap: 10px; }
+.board ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; counter-reset: r; }
+.board li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: var(--chip); font-size: 14px; }
+.board li .rk { font: 700 15px var(--display); color: var(--ink2); }
+.board li:nth-child(1) .rk { color: #c08a00; } .board li:nth-child(2) .rk { color: #8a96a3; } .board li:nth-child(3) .rk { color: #b06a3a; }
+.board li .pts { font: 600 14px var(--mono); }
+.board li.me { box-shadow: inset 0 0 0 2px var(--accent); background: var(--panel); }
+.board li small { color: var(--ink2); font-size: 12px; display: block; }
+.board .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board input { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+.modal { position: fixed; inset: 0; z-index: 45; background: rgba(5,11,16,.6); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.modal .sheet { background: var(--panel); border-radius: 14px; max-width: 760px; width: 100%; max-height: 100%; overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.modal .head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.modal .big { font: 800 56px/0.9 var(--display); }
+.modal .tbl { overflow-x: auto; }
+.modal table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.modal th, .modal td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.modal td.n, .modal th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.modal .rules { font-size: 13px; color: var(--ink2); }
 
 /* glossary popover */
 .gloss { position: absolute; z-index: 40; max-width: 320px; background: var(--strip); color: var(--strip-ink); border-radius: 10px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3); font-size: 14px; }
@@ -257,15 +289,22 @@ footer button { align-self: flex-start; font-size: 12.5px; padding: 3px 10px; }
   <div class="cell"><span class="k">Verdict</span><span id="verdict" class="verdict good" aria-live="polite"></span></div>
   <div class="cell"><span class="k" id="centersK">Centers</span><div class="centers" id="centers"></div></div>
   <div class="cell"><span class="k">Zulu</span><span class="zulu" id="zulu">2036Z</span></div>
+  <div class="cell score"><span class="k">Your score</span><span class="v" id="scoreV">0</span><button id="reportBtn">Score report</button></div>
   <div class="groundstop" id="gs" hidden></div>
 </header>
 
 <main class="console">
+  <div class="leftcol" style="display:flex;flex-direction:column;gap:14px;min-width:0">
   <aside class="panel missions" aria-label="Missions">
     <div class="track"><h3 id="trackName">Missions</h3><span class="muted" id="trackCount"></span></div>
     <div class="stepper" id="mnav"></div>
     <article class="mission" id="mission"></article>
   </aside>
+  <section class="panel board" aria-label="Class scoreboard">
+    <div class="track"><h3>Class scoreboard</h3><span class="muted" id="boardMode"></span></div>
+    <div id="boardBody"><p class="muted">Loading the scoreboard…</p></div>
+  </section>
+  </div>
 
   <section class="stage">
     <div class="panel mapcard">
@@ -314,6 +353,7 @@ footer button { align-self: flex-start; font-size: 12.5px; padding: 3px 10px; }
 </main>
 
 <div class="gloss" id="gloss" role="dialog" hidden></div>
+<div class="modal" id="report" hidden role="dialog" aria-modal="true" aria-labelledby="reportTitle"><div class="sheet" id="reportSheet"></div></div>
 
 <footer>
   <p>Teaching model, not a reconstruction. As of Nov 17, 2026 the FAA has not said what protocol carried the flood. Site positions use real latitude and longitude; the network core is drawn off-map. Link delays and speeds are illustrative. The storm math (non-backtracking matrix spectral radius, renewal-equation growth) was checked against an independent packet simulator in the OpenPacketRouter proof of concept.</p>
@@ -847,19 +887,33 @@ function drawBg() {
   bgDirty = false;
 }
 
+/* ---- icons (classic network-diagram glyphs, drawn here) */
+const ICON = {
+  router: `<svg class="ic" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="var(--icon)"/><circle cx="24" cy="24" r="22" fill="none" stroke="var(--icon2)" stroke-width="2"/>
+    <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 21 L35 13 M29 13 H35 V19"/><path d="M21 27 L13 35 M13 29 V35 H19"/><path d="M12 12 L20 20 M20 14 V20 H14"/><path d="M36 36 L28 28 M28 34 V28 H34"/></g></svg>`,
+  switch: `<svg class="ic" viewBox="0 0 40 40" aria-hidden="true"><rect x="1.5" y="5" width="37" height="30" rx="6" fill="var(--icon)" stroke="var(--icon2)" stroke-width="2"/>
+    <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 14 H30 M26 10.5 L30 14 L26 17.5"/><path d="M31 26 H10 M14 22.5 L10 26 L14 29.5"/></g></svg>`,
+  V: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14 V12 a8 8 0 0 1 16 0 V14"/><rect x="2.5" y="13" width="4" height="6" rx="1.5"/><rect x="17.5" y="13" width="4" height="6" rx="1.5"/><path d="M19.5 19 q0 3 -5 3 h-2"/></svg>`,
+  R: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14 a9 9 0 0 0 12 -9 z"/><path d="M10 10 L15 5"/><path d="M8 17 L6 22 H14 L12 17"/><path d="M17 2 a5 5 0 0 1 5 5"/></svg>`,
+  RF: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9 L7 22 M12 9 L17 22 M9 16 H15"/><circle cx="12" cy="7" r="1.6"/><path d="M8 4 a6 6 0 0 0 0 6 M16 4 a6 6 0 0 1 0 6 M5 2 a10 10 0 0 0 0 10 M19 2 a10 10 0 0 1 0 10"/></svg>`,
+  M: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8 21 H16 M12 17 V21"/><path d="M6 12 L9 9 L12 11 L17 7"/></svg>`,
+};
+
 /* ---- device cards (real HTML) */
 const cards = {};
 for (const [name, d] of Object.entries(DEV)) {
   const b = document.createElement("button"); b.type = "button"; b.className = "card " + d.kind; b.dataset.dev = name;
   b.onclick = e => { e.stopPropagation(); select({dev: name}); };
   if (HIC) { b.setAttribute("drawable", ""); fx.appendChild(b); }
-  else { b.style.left = d.x + "px"; b.style.top = (d.kind === "host" ? d.y + 12 : d.y) + "px"; cardInner.appendChild(b); }
+  else { b.style.left = d.x + "px"; b.style.top = (d.kind === "host" ? d.y + 9 : d.y) + "px"; cardInner.appendChild(b); }
   cards[name] = {el: b, html: "", cls: "", m: ""};
 }
 function updateCards(H) {
   for (const [name, d] of Object.entries(DEV)) {
     const c = cards[name]; let html, cls = "card " + d.kind;
-    if (d.kind === "host") html = `<span class="dot">${d.glyph}</span><span class="nm">${devName(name)}</span>`;
+    if (d.kind === "host") html = `<span class="dot">${ICON[d.glyph]}</span><span class="nm">${devName(name)}</span>`;
     else {
       const plain = S.mode === "plain"; const h = d.center ? H[d.center] : null;
       const stat = h && h.cls !== "good" ? `<span class="stat">${h.cls === "crit" ? "▲ DOWN" : "● DEGRADED"}</span>` : "";
@@ -867,7 +921,7 @@ function updateCards(H) {
       const pill = d.kind === "switch" && !S.stp[name] ? `<span class="pill">${T("stpOff")}</span>` : "";
       const main = plain ? (d.ptag || d.label) : d.label, sub = plain ? (d.psub ?? "") : d.tag;
       if (plain) cls += " pl";
-      html = `${pill}<span>${main}</span>${sub ? `<small>${sub}</small>` : ""}${stat}`;
+      html = `${ICON[d.kind]}<span class="tx">${pill ? `<span>${pill}</span>` : ""}<span>${main}</span>${sub ? `<small>${sub}</small>` : ""}${stat}</span>`;
     }
     if (S.sel && S.sel.dev === name) cls += " sel";
     if (!HIC && glitching.has(name)) cls += " glitch";
@@ -883,6 +937,24 @@ function updateCards(H) {
 /* ---- effects state */
 let particles = [], spawnAcc = new Float64Array(0), waves = [], banners = [], confetti = [], shakeUntil = 0, glitching = new Set();
 let anim = null, highlight = null, lastT = performance.now();
+let planes = [], planeAcc = 0, held = 0;
+function updatePlanes(dt) {
+  if (!S.gsStart) { planeAcc += dt; if (planeAcc > 1.1 && planes.length < 14) { planeAcc = 0;
+      const side = () => { const r = Math.random(); return r < .25 ? [0, 190 + Math.random() * 470] : r < .5 ? [1000, 190 + Math.random() * 470] : r < .75 ? [Math.random() * 1000, 180] : [Math.random() * 1000, 680]; };
+      const a = side(), b = side(); if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 400) planes.push({a, b, p: 0, sp: .03 + Math.random() * .03}); } }
+  else held += dt * 2.9;  // departures held while the ground stop lasts
+  for (const q of planes) q.p += dt * q.sp; planes = planes.filter(q => q.p < 1);
+}
+function drawPlanes() {
+  ctx.fillStyle = PAL.ink2; ctx.globalAlpha = .45;
+  for (const q of planes) { const x = lerp(q.a[0], q.b[0], q.p), y = lerp(q.a[1], q.b[1], q.p), ang = Math.atan2(q.b[1] - q.a[1], q.b[0] - q.a[0]);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.beginPath();
+    ctx.moveTo(9, 0); ctx.lineTo(2, -1.4); ctx.lineTo(-2, -8); ctx.lineTo(-4, -8); ctx.lineTo(-2, -1.4); ctx.lineTo(-7, -1.4); ctx.lineTo(-9, -4); ctx.lineTo(-10, -4); ctx.lineTo(-9, 0);
+    ctx.lineTo(-10, 4); ctx.lineTo(-9, 4); ctx.lineTo(-7, 1.4); ctx.lineTo(-2, 1.4); ctx.lineTo(-4, 8); ctx.lineTo(-2, 8); ctx.lineTo(2, 1.4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  ctx.globalAlpha = 1;
+  if (held >= 1) { ctx.font = "700 14px 'IBM Plex Mono', monospace"; const s = `DEPARTURES HELD: ${Math.floor(held).toLocaleString()}`;
+    ctx.lineWidth = 4; ctx.strokeStyle = PAL.chart; ctx.strokeText(s, 18, 646); ctx.fillStyle = PAL.crit; ctx.fillText(s, 18, 646); }
+}
 function wave(x, y, color, maxR = 120, dur = 1100) { if (!REDUCED) waves.push({x, y, color, maxR, dur, t0: performance.now()}); }
 function banner(text, color) { banners = [{text, color, t0: performance.now()}]; }
 function shake(ms) { if (!REDUCED) shakeUntil = performance.now() + ms; }
@@ -901,6 +973,8 @@ function drawFrame(now) {
   ctx.setTransform(DPR * K, 0, 0, DPR * K, sx * DPR, sy * DPR);
   const t = now / 1000;
 
+  // planes under everything
+  if (!REDUCED) updatePlanes(Math.min(.05, (now - lastT) / 1000)); drawPlanes();
   // links
   const perLink = {}, loopLink = new Set();
   M.edges.forEach((e, i) => { if (loads) perLink[e.link] = Math.max(perLink[e.link] || 0, loads[i]); if (M.inComp[i] >= 0) loopLink.add(e.link); });
@@ -976,7 +1050,7 @@ function drawFrame(now) {
   if (HIC) for (const [name, d] of Object.entries(DEV)) {
     const c = cards[name]; if (c.el.hidden) continue;
     const w = c.el.offsetWidth, h = c.el.offsetHeight; if (!w) continue;
-    const x = d.x - w / 2, y = d.kind === "host" ? d.y - 13 : d.y - h / 2;
+    const x = d.x - w / 2, y = d.kind === "host" ? d.y - 15 : d.y - h / 2;
     try {
       if (glitching.has(name) && !REDUCED && Math.random() < .55) {
         ctx.globalAlpha = .7;
@@ -1133,6 +1207,7 @@ function renderStrip(loads) {
   } else {
     $("strip").classList.remove("alarm");
     if (S.gsStart) { const s = Math.floor((t - S.gsStart) / 1000); S.gsLast = s; S.gsStart = null; S.seen.gsCleared = true;
+      if ((trackKey() === "full" && S.mission === 4) || (trackKey() === "plain" && S.mission === 2)) S.containS = S.containS == null ? s : Math.min(S.containS, s);
       banner("CENTERS BACK", PAL.good); coach(...say(["Planes can fly again", `The ground stop lasted ${s} seconds here. The real one lasted 4 hours 21 minutes.`],
         ["Ground stop lifted", `Contained in ${s} s. Now find the root cause before reconnecting El Dorado.`]), "good");
       gs.hidden = false; gs.className = "groundstop lifted"; gs.textContent = `Ground stop lifted after ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
@@ -1247,8 +1322,8 @@ function renderNav() {
 }
 function openMission(i) {
   const tr = track(); i = Math.max(0, Math.min(i, tr.length - 1));
-  S.mission = i; S.seen = {}; S.stepDone = []; S.predicted = null; S.hints = 0; storeSet("m_" + trackKey(), i);
-  anim = null; particles = []; prevRegime = null;
+  S.mission = i; S.seen = {}; S.stepDone = []; S.predicted = null; S.hints = 0; S.predResult = null; S.containS = null; storeSet("m_" + trackKey(), i);
+  anim = null; particles = []; prevRegime = null; held = 0;
   preset(tr[i].preset);
   if (trackKey() === "full" && i === 7) S.seen.planStart = true;
   if (S.mode === "engineer") $("matrixBox").open = true;
@@ -1267,7 +1342,8 @@ function renderMission() {
     <div class="complete" id="complete" hidden><span>✓ ${plain ? "Chapter" : "Mission"} complete</span>${i < tr.length - 1 ? `<button id="next2">Next ${plain ? "chapter" : "mission"}</button>` : ""}</div>
     <div class="q"><label for="ans">${m.q}</label><textarea id="ans" placeholder="Your answer (saved in this browser only)"></textarea></div>
     <div class="mrow"><button id="reset">Reset this ${plain ? "chapter" : "mission"}</button>${i < tr.length - 1 ? `<button id="next">Next</button>` : ""}</div>`;
-  const ans = $("ans"); ans.value = storeGet(`ans_${trackKey()}_${i}`, ""); ans.oninput = () => storeSet(`ans_${trackKey()}_${i}`, ans.value);
+  const ans = $("ans"); ans.value = storeGet(`ans_${trackKey()}_${i}`, ""); S.ansLen = ans.value.trim().length;
+  ans.oninput = () => { storeSet(`ans_${trackKey()}_${i}`, ans.value); S.ansLen = ans.value.trim().length; };
   $("reset").onclick = () => openMission(i);
   for (const id of ["next", "next2"]) if ($(id)) $(id).onclick = () => openMission(i + 1);
   el.querySelectorAll(".show").forEach(b => b.onclick = () => { const s = m.steps[+b.dataset.k].show; highlight = {...s, until: performance.now() + 4500};
@@ -1289,7 +1365,7 @@ function updateSteps() {
   [...items].forEach((li, k) => li.classList.toggle("next", k === next));
   highlight = next >= 0 && m.steps[next].show && S.mode !== "engineer" ? {...m.steps[next].show} : (highlight && highlight.until ? highlight : null);
   if (m.predict && S.predicted !== null && S.link[m.predict.gate] === "up" && $("reveal") && !$("reveal").dataset.shown) {
-    const right = S.predicted === m.predict.answer; $("reveal").dataset.shown = "1";
+    const right = S.predicted === m.predict.answer; $("reveal").dataset.shown = "1"; S.predResult = right ? "right" : "wrong";
     $("reveal").innerHTML = `<b>${right ? "You called it." : "Not quite."}</b> ${m.predict.explain}`;
   }
   const all = m.steps.every((s, k) => S.stepDone[k]);
@@ -1423,4 +1499,167 @@ resize();
 openMission(storeGet("m_" + trackKey(), 0));
 if (!storeGet("intro", false)) showIntro();
 requestAnimationFrame(frame);
+
+/* ========================================================================
+   11. SCORING, SCOREBOARD, SCORE REPORT
+   Points per mission attempt (the best attempt counts):
+     10 per step · 100 for finishing · prediction 50 right / 15 for trying
+     25 for a written answer (15+ characters) · ground stop containment
+     bonus 150 minus 3 per second · clean change plan +100 · minus 10 per hint
+   Scoreboard backends, tried in order:
+     1. the published Claude page's shared store (db + user capabilities)
+     2. a class server (server/ in the repo, e.g. Docker on the teacher's Mac)
+     3. this device only
+   ======================================================================== */
+const POINTS = {step: 10, finish: 100, predRight: 50, predTry: 15, answer: 25, containMax: 150, containPerSec: 3, plan: 100, hint: 10};
+let best = storeGet("best", {plain: {}, full: {}});
+function attempt() {
+  const m = track()[S.mission]; const steps = m.steps.filter((s, k) => S.stepDone[k]).length;
+  const r = {title: m.title, steps, of: m.steps.length, complete: steps === m.steps.length, pred: S.predResult || null, hints: S.hints,
+    answer: (S.ansLen || 0) >= 15, contain: S.containS ?? null, plan: !!S.seen.planRun};
+  let p = POINTS.step * steps + (r.complete ? POINTS.finish : 0) + (r.pred ? (r.pred === "right" ? POINTS.predRight : POINTS.predTry) : 0)
+    + (r.answer ? POINTS.answer : 0) + (r.contain != null ? Math.max(0, POINTS.containMax - POINTS.containPerSec * r.contain) : 0) + (r.plan ? POINTS.plan : 0) - POINTS.hint * r.hints;
+  r.pts = Math.max(0, Math.round(p)); return r;
+}
+function totals() {
+  let total = 0, done = 0, contain = null;
+  for (const tk of ["plain", "full"]) for (const r of Object.values(best[tk] || {})) { total += r.pts; if (r.complete) done++; if (r.contain != null) contain = contain == null ? r.contain : Math.min(contain, r.contain); }
+  return {total, done, contain};
+}
+let shownScore = 0;
+function scoreTick() {
+  const a = attempt(), tk = trackKey(), cur = best[tk][S.mission];
+  if (!cur || a.pts > cur.pts) { best[tk][S.mission] = a; storeSet("best", best); }
+  const t = totals(); if (t.total !== shownScore) { shownScore = t.total; $("scoreV").textContent = t.total.toLocaleString(); queuePost(); }
+}
+
+/* ---- scoreboard */
+const Board = {kind: "local", rows: [], me: null, names: {}, isOwner: false, note: ""};
+let postTimer = null, posting = false, lastPosted = "";
+function queuePost() { clearTimeout(postTimer); postTimer = setTimeout(postScore, 1500); }
+async function postScore() {
+  if (posting) return queuePost(); const t = totals(); const body = {total: t.total, done: t.done, contain: t.contain};
+  const key = JSON.stringify(body); if (key === lastPosted || Board.kind === "local") return;
+  posting = true;
+  try {
+    if (Board.kind === "claude") await Board.db.doc("scores/" + Board.me).set({...body, updated: Date.now()});
+    else if (Board.kind === "server") { const name = storeGet("bname", ""); if (!name) { posting = false; renderBoard(); return; }
+      const r = await fetch("./api/scores", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({id: Board.me, name, ...body})});
+      if (!r.ok) throw new Error("server " + r.status); pollServer(); }
+    lastPosted = key; Board.note = "";
+  } catch (e) {
+    Board.note = Board.kind === "claude" ? "Your score couldn't be posted. Ask your teacher to give you Contributor access to this page." : "The class server didn't accept your score. Check the connection.";
+  }
+  posting = false; renderBoard();
+}
+async function initBoard() {
+  if (window.claude && typeof window.claude.use === "function") {
+    try {
+      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+      if (db && user) { const me = await user.me();
+        if (me.id) { Object.assign(Board, {kind: "claude", db, user, me: me.id, isOwner: me.isOwner});
+          let loaded = false; const timer = setTimeout(() => { if (!loaded) { Board.note = "The scoreboard can't be reached yet."; renderBoard(); } }, 10000);
+          db.collection("scores").orderBy("total", "desc").limit(100).onSnapshot(snap => {
+            if (!snap.metadata.fromCache) { loaded = true; clearTimeout(timer); if (Board.note.startsWith("The scoreboard can't")) Board.note = ""; }
+            Board.rows = snap.docs.filter(d => d.exists).map(d => ({id: d.id, ...d.data()})); renderBoard(); },
+            () => { clearTimeout(timer); Board.note = "The scoreboard stopped updating. Reload the page to reconnect."; renderBoard(); });
+          renderBoard(); queuePost(); return; } }
+    } catch {}
+  }
+  if (location.protocol.startsWith("http")) try {
+    const r = await fetch("./api/scores", {cache: "no-store"});
+    if (r.ok && (r.headers.get("content-type") || "").includes("json")) {
+      let id = storeGet("sid", null); if (!id) { id = "s" + Math.random().toString(36).slice(2, 12); storeSet("sid", id); }
+      Object.assign(Board, {kind: "server", me: id}); Board.rows = await r.json(); renderBoard(); setInterval(pollServer, 5000); queuePost(); return;
+    }
+  } catch {}
+  Board.kind = "local"; renderBoard();
+}
+async function pollServer() { try { const r = await fetch("./api/scores", {cache: "no-store"}); if (r.ok) { Board.rows = await r.json(); renderBoard(); } } catch {} }
+const shortName = n => { const p = (n || "").trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : (p[0] || ""); };
+async function nameFor(row) {
+  if (Board.kind === "server") return row.name || "Student";
+  if (Board.kind === "claude") { if (!(row.id in Board.names)) { try { const ps = await Board.user.profiles([row.id]); Board.names[row.id] = shortName(ps[row.id] && ps[row.id].name); } catch { Board.names[row.id] = ""; } }
+    return Board.names[row.id] || "Student"; }
+  return "You";
+}
+let boardRendering = false, boardAgain = false, clearArm = 0;
+async function renderBoard() {
+  if (boardRendering) { boardAgain = true; return; } boardRendering = true;
+  const body = $("boardBody"), mode = $("boardMode");
+  mode.textContent = {claude: "Live", server: "Live · class server", local: "This device only"}[Board.kind];
+  const t = totals(); let rows = Board.rows.slice();
+  if (Board.kind === "local") rows = [{id: "me", total: t.total, done: t.done, contain: t.contain}];
+  if (Board.me && !rows.some(r => r.id === Board.me)) rows.push({id: Board.me, total: t.total, done: t.done, contain: t.contain});
+  rows.forEach(r => { if (r.id === Board.me) Object.assign(r, {total: t.total, done: t.done, contain: t.contain}); });
+  rows.sort((a, b) => (b.total || 0) - (a.total || 0));
+  const myRank = rows.findIndex(r => r.id === Board.me || r.id === "me") + 1;
+  const top = rows.slice(0, 10); if (myRank > 10) top.push(rows[myRank - 1]);
+  const ol = document.createElement("ol");
+  for (const r of top) {
+    const li = document.createElement("li"); if (r.id === Board.me || r.id === "me") li.className = "me";
+    const rk = document.createElement("span"); rk.className = "rk"; rk.textContent = rows.indexOf(r) + 1;
+    const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = (r.id === Board.me && Board.kind !== "local") ? `${await nameFor(r)} (you)` : await nameFor(r);
+    const sm = document.createElement("small"); sm.textContent = `${r.done || 0} missions${r.contain != null ? ` · contained in ${r.contain} s` : ""}`; nm.appendChild(sm);
+    const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = (r.total || 0).toLocaleString();
+    li.append(rk, nm, pts); ol.appendChild(li);
+  }
+  body.replaceChildren(ol);
+  if (Board.kind === "server" && !storeGet("bname", "")) {
+    const wrap = document.createElement("div"); wrap.innerHTML = `<label class="muted" for="bname">Your name on the board (first name and last initial)</label><input id="bname" maxlength="24" autocomplete="off">`;
+    body.prepend(wrap); const inp = wrap.querySelector("input");
+    inp.addEventListener("change", () => { const v = inp.value.trim().slice(0, 24); if (v) { storeSet("bname", v); lastPosted = ""; postScore(); } });
+  }
+  if (Board.kind === "local") { const p = document.createElement("p"); p.className = "muted";
+    p.textContent = "Scores are shared when this lab is opened from your teacher's published link or the class server."; body.appendChild(p); }
+  if (Board.note) { const p = document.createElement("p"); p.className = "muted"; p.style.color = "var(--crit)"; p.textContent = Board.note; body.appendChild(p); }
+  if (Board.kind === "claude" && Board.isOwner && Board.rows.length) {
+    const b = document.createElement("button"); b.textContent = clearArm > Date.now() ? "Click again to clear every score" : "Clear scoreboard (teacher)";
+    b.onclick = async () => { if (clearArm > Date.now()) { clearArm = 0; for (const r of Board.rows) { try { await Board.db.doc("scores/" + r.id).delete(); } catch {} } }
+      else { clearArm = Date.now() + 4000; setTimeout(renderBoard, 4100); } renderBoard(); };
+    body.appendChild(b);
+  }
+  boardRendering = false; if (boardAgain) { boardAgain = false; renderBoard(); }
+}
+
+/* ---- score report */
+function reportText(name) {
+  const t = totals(); const lines = [`El Dorado Storm Lab · score report`, `${name}`, `Total: ${t.total} points · ${t.done} missions complete${t.contain != null ? ` · best containment ${t.contain} s` : ""}`, ""];
+  for (const [tk, label, list] of [["full", "Student missions", TRACKS.full], ["plain", "Plain English story", TRACKS.plain]]) {
+    const rs = list.map((m, i) => [i, best[tk][i]]).filter(([, r]) => r); if (!rs.length) continue;
+    lines.push(label); for (const [i, r] of rs) lines.push(`  ${i + 1}. ${r.title}: ${r.pts} pts (${r.steps}/${r.of} steps${r.complete ? ", complete" : ""}${r.pred ? ", prediction " + r.pred : ""}${r.hints ? ", " + r.hints + " hints" : ""}${r.contain != null ? ", contained in " + r.contain + " s" : ""}${r.plan ? ", clean plan" : ""})`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+async function openReport() {
+  const t = totals(); let name = "You";
+  if (Board.kind === "claude") { try { const me = await Board.user.me(); name = me.name || "You"; } catch {} } else if (Board.kind === "server") name = storeGet("bname", "") || "You";
+  const rows = Board.kind === "local" ? [] : Board.rows; const rank = rows.length ? [...rows, {id: Board.me, total: t.total}].filter((r, i, a) => a.findIndex(x => x.id === r.id) === i).sort((a, b) => (b.total || 0) - (a.total || 0)).findIndex(r => r.id === Board.me) + 1 : 0;
+  const table = (tk, label, list) => { const rs = list.map((m, i) => [i, m, best[tk][i]]);
+    if (!rs.some(([, , r]) => r)) return "";
+    return `<h3>${label}</h3><div class="tbl"><table><thead><tr><th>${tk === "plain" ? "Chapter" : "Mission"}</th><th class="n">Steps</th><th>Prediction</th><th class="n">Hints</th><th>Answer</th><th>Bonus</th><th class="n">Points</th></tr></thead><tbody>
+      ${rs.map(([i, m, r]) => r ? `<tr><td>${i + 1}. ${m.title}${r.complete ? " ✓" : ""}</td><td class="n">${r.steps}/${r.of}</td><td>${r.pred === "right" ? "✓ right" : r.pred === "wrong" ? "tried" : "—"}</td><td class="n">${r.hints}</td><td>${r.answer ? "✓" : "—"}</td><td>${r.contain != null ? `contained in ${r.contain} s` : r.plan ? "clean plan" : "—"}</td><td class="n">${r.pts}</td></tr>`
+        : `<tr><td>${i + 1}. ${m.title}</td><td class="n">—</td><td>—</td><td class="n">—</td><td>—</td><td>—</td><td class="n">0</td></tr>`).join("")}</tbody></table></div>`; };
+  const sheet = $("reportSheet");
+  sheet.innerHTML = `<div class="head"><div><h3>Score report</h3><h2 id="reportTitle"></h2></div><div style="text-align:right"><div class="big">${t.total.toLocaleString()}</div><span class="muted">points${rank ? ` · rank ${rank} of ${Math.max(rank, rows.length)}` : ""}</span></div></div>
+    <dl class="kv" style="max-width:420px"><dt>Missions complete</dt><dd>${t.done}</dd><dt>Best ground stop containment</dt><dd>${t.contain != null ? t.contain + " s" : "—"}</dd></dl>
+    ${table("full", "Student missions", TRACKS.full)}${table("plain", "Plain English story", TRACKS.plain)}
+    <p class="rules">How points work: 10 per step · 100 for finishing a mission · predictions 50 if right, 15 for committing · 25 for a written answer · up to 150 for containing the ground stop fast (minus 3 per second) · 100 for a clean change plan · minus 10 per hint. Your best attempt at each mission counts.</p>
+    <div class="mrow"><button class="primary" id="copyReport">Copy report</button><button id="closeReport">Close</button></div>
+    <textarea id="reportText" readonly hidden></textarea>`;
+  $("reportTitle").textContent = name;
+  const txt = reportText(name);
+  $("copyReport").onclick = () => { const ta = $("reportText");
+    navigator.clipboard?.writeText(txt).then(() => { $("copyReport").textContent = "Copied"; }, () => { ta.hidden = false; ta.value = txt; ta.select(); $("copyReport").textContent = "Select the text and copy it"; })
+      ?? (ta.hidden = false, ta.value = txt, ta.select()); };
+  $("closeReport").onclick = closeReport; $("report").hidden = false; $("closeReport").focus();
+}
+function closeReport() { $("report").hidden = true; $("reportBtn").focus(); }
+$("reportBtn").onclick = openReport;
+$("report").addEventListener("click", e => { if (e.target.id === "report") closeReport(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("report").hidden) closeReport(); });
+setInterval(scoreTick, 500);
+shownScore = -1; scoreTick();
+initBoard();
 </script>

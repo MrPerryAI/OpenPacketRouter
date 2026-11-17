@@ -1,0 +1,14 @@
+services:
+  storm-lab:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # Set this to clear the scoreboard with:
+      #   curl -X DELETE "http://localhost:8080/api/scores?key=YOUR_KEY"
+      TEACHER_KEY: ${TEACHER_KEY:-}
+    volumes:
+      - scores:/data
+    restart: unless-stopped
+volumes:
+  scores:
