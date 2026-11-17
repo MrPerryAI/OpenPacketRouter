@@ -1,0 +1,77 @@
+{
+  "overhead_ms_per_hop": 0.18237508641053587,
+  "1-baseline": {
+    "regime": "TREE",
+    "rho": 0.0,
+    "kernel_frames": 11,
+    "drops": 0,
+    "ignored_other_frames": 10,
+    "predicted_copies": 11,
+    "ok": true
+  },
+  "5-hardened": {
+    "regime": "TREE",
+    "rho": 0.0,
+    "kernel_frames": 12,
+    "drops": 0,
+    "ignored_other_frames": 4,
+    "predicted_copies": 12,
+    "ok": true
+  },
+  "4a-xconAB-core-sees": {
+    "regime": "CIRCULATING",
+    "rho": 1.0,
+    "kernel_frames": 9108,
+    "drops": 0,
+    "ignored_other_frames": 14,
+    "cables_compared": 15,
+    "worst_rel_error": 0.036958829256187056,
+    "ok": true
+  },
+  "6-routed-rebreak": {
+    "regime": "CIRCULATING",
+    "rho": 1.0,
+    "kernel_frames": 2823,
+    "drops": 0,
+    "ignored_other_frames": 4,
+    "cables_compared": 6,
+    "worst_rel_error": 0.036958829256187056,
+    "ok": true
+  },
+  "4b-xconAB-core-blind": {
+    "regime": "AMPLIFYING",
+    "rho": 1.5436890126920761,
+    "kernel_frames": 131942,
+    "drops": 80300,
+    "ignored_other_frames": 8,
+    "window_ms": [
+      17.885250000063024,
+      44.91496900004677
+    ],
+    "predicted_doubling_ms": 5.939971945700045,
+    "simulator_window_doubling_ms": 5.516271351002691,
+    "kernel_doubling_ms": 5.495866323976147,
+    "rel_error_vs_math": 0.07476560929641886,
+    "rel_error_vs_simulator": 0.0036990615087916013,
+    "relay_max_late_ms": 0.47757900006217824,
+    "ok": true
+  },
+  "7-core-stp-off": {
+    "regime": "AMPLIFYING",
+    "rho": 1.5213797068045651,
+    "kernel_frames": 180654,
+    "drops": 61976,
+    "ignored_other_frames": 2,
+    "window_ms": [
+      17.468821000079515,
+      77.43321400005243
+    ],
+    "predicted_doubling_ms": 10.721233820041348,
+    "simulator_window_doubling_ms": 10.166903951441785,
+    "kernel_doubling_ms": 10.18919303982787,
+    "rel_error_vs_math": 0.04962495820387081,
+    "rel_error_vs_simulator": 0.002192318181871291,
+    "relay_max_late_ms": 0.4562729999406656,
+    "ok": true
+  }
+}

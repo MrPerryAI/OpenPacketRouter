@@ -9,7 +9,7 @@ Today's tools force a choice. **Packet Tracer** is easy, but it only imitates Ci
 | Path | What it is |
 |---|---|
 | [`web/index.html`](web/index.html) | **El Dorado Storm Lab.** A single-file, browser-based lab on the Nov 13, 2026 FAA ground stop, with three audience modes: Plain English (a 4-chapter story), Student (8 guided missions with self-checking steps, hints, glossary, predictions and a coach) and Engineer. Uses the HTML-in-Canvas API (Edge/Chrome 157+) to paint real HTML device cards into the animated map; other browsers get a simpler fallback. |
-| [`poc/storm-math/`](poc/storm-math/) | **Proof of concept #1.** Predicts broadcast storms from the network layout alone, checked against an independent packet simulator. |
+| [`poc/storm-math/`](poc/storm-math/) | **Proofs of concept #1 and #2.** Predicts broadcast storms from the network layout alone. Checked against an independent packet simulator (#1) and against real Linux kernel bridges (#2). |
 | [`docs/vision.md`](docs/vision.md) | Design ideas: multiple detail levels, storm math, graceful-restart handoff, Git-style shared state, and vendor quirk layers. |
 
 ## Proof of concept #1: storm math

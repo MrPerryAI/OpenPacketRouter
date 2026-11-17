@@ -9,7 +9,7 @@ Nov 13, 2026 FAA ground stop) and the storm-math proof of concept. See README.md
   `server/server.js` add `<!doctype html>…`), so open it through the server, not as a file, when testing layout.
 - `web/src/20-engine.js` — spanning tree + storm math. Must stay in agreement with `poc/storm-math`
   (`tests/test_parity.py` enforces it).
-- `poc/storm-math/` — Python proof of concept, validated against an independent packet simulator.
+- `poc/storm-math/` — Python proofs of concept: validated against an independent packet simulator and against real Linux kernel bridges (`sudo python3 run_kernel.py`).
 - `server/` + `Dockerfile` + `compose.yaml` — class server (lab + shared scoreboard), no dependencies.
 
 ## Checks (all must pass before pushing)

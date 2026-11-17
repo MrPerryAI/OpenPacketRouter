@@ -56,9 +56,34 @@ Full table: [`results/results-table.md`](results/results-table.md). The hotspot 
 4. **Long-run growth predictions need time to settle when loops run at very different speeds.** Here, a 25 µs local loop sits inside a 16 ms national loop. The first ~20 ms don't follow the long-run rate (Figure 2). A full detail-level system would need the short-term solution too, or a quick look-ahead simulation for that window.
 5. **A bug was caught by the comparison testing itself.** The first version weighted delays on the wrong side of the matrix. Growth rates still matched, because the spectral radius is unaffected, but the hotspot shares were off by 15 points until the simulator exposed it. This is the argument for building differential testing in from day one.
 
+## Proof of concept #2: real Linux kernel bridges
+
+`run_kernel.py` builds each lab scenario out of **real Linux bridges** (the kernel's own switching code, spanning tree off) inside a throwaway network namespace. A small relay emulates the cables with fixed delays and times every frame. One ARP broadcast is injected, and the kernel makes every flooding decision.
+
+```bash
+sudo python3 run_kernel.py
+```
+
+The math gets the same cable delays plus the per-hop overhead measured on a loop-free run (about 0.1–0.2 ms for kernel plus relay). Latest results ([`results/kernel-results.md`](results/kernel-results.md)):
+
+| Scenario | Math | Linux kernel bridges |
+|---|---|---|
+| Healthy network | 11 copies | 11 copies, every host once |
+| Hardened | 12 copies | 12 copies, every host once |
+| El Dorado loop, core blocks the big loop | circulating at a fixed rate | within 3.7% on all 15 cables |
+| Routed redesign, mistake re-made | storm trapped in El Dorado | within 3.7% on El Dorado's 6 cables |
+| El Dorado loop, core blind | doubling every 5.5 ms (simulator, same window) | 5.5 ms |
+| Core spanning tree off | doubling every 10.2 ms (simulator, same window) | 10.2 ms |
+
+Notes:
+- Kernel-run cables use the lab's long-haul delays, but local patches are 2 ms instead of microseconds, because a Python relay can't time microseconds. The math is given the same delays.
+- Storm growth is only measured until the first cable fills (60 frames in flight). After that, growth is capped by capacity, which is the expected physical limit. The relay delivered every frame within 0.5 ms of schedule in that window.
+- Early storm growth is still settling toward its long-run rate, so the kernel is compared with the packet simulator over the same time window (0% difference) as well as with the long-run math (5–7%).
+- The opt-in test is `sudo RUN_KERNEL_TESTS=1 python3 -m pytest -q tests/test_kernel.py`.
+
 ## What this does *not* show
 
-- **Real switches.** Both the math and the simulator are models. The next step is to compare against real Linux bridge or Open vSwitch software and, eventually, vendor images.
+- **Real switches, beyond Linux.** Proof of concept #2 checked real Linux bridges. Open vSwitch and vendor images are still untested.
 - **Spanning tree behavior.** Which ports block is an input here, not computed. A real STP model, including how STP-disabled switches pass BPDUs, would feed the math automatically.
 - **Network numbers.** Link delays and speeds are illustrative, not FAA data. Only one VLAN is modeled.
 - **The real FAA cause.** It's still under investigation and may not have been a Layer 2 broadcast storm at all.
