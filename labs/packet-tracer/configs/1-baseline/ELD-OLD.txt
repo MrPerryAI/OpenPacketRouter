@@ -1,0 +1,34 @@
+! ============================================================
+! ELD-OLD  (Packet Tracer model: 2960-24TT)
+! Role: El Dorado, AR remote radio site - LEGACY edge device
+!       Single uplink over the old copper circuit to ZME-SW.
+! Paste into the CLI tab, starting at the "Switch>" prompt.
+! ============================================================
+enable
+configure terminal
+hostname ELD-OLD
+no ip domain-lookup
+banner motd # EL DORADO RADIO SITE (legacy copper) - Authorized access only #
+!
+vlan 100
+ name SURVEILLANCE
+vlan 200
+ name VOICE
+exit
+!
+! LATENT CONDITION: years ago someone decided "this site only has one
+! uplink, so a loop is impossible" and turned spanning tree off.
+no spanning-tree vlan 1
+no spanning-tree vlan 100
+no spanning-tree vlan 200
+!
+interface FastEthernet0/1
+ description UPLINK - legacy copper to ZME-SW Fa0/4
+ switchport mode trunk
+!
+interface FastEthernet0/10
+ description ELD-RADIO (radio/voice gateway)
+ switchport mode access
+ switchport access vlan 200
+end
+write memory

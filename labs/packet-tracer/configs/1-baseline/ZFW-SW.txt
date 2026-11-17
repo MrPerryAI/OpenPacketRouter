@@ -1,0 +1,40 @@
+! ============================================================
+! ZFW-SW  (Packet Tracer model: 2960-24TT)
+! Role: FORT WORTH CENTER (ZFW)
+! Paste into the CLI tab, starting at the "Switch>" prompt.
+! ============================================================
+enable
+configure terminal
+hostname ZFW-SW
+no ip domain-lookup
+banner motd # FORT WORTH CENTER (ZFW) - Authorized access only #
+!
+vlan 100
+ name SURVEILLANCE
+vlan 200
+ name VOICE
+exit
+!
+spanning-tree mode rapid-pvst
+!
+interface FastEthernet0/1
+ description TRUNK to NOC-SW (primary path)
+ switchport mode trunk
+interface FastEthernet0/2
+ description TRUNK to ZME-SW (backup path)
+ switchport mode trunk
+!
+interface FastEthernet0/10
+ description ZFW-RADAR display (surveillance)
+ switchport mode access
+ switchport access vlan 100
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface FastEthernet0/11
+ description ZFW-VOICE position (radio/voice)
+ switchport mode access
+ switchport access vlan 200
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory

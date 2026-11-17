@@ -1,0 +1,24 @@
+! ============================================================
+! AMA-SW - HARDENING (Part 3, step 3)
+! Turn loop protection back on and guard the host ports.
+! ============================================================
+enable
+configure terminal
+spanning-tree mode rapid-pvst
+spanning-tree vlan 1
+spanning-tree vlan 100
+spanning-tree vlan 200
+!
+! Host-facing ports: come up fast, but shut down instantly if a
+! switch (or a loop) ever shows up on them.
+interface range FastEthernet0/2 - 22
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+!
+! On real Cisco hardware you would also cap broadcast traffic.
+! Packet Tracer may reject this command, so it is commented out:
+!   interface range FastEthernet0/1 - 24
+!    storm-control broadcast level 1.00
+!    storm-control action shutdown
+end
+write memory

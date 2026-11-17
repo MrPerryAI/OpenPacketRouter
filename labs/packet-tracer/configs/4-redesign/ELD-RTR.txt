@@ -1,0 +1,28 @@
+! ============================================================
+! ELD-RTR  (Packet Tracer model: 2911 router)
+! Role: El Dorado ROUTED edge. A router does not forward broadcasts,
+!       so whatever happens on the site LAN stays on the site LAN.
+! Paste into the CLI tab, starting at the "Router>" prompt
+! (answer "no" to the initial configuration dialog first).
+! ============================================================
+enable
+configure terminal
+hostname ELD-RTR
+no ip domain-lookup
+banner motd # EL DORADO RADIO SITE - ROUTED EDGE - Authorized access only #
+!
+interface GigabitEthernet0/0
+ description FTI side - VOICE network (to ZME-SW Fa0/4)
+ ip address 10.200.0.20 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/1
+ description El Dorado site LAN (to ELD-NEW Gi0/1)
+ ip address 172.16.20.1 255.255.255.0
+ no shutdown
+!
+! Note: "no ip directed-broadcast" is the IOS default. It stops a router
+! from turning a packet sent to 172.16.20.255 into a LAN-wide broadcast.
+! Compare this to the FAA disabling the "broadcast function" on its routers.
+end
+write memory

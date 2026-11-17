@@ -1,0 +1,46 @@
+! ============================================================
+! ZME-SW  (Packet Tracer model: 2960-24TT)
+! Role: MEMPHIS CENTER (ZME)
+! Paste into the CLI tab, starting at the "Switch>" prompt.
+! ============================================================
+enable
+configure terminal
+hostname ZME-SW
+no ip domain-lookup
+banner motd # MEMPHIS CENTER (ZME) - Authorized access only #
+!
+vlan 100
+ name SURVEILLANCE
+vlan 200
+ name VOICE
+exit
+!
+spanning-tree mode rapid-pvst
+!
+interface FastEthernet0/1
+ description TRUNK to NOC-SW (primary path)
+ switchport mode trunk
+interface FastEthernet0/2
+ description TRUNK to ZFW-SW (backup path)
+ switchport mode trunk
+interface FastEthernet0/3
+ description TRUNK to ZAB-SW (backup path)
+ switchport mode trunk
+interface FastEthernet0/4
+ description TRUNK to ELD-OLD (El Dorado - legacy copper)
+ switchport mode trunk
+!
+interface FastEthernet0/10
+ description ZME-RADAR display (surveillance)
+ switchport mode access
+ switchport access vlan 100
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+interface FastEthernet0/11
+ description ZME-VOICE position (radio/voice)
+ switchport mode access
+ switchport access vlan 200
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+end
+write memory

@@ -1,0 +1,13 @@
+! ============================================================
+! Part 4 - the "prove it" test
+! Re-create the ORIGINAL mistake inside El Dorado on purpose.
+! If the redesign works, the storm stays inside El Dorado and
+! every Center keeps working.
+! Paste on BOTH ELD-NEW and ELD-OLD.
+! ============================================================
+enable
+configure terminal
+no spanning-tree vlan 1
+no spanning-tree vlan 100
+no spanning-tree vlan 200
+end

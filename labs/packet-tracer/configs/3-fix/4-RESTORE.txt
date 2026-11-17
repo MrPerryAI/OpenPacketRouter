@@ -1,0 +1,23 @@
+! ============================================================
+! STEP 4 - RESTORE (only after hardening is verified)
+! Bring El Dorado back ONE path at a time and test between steps.
+! This is your "lifting the ground stop" moment.
+! ============================================================
+!
+! ---- On NOC-SW (the new fiber path first) ----
+enable
+configure terminal
+interface GigabitEthernet0/1
+ description UPLINK - El Dorado fiber
+ no shutdown
+end
+!   -> Test now: ping ELD-RADIO from ZFW-VOICE. Check show spanning-tree.
+!
+! ---- On ZME-SW (the old copper path, if still needed) ----
+enable
+configure terminal
+interface FastEthernet0/4
+ description TRUNK to ELD-OLD (El Dorado - legacy copper)
+ no shutdown
+end
+!   -> Test again. Which port did spanning tree block this time?

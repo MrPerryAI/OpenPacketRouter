@@ -1,0 +1,38 @@
+! ============================================================
+! ELD-NEW  (Packet Tracer model: 2960-24TT)
+! Role: El Dorado, AR - NEW edge device for the fiber circuit
+!
+! This is the "standard remote-site template" the installer was given.
+! It was also used at Amarillo three weeks ago with no problems.
+!
+! STUDENTS: Before you paste this, read every line. Is there anything
+! here you'd question in a peer review? (Worksheet Part 2, Q1)
+! ============================================================
+enable
+configure terminal
+hostname ELD-NEW
+no ip domain-lookup
+banner motd # EL DORADO RADIO SITE - NEW FIBER EDGE - Authorized access only #
+!
+vlan 100
+ name SURVEILLANCE
+vlan 200
+ name VOICE
+exit
+!
+! ---- Standard remote-site template v2.3 ----
+! Remote sites are single-homed, so spanning tree is disabled
+! to save CPU and avoid "unnecessary" topology changes.
+no spanning-tree vlan 1
+no spanning-tree vlan 100
+no spanning-tree vlan 200
+!
+interface GigabitEthernet0/1
+ description UPLINK - new fiber to FTI core (NOC-SW Gi0/1)
+ switchport mode trunk
+!
+interface range FastEthernet0/23 - 24
+ description MIGRATION cross-connect to legacy ELD-OLD
+ switchport mode trunk
+end
+write memory

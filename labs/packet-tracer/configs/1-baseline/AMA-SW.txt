@@ -1,0 +1,35 @@
+! ============================================================
+! AMA-SW  (Packet Tracer model: 2960-24TT)
+! Role: Amarillo, TX remote radar site.
+!       Upgraded THREE WEEKS AGO using the same "standard remote-site
+!       template" that will be used at El Dorado. No problems so far...
+! Paste into the CLI tab, starting at the "Switch>" prompt.
+! ============================================================
+enable
+configure terminal
+hostname AMA-SW
+no ip domain-lookup
+banner motd # AMARILLO RADAR SITE - Authorized access only #
+!
+vlan 100
+ name SURVEILLANCE
+vlan 200
+ name VOICE
+exit
+!
+! ---- Standard remote-site template v2.3 ----
+! Remote sites are single-homed, so spanning tree is disabled.
+no spanning-tree vlan 1
+no spanning-tree vlan 100
+no spanning-tree vlan 200
+!
+interface FastEthernet0/1
+ description UPLINK to ZAB-SW Fa0/4
+ switchport mode trunk
+!
+interface FastEthernet0/10
+ description AMA-RADAR (radar data feed)
+ switchport mode access
+ switchport access vlan 100
+end
+write memory

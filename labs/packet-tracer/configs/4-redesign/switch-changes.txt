@@ -1,0 +1,45 @@
+! ============================================================
+! Part 4 - switch changes for the routed design
+! Do the CABLE changes in the lab handout first.
+! ============================================================
+!
+! ---- On ZME-SW: Fa0/4 now goes to a router, not a switch ----
+enable
+configure terminal
+interface FastEthernet0/4
+ description ROUTED EDGE - ELD-RTR Gi0/0
+ switchport mode access
+ switchport access vlan 200
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+ no shutdown
+end
+write memory
+!
+! ---- On NOC-SW: the direct fiber trunk to El Dorado is retired ----
+enable
+configure terminal
+interface GigabitEthernet0/1
+ description UNUSED - El Dorado now reached via ELD-RTR
+ shutdown
+end
+write memory
+!
+! ---- On ELD-NEW: uplink now goes to the site router ----
+enable
+configure terminal
+interface GigabitEthernet0/1
+ description UPLINK - ELD-RTR Gi0/1 (routed edge)
+ switchport mode access
+ switchport access vlan 200
+end
+write memory
+!
+! ---- On ELD-OLD: old copper uplink is no longer cabled ----
+enable
+configure terminal
+interface FastEthernet0/1
+ description UNUSED - legacy copper decommissioned
+ shutdown
+end
+write memory

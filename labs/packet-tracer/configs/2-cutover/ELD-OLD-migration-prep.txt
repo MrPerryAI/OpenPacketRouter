@@ -1,0 +1,12 @@
+! ============================================================
+! ELD-OLD - migration prep (from the cutover work order, step 3)
+! Opens two ports so the new device can be cross-connected to
+! the legacy device while services move over.
+! ============================================================
+enable
+configure terminal
+interface range FastEthernet0/23 - 24
+ description MIGRATION cross-connect to ELD-NEW
+ switchport mode trunk
+end
+write memory

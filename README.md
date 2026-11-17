@@ -12,6 +12,8 @@ Today's tools force a choice. **Packet Tracer** is easy, but it only imitates Ci
 | [`poc/storm-math/`](poc/storm-math/) | **Proofs of concept #1 and #2.** Predicts broadcast storms from the network layout alone. Checked against an independent packet simulator (#1) and against real Linux kernel bridges (#2). |
 | [`engine/`](engine/) | **The engine.** Packet-level simulator with learning switches, routers, clients and servers (ARP, IPv4, ICMP, UDP, DNS), and a plain-English reason for every decision. |
 | [`validate/l3/`](validate/l3/) | **Proof of concept #3.** The engine vs real Linux routers, clients and servers: 12 of 12 actions match frame for frame, cable by cable ([results](validate/l3/results.md)). |
+| [`labs/packet-tracer/`](labs/packet-tracer/) | Archived Packet Tracer lab for the same event: handouts, paste-in CLI configs, PTBuilder build scripts, worksheet, teacher guide. |
+| [`docs/STATUS.md`](docs/STATUS.md) | Current state, decisions, and the engine roadmap. Start here. |
 | [`docs/vision.md`](docs/vision.md) | Design ideas: multiple detail levels, storm math, graceful-restart handoff, Git-style shared state, and vendor quirk layers. |
 
 ## Proof of concept #1: storm math

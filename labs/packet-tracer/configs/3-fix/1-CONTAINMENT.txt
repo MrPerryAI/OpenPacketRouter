@@ -1,0 +1,22 @@
+! ============================================================
+! STEP 1 - CONTAIN: cut El Dorado off from the FTI core.
+! This is what the network operator did on Nov 13: block traffic
+! from the problem sites so everyone else can recover.
+! Trade-off: El Dorado's radio site is now OFF the network.
+! ============================================================
+!
+! ---- On NOC-SW ----
+enable
+configure terminal
+interface GigabitEthernet0/1
+ description CONTAINED - El Dorado fiber (incident)
+ shutdown
+end
+!
+! ---- On ZME-SW ----
+enable
+configure terminal
+interface FastEthernet0/4
+ description CONTAINED - El Dorado copper (incident)
+ shutdown
+end

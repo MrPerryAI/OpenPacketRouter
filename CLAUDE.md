@@ -1,7 +1,12 @@
 # OpenPacketRouter
 
-Open network simulator for teaching. Today it holds the El Dorado Storm Lab (a browser lab on the
-Nov 13, 2026 FAA ground stop) and the storm-math proof of concept. See README.md and docs/vision.md.
+Open network simulator for teaching. **Start every session by reading docs/STATUS.md** (state, decisions,
+roadmap). Vision: docs/vision.md.
+
+## Current focus
+- Work on the engine (`engine/`). Every new feature gets a frame-for-frame validation against real Linux
+  (see `validate/l3/`) before it counts as done.
+- The classroom lab (`web/`, `server/`, `labs/packet-tracer/`) is frozen: bug fixes only, and only when asked.
 
 ## Layout
 - `web/src/` — lab source. **Edit these, never `web/index.html`.** Rebuild with `python3 tools/build_web.py`.
