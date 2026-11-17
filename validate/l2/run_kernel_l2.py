@@ -44,6 +44,12 @@ TRAFFIC = ("ping", "traceroute", "dns", "udp")
 cs = lambda s: str(round(s * 100))   # seconds -> centiseconds (ip link bridge timers)
 
 
+def if_sysctls(ns, ifn):
+    """Per-interface settings, by path: interface names like eth0.10 contain dots."""
+    for path, val in ((f"ipv6/conf/{ifn}/disable_ipv6", 1), (f"ipv4/conf/{ifn}/send_redirects", 0), (f"ipv4/conf/{ifn}/rp_filter", 0)):
+        nsx(ns, "sh", "-c", f"[ -e /proc/sys/net/{path} ] && echo {val} > /proc/sys/net/{path} || [ {path[:4]} = ipv6 ]")
+
+
 class KernelL2:
     def __init__(self, spec, desc):
         self.spec, self.desc = spec, desc
@@ -73,7 +79,7 @@ class KernelL2:
             sh("ip", "link", "add", ta, "type", "veth", "peer", "name", tb)
             for tmp, ref in ((ta, a), (tb, b)):
                 node, ifn = ref.split(":"); ns = self.ns[node]
-                sh("ip", "link", "set", tmp, "netns", ns, "name", ifn); no_ipv6(ns, ifn)
+                sh("ip", "link", "set", tmp, "netns", ns, "name", ifn); if_sysctls(ns, ifn)
                 sh("ip", "-n", ns, "link", "set", "dev", ifn, "address", desc[node]["ifaces"][ifn]["mac"])
                 if kind[node] == "switch":
                     sh("ip", "-n", ns, "link", "set", "dev", ifn, "master", "br0")
@@ -84,7 +90,6 @@ class KernelL2:
                         for v in p["tagged"]: nsx(ns, "bridge", "vlan", "add", "dev", ifn, "vid", str(v))
                         for v in p["untagged"]: nsx(ns, "bridge", "vlan", "add", "dev", ifn, "vid", str(v), "untagged", *(["pvid"] if v == p["pvid"] else []))
                 sh("ip", "-n", ns, "link", "set", "dev", ifn, "up")
-                sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
             self.ifmap[tuple(a.split(":"))] = b
             self.ifmap[tuple(b.split(":"))] = a
         for n in spec["nodes"]:
@@ -92,8 +97,7 @@ class KernelL2:
             for ifn, i in desc[n["name"]]["ifaces"].items():
                 if "parent" in i:
                     sh("ip", "-n", ns, "link", "add", "link", i["parent"], "name", ifn, "type", "vlan", "id", str(i["vlan"]))
-                    no_ipv6(ns, ifn); sh("ip", "-n", ns, "link", "set", "dev", ifn, "up")
-                    sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
+                    if_sysctls(ns, ifn); sh("ip", "-n", ns, "link", "set", "dev", ifn, "up")
             for ifn, cidr in (n.get("ifaces") or {}).items():
                 if cidr: sh("ip", "-n", ns, "addr", "add", cidr, "dev", ifn)
             for dst, via in n.get("routes", []): sh("ip", "-n", ns, "route", "add", dst, "via", via)

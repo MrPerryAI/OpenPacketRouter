@@ -11,10 +11,10 @@
 | stp-triangle | 35s | ping PC-B → 10.0.0.3 | timeout | 3 frames on 1 cable directions | ✓ |
 | stp-triangle | 43s | ping PC-B → 10.0.0.3 | ok from 10.0.0.3 | 17 frames on 9 cable directions | ✓ |
 | stp-triangle | 47s | spanning-tree state | root 1000.020000000003; blocked: none | 9 ports compared | ✓ |
-| stp-ring | 12s | spanning-tree state | root 1000.020000000004; blocked: SW4:t1, SW4:up | 13 ports compared | ✗ |
+| stp-ring | 12s | spanning-tree state | root 1000.020000000004; blocked: SW4:t1, SW4:up | 13 ports compared | ✓ |
 | stp-ring | 12.5s | ping PC2 → 10.0.0.4 | ok from 10.0.0.4 | 25 frames on 15 cable directions | ✓ |
 | stp-ring | 14s | ping PC-HUB → 10.0.0.1 | ok from 10.0.0.1 | 22 frames on 14 cable directions | ✓ |
-| stp-ring | 24s | watch BPDUs for 8s | BPDUs on 10 cable directions | 40 BPDUs (count ±1), last one compared field by field | ✗ |
+| stp-ring | 24s | watch BPDUs for 8s | BPDUs on 10 cable directions | 40 BPDUs (count ±1), last one compared field by field | ✓ |
 | stp-ring | 33s | unplug SW1:right | — | — | ✓ |
 | stp-ring | 33.5s | ping PC2 → 10.0.0.1 | timeout | 21 frames on 7 cable directions | ✓ |
 | stp-ring | 44s | spanning-tree state | root 1000.020000000004; blocked: SW3:t2; SW4:t1 learning, SW4:up learning | 13 ports compared | ✓ |

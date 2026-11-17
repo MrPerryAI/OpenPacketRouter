@@ -27,7 +27,9 @@ net.counters;                                  // frames sent per cable directio
 const net = Network.fromSpec(JSON.parse(fs.readFileSync("../validate/l2/stp-ring.json")));
 net.runTo(12);                       // seconds since power-on: every switch starts STP at t = 0
 net.stpReport();                     // root, root port, and each port's role and state, per switch
+const before = net.snapshot();
 net.setLink("SW1:right", false);     // unplug a cable; both ends notice at once
+net.runTo(60);
 net.diff(before, "bpdus");           // BPDUs per cable direction (net.counters holds everything else)
 net.diff(before, "tagged");          // 802.1Q-tagged frames per "cable#vlan"
 ```
