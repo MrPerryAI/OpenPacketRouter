@@ -1,0 +1,14 @@
+[
+ {
+  "do": "ping",
+  "src": "ZFW-VOICE",
+  "dst": "172.16.20.10",
+  "timeout": 2
+ },
+ {
+  "do": "traceroute",
+  "src": "ZFW-VOICE",
+  "dst": "172.16.20.10",
+  "maxHops": 5
+ }
+]

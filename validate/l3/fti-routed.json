@@ -1,0 +1,30 @@
+{
+  "name": "FTI routed",
+  "about": "A routed model of the lab network. Four routers joined by point-to-point links; a learning switch at each site; controller clients, a DNS server at the NOC, and the El Dorado radio server. Delays in milliseconds.",
+  "nodes": [
+    {"name": "R-NOC", "kind": "router", "ifaces": {"lan": "10.0.0.1/24", "to-zfw": "10.255.1.1/30", "to-zme": "10.255.2.1/30"},
+     "routes": [["10.1.0.0/24", "10.255.1.2"], ["10.2.0.0/24", "10.255.2.2"], ["172.16.20.0/24", "10.255.2.2"], ["10.255.3.0/30", "10.255.2.2"]]},
+    {"name": "R-ZFW", "kind": "router", "ifaces": {"lan": "10.1.0.1/24", "to-noc": "10.255.1.2/30"}, "gw": "10.255.1.1"},
+    {"name": "R-ZME", "kind": "router", "ifaces": {"lan": "10.2.0.1/24", "to-noc": "10.255.2.2/30", "to-eld": "10.255.3.1/30"}, "gw": "10.255.2.1",
+     "routes": [["172.16.20.0/24", "10.255.3.2"]]},
+    {"name": "R-ELD", "kind": "router", "ifaces": {"lan": "172.16.20.1/24", "to-zme": "10.255.3.2/30"}, "gw": "10.255.3.1"},
+    {"name": "SW-NOC", "kind": "switch"},
+    {"name": "SW-ZFW", "kind": "switch"},
+    {"name": "SW-ZME", "kind": "switch"},
+    {"name": "SW-ELD", "kind": "switch"},
+    {"name": "DNS", "kind": "server", "ifaces": {"eth0": "10.0.0.53/24"}, "gw": "10.0.0.1",
+     "services": {"dns": {"eld-radio.fti": "172.16.20.10", "zfw-voice.fti": "10.1.0.10", "zme-voice.fti": "10.2.0.10"}}},
+    {"name": "NOC-MON", "kind": "host", "ifaces": {"eth0": "10.0.0.5/24"}, "gw": "10.0.0.1"},
+    {"name": "ZFW-VOICE", "kind": "host", "ifaces": {"eth0": "10.1.0.10/24"}, "gw": "10.1.0.1"},
+    {"name": "ZFW-RADAR", "kind": "host", "ifaces": {"eth0": "10.1.0.11/24"}, "gw": "10.1.0.1"},
+    {"name": "ZME-VOICE", "kind": "host", "ifaces": {"eth0": "10.2.0.10/24"}, "gw": "10.2.0.1"},
+    {"name": "ELD-RADIO", "kind": "server", "ifaces": {"eth0": "172.16.20.10/24"}, "gw": "172.16.20.1"}
+  ],
+  "links": [
+    ["R-NOC:to-zfw", "R-ZFW:to-noc", 4], ["R-NOC:to-zme", "R-ZME:to-noc", 6], ["R-ZME:to-eld", "R-ELD:to-zme", 3],
+    ["R-NOC:lan", "SW-NOC:p1", 1], ["DNS:eth0", "SW-NOC:p2", 1], ["NOC-MON:eth0", "SW-NOC:p3", 1],
+    ["R-ZFW:lan", "SW-ZFW:p1", 1], ["ZFW-VOICE:eth0", "SW-ZFW:p2", 1], ["ZFW-RADAR:eth0", "SW-ZFW:p3", 1],
+    ["R-ZME:lan", "SW-ZME:p1", 1], ["ZME-VOICE:eth0", "SW-ZME:p2", 1],
+    ["R-ELD:lan", "SW-ELD:p1", 1], ["ELD-RADIO:eth0", "SW-ELD:p2", 1]
+  ]
+}

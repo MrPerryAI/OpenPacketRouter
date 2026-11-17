@@ -1,0 +1,46 @@
+[
+ {
+  "do": "ping",
+  "src": "ZFW-VOICE",
+  "dst": "10.1.0.1"
+ },
+ {
+  "do": "ping",
+  "src": "ZFW-VOICE",
+  "dst": "10.1.0.11"
+ },
+ {
+  "do": "ping",
+  "src": "ZFW-VOICE",
+  "dst": "172.16.20.10"
+ },
+ {
+  "do": "ping",
+  "src": "ELD-RADIO",
+  "dst": "10.0.0.5"
+ },
+ {
+  "do": "traceroute",
+  "src": "ZFW-VOICE",
+  "dst": "172.16.20.10"
+ },
+ {
+  "do": "dns",
+  "src": "ZME-VOICE",
+  "server": "10.0.0.53",
+  "name": "eld-radio.fti"
+ },
+ {
+  "do": "udp",
+  "src": "ZME-VOICE",
+  "dst": "172.16.20.10",
+  "port": 9999
+ },
+ {
+  "do": "ping",
+  "src": "ZFW-VOICE",
+  "dst": "10.2.0.99",
+  "timeout": 5,
+  "settle": 2
+ }
+]

@@ -27,3 +27,8 @@ jobs:
           npm install
           npx playwright install --with-deps chromium
           node tests/web/smoke.mjs
+      - name: Engine unit tests
+        working-directory: engine
+        run: npm test
+      - name: Engine vs real Linux (frame for frame)
+        run: sudo env "PATH=$PATH" python3 validate/l3/run_kernel_l3.py
