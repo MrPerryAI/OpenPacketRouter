@@ -1,248 +1,283 @@
 <title>El Dorado Storm Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: an operations console. Left = mission briefing, centre = the FTI map
-   (aeronautical-chart styling), right = the storm-math readout. Stacks on phones. */
+/* Layout: a NOC wallboard. A dark status strip runs across the top (rho, verdict,
+   Centers, Zulu clock, ground stop). Below: the mission briefing on the left and
+   the network drawn as an aeronautical chart on the right, with readouts under it. */
 :root {
-  --bg: #eef2f5;          /* chart paper, cool */
-  --panel: #ffffff;
-  --ink: #13202b;
-  --ink2: #4b5965;
-  --line: #c6d0d8;
-  --accent: #1f5fbf;      /* aviation blue */
-  --magenta: #a8326f;     /* sectional-chart magenta: the "something changed" colour */
-  --chip: #e3e9ee;
-  --good: #0a8a0a; --warn: #b77900; --crit: #c73434;
-  --good-bg: #e2f3e2; --warn-bg: #fbf0d6; --crit-bg: #f8e1e1;
-  --load0: #86b6ef; --load1: #0d366b;
+  --bg: #e9eef1;            /* room */
+  --panel: #fbfcfc;         /* cards */
+  --chart: #f4f6ef;         /* sectional-chart paper, faint green */
+  --grid: #d3dccf;          /* graticule */
+  --ink: #12202b;
+  --ink2: #50606c;
+  --line: #c3cdd4;
+  --accent: #1f5fbf;        /* aviation blue: interface */
+  --magenta: #a8326f;       /* sectional magenta: changes, the El Dorado site */
+  --chip: #e1e8ec;
+  --strip: #0f1d29; --strip2: #1b2c3a; --strip-ink: #e8eef2; --strip-ink2: #93a7b6;
+  --storm0: #e8a7c8; --storm1: #7a1748;   /* storm load: one hue, light -> dark */
+  --good: #0a7d0a; --warn: #a86f00; --crit: #c23030;
+  --good-bg: #dff0df; --warn-bg: #f8ecd0; --crit-bg: #f7dede;
+  --s-good: #4cc34c; --s-warn: #fab219; --s-crit: #ff6b6b;   /* status on the dark strip */
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0c131a; --panel: #131d26; --ink: #e5ecf1; --ink2: #9cadba; --line: #2a3947;
-  --accent: #5b9cf0; --magenta: #e06aa8; --chip: #1c2a36;
-  --good: #3cc53c; --warn: #f1b43a; --crit: #ef6b6b;
-  --good-bg: #13301a; --warn-bg: #362a10; --crit-bg: #3a1a1a;
-  --load0: #2a4f80; --load1: #cde2fb; color-scheme: dark; } }
+  --bg: #0a1117; --panel: #111b23; --chart: #0e1a20; --grid: #1d2e33; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
+  --accent: #5d9ef0; --magenta: #e275ad; --chip: #1a2832;
+  --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
+  --storm0: #6b2a4c; --storm1: #ffb3d6;
+  --good: #46c046; --warn: #f1b43a; --crit: #ff7676; --good-bg: #13301a; --warn-bg: #382b10; --crit-bg: #3d1b1b;
+  color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #0c131a; --panel: #131d26; --ink: #e5ecf1; --ink2: #9cadba; --line: #2a3947;
-  --accent: #5b9cf0; --magenta: #e06aa8; --chip: #1c2a36;
-  --good: #3cc53c; --warn: #f1b43a; --crit: #ef6b6b;
-  --good-bg: #13301a; --warn-bg: #362a10; --crit-bg: #3a1a1a;
-  --load0: #2a4f80; --load1: #cde2fb; color-scheme: dark; }
+  --bg: #0a1117; --panel: #111b23; --chart: #0e1a20; --grid: #1d2e33; --ink: #e3eaee; --ink2: #93a5b2; --line: #263642;
+  --accent: #5d9ef0; --magenta: #e275ad; --chip: #1a2832;
+  --strip: #050b10; --strip2: #142230; --strip-ink: #e8eef2; --strip-ink2: #8ea2b1;
+  --storm0: #6b2a4c; --storm1: #ffb3d6;
+  --good: #46c046; --warn: #f1b43a; --crit: #ff7676; --good-bg: #13301a; --warn-bg: #382b10; --crit-bg: #3d1b1b;
+  color-scheme: dark; }
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 16px 32px; }
-h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; text-wrap: balance; margin: 0; }
-h1 { font-size: 30px; line-height: 1.05; }
-h2 { font-size: 22px; }
-h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink2); font-family: var(--body); font-weight: 600; }
+  padding-block: 14px 28px; }
+h1, h2 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; text-wrap: balance; margin: 0; }
+h2 { font-size: 26px; line-height: 1.1; }
+h3 { margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink2); font-weight: 600; }
 p { margin: 0; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; }
+button { font: inherit; font-size: 14px; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; }
 button:hover { border-color: var(--accent); }
 button:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
 button[aria-pressed="true"] { background: var(--chip); border-color: var(--accent); }
-select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
-textarea { width: 100%; min-height: 64px; resize: vertical; }
+select, textarea { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+textarea { width: 100%; min-height: 70px; resize: vertical; }
 
-header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; margin-bottom: 12px; }
-header.top .sub { color: var(--ink2); max-width: 70ch; }
-.zulu { font-family: var(--mono); color: var(--ink2); font-size: 13px; }
+/* ---------- status strip */
+.strip { background: var(--strip); color: var(--strip-ink); border-radius: 12px; padding: 12px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; margin-bottom: 14px; }
+.strip .brand { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+.strip h1 { font-size: 28px; line-height: 1; color: var(--strip-ink); }
+.strip .brand span { color: var(--strip-ink2); font-size: 12.5px; }
+.cell { display: flex; flex-direction: column; gap: 2px; }
+.cell .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em; color: var(--strip-ink2); font-weight: 600; }
+.rho { display: flex; align-items: baseline; gap: 6px; }
+.rho .v { font-family: var(--display); font-weight: 700; font-size: 44px; line-height: .9; font-variant-numeric: tabular-nums; }
+.rho .sym { font-family: var(--mono); color: var(--strip-ink2); font-size: 15px; }
+.verdict { display: inline-flex; gap: 6px; align-items: center; padding: 4px 11px; border-radius: 999px; font-weight: 600; font-size: 13.5px; border: 1px solid; white-space: nowrap; }
+.verdict.good { color: var(--s-good); border-color: var(--s-good); }
+.verdict.warn { color: var(--s-warn); border-color: var(--s-warn); }
+.verdict.crit { color: #fff; background: #b4232c; border-color: #b4232c; }
+.centers { display: flex; gap: 6px; flex-wrap: wrap; }
+.center { display: flex; flex-direction: column; padding: 4px 10px; border-radius: 6px; background: var(--strip2); min-width: 86px; border-left: 3px solid var(--s-good); }
+.center b { font-family: var(--mono); font-size: 13px; }
+.center span { font-size: 11.5px; font-weight: 600; color: var(--s-good); white-space: nowrap; }
+.center.warn { border-left-color: var(--s-warn); } .center.warn span { color: var(--s-warn); }
+.center.crit { border-left-color: var(--s-crit); } .center.crit span { color: var(--s-crit); }
+.zulu { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: .02em; }
+.groundstop { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .05em; padding: 4px 14px; border-radius: 6px; background: #b4232c; color: #fff; }
+.groundstop.lifted { background: transparent; border: 1px solid var(--s-good); color: var(--s-good); font-size: 17px; }
 
-.console { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(260px, 310px); gap: 12px; align-items: start; }
-@media (max-width: 1150px) { .console { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
-  .missions { grid-column: 1 / -1; } }
-@media (max-width: 760px) { .console { grid-template-columns: minmax(0, 1fr); } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+/* ---------- console */
+.console { display: grid; grid-template-columns: minmax(290px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1020px) { .console { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
 
 /* missions */
-.missions { display: flex; flex-direction: column; gap: 12px; }
-.mnav { display: flex; gap: 6px; flex-wrap: wrap; }
-.mnav button { padding: 4px 9px; font-family: var(--mono); font-size: 13px; }
-.mnav button.done { border-color: var(--good); }
-.mnav button.current { background: var(--accent); color: #fff; border-color: var(--accent); }
-.mission h2 { margin-bottom: 6px; }
-.mission .body { display: flex; flex-direction: column; gap: 8px; }
-.mission ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
-.goal { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--chip); font-size: 14px; }
-.goal.met { background: var(--good-bg); }
-.goal .tick { font-family: var(--mono); font-weight: 600; }
-.goal.met .tick { color: var(--good); }
-.q label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 4px; }
+.missions { display: flex; flex-direction: column; gap: 14px; position: sticky; top: env(safe-area-inset-top, 0px); }
+@media (max-width: 1020px) { .missions { position: static; } }
+.stepper { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.stepper button { padding: 0; height: 30px; font-family: var(--mono); font-size: 12px; border-radius: 4px; background: var(--chip); border-color: transparent; color: var(--ink2); }
+.stepper button.done { background: var(--good-bg); color: var(--good); }
+.stepper button.current { background: var(--accent); color: #fff; }
+.mission .num { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--magenta); letter-spacing: .08em; text-transform: uppercase; }
+.mission .body { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.mission ol, .mission ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.goal { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; border: 1px dashed var(--line); font-size: 14px; }
+.goal .tick { font-family: var(--mono); font-weight: 600; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--ink2); display: grid; place-items: center; flex: none; font-size: 12px; }
+.goal.met { border: 1px solid var(--good); background: var(--good-bg); }
+.goal.met .tick { background: var(--good); border-color: var(--good); color: #fff; }
+.goal .gl { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink2); font-weight: 600; display: block; }
+.q label { font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px; }
 .fact { font-size: 13px; color: var(--ink2); border-left: 3px solid var(--magenta); padding-left: 10px; }
+.mrow { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* map */
-.mapwrap { display: flex; flex-direction: column; gap: 10px; }
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); }
-.mapscroll { overflow-x: auto; border-radius: 8px; }
-svg.map { width: 100%; min-width: 640px; height: auto; display: block; background:
-  radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 1.5px) 0 0 / 28px 28px; border-radius: 8px; }
-.map .link { fill: none; stroke: var(--line); stroke-width: 3; cursor: pointer; }
-.map .link.absent { stroke-dasharray: 2 7; stroke-width: 2; stroke: var(--ink2); opacity: .55; }
-.map .link.shut { stroke-dasharray: 10 6; stroke: var(--ink2); opacity: .7; }
-.map .link.sel { stroke: var(--magenta) !important; opacity: 1; }
-.map .hit { fill: none; stroke: transparent; stroke-width: 18; cursor: pointer; }
-.map .flow { fill: none; stroke-width: 3; stroke-dasharray: 4 10; pointer-events: none; animation: flow .6s linear infinite; }
+/* stage */
+.stage { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.mapcard { padding: 0; overflow: hidden; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.toolbar .sep { width: 1px; height: 26px; background: var(--line); }
+.toolbar .muted { margin-right: -2px; }
+.mapscroll { overflow-x: auto; }
+.swipe { display: none; font-size: 12.5px; color: var(--ink2); padding: 8px 14px 0; }
+@media (max-width: 700px) { .swipe { display: block; } }
+svg.map { width: 100%; min-width: 660px; height: auto; display: block; background: var(--chart); }
+.map .grat { stroke: var(--grid); stroke-width: 1; }
+.map .gratlbl { fill: var(--ink2); font: 500 11px var(--mono); opacity: .8; }
+.map .site { fill: none; stroke: var(--magenta); stroke-width: 1.5; stroke-dasharray: 6 5; opacity: .8; }
+.map .sitelbl { fill: var(--magenta); font: 600 12px var(--body); letter-spacing: .08em; }
+.map .link { fill: none; stroke: var(--ink2); stroke-width: 2.5; opacity: .55; cursor: pointer; }
+.map .link.absent { stroke-dasharray: 1 7; stroke-linecap: round; stroke-width: 3; opacity: .7; }
+.map .link.shut { stroke-dasharray: 9 6; opacity: .45; }
+.map .link.sel { stroke: var(--accent) !important; opacity: 1; stroke-width: 4; }
+.map .hit { fill: none; stroke: transparent; stroke-width: 20; cursor: pointer; }
+.map .flow { fill: none; stroke-linecap: round; stroke-dasharray: 2 12; pointer-events: none; animation: flow .7s linear infinite; }
+.map .glow { fill: none; pointer-events: none; opacity: .28; }
 @keyframes flow { to { stroke-dashoffset: -14; } }
 @media (prefers-reduced-motion: reduce) { .map .flow { animation: none; } }
+.map text { paint-order: stroke; stroke: var(--chart); stroke-width: 4px; stroke-linejoin: round; }
 .map .dev { cursor: pointer; }
-.map .dev rect, .map .dev circle { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
-.map .dev.sel rect, .map .dev.sel circle { stroke: var(--magenta); stroke-width: 3; }
-.map .dev text { fill: var(--ink); font-family: var(--mono); font-size: 15px; font-weight: 500; pointer-events: none; }
-.map .dev .tag { fill: var(--ink2); font-size: 13px; font-weight: 400; font-family: var(--body); }
-.map .stpoff { fill: var(--magenta); font-family: var(--body); font-size: 12px; font-weight: 600; letter-spacing: .04em; }
+.map .dev .box { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.map .dev .ring { fill: none; stroke-width: 3; }
+.map .dev.sel .box { stroke: var(--accent); stroke-width: 3; }
+.map .dev .name { fill: var(--ink); font: 600 15px var(--mono); pointer-events: none; }
+.map .dev .tag { fill: var(--ink2); font: 400 12.5px var(--body); pointer-events: none; }
+.map .dev .tag.warn { fill: var(--warn); font-weight: 600; } .map .dev .tag.crit { fill: var(--crit); font-weight: 600; }
+.map .dev .hostc { fill: var(--panel); stroke: var(--ink2); stroke-width: 1.5; }
+.map .dev .glyph { fill: var(--ink2); font: 600 10px var(--mono); stroke: none; }
+.map .dev .hname { fill: var(--ink2); font: 500 11.5px var(--mono); }
+.map .pill { fill: var(--magenta); }
+.map .pilltxt { fill: #fff; font: 700 10.5px var(--body); letter-spacing: .08em; stroke: none; }
 .map .blk { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
-.map .blkx { stroke: var(--ink); stroke-width: 1.5; }
-.map text { paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
-.map .pktn { stroke: none; }
-.map .linklabel { fill: var(--ink2); font-family: var(--body); font-size: 13px; pointer-events: none; }
-.map .pkt { fill: var(--magenta); }
-.map .pktn { fill: #fff; font: 600 10px var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.map .health { font: 600 10px var(--body); }
-.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink2); }
-.legend span { display: inline-flex; gap: 6px; align-items: center; }
-.sw { width: 22px; height: 0; border-top: 3px solid var(--line); display: inline-block; }
-.sw.d { border-top: 2px dotted var(--ink2); }
-.sw.s { border-top: 3px dashed var(--ink2); }
-.sw.l { border-top: 3px solid var(--load1); }
+.map .blkx { stroke: var(--ink); stroke-width: 1.6; }
+.map .linklabel { fill: var(--ink2); font: 500 12px var(--body); pointer-events: none; }
+.map .pkt { fill: var(--magenta); stroke: var(--chart); stroke-width: 2; }
+.map .pktn { fill: #fff; font: 600 10px var(--mono); text-anchor: middle; dominant-baseline: central; pointer-events: none; stroke: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--ink2); padding: 10px 14px; border-top: 1px solid var(--line); }
+.legend span { display: inline-flex; gap: 7px; align-items: center; }
+.sw { width: 24px; height: 0; border-top: 2.5px solid var(--ink2); opacity: .7; display: inline-block; }
+.sw.d { border-top: 3px dotted var(--ink2); }
+.sw.s { border-top: 2.5px dashed var(--ink2); opacity: .5; }
+.sw.l { border-top: 4px solid var(--storm1); opacity: 1; }
 
+/* readouts */
+.readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.readout .panel { display: flex; flex-direction: column; gap: 10px; }
+.explain { font-size: 14px; }
+dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0; font-size: 13.5px; }
+dl.kv dt { color: var(--ink2); }
+dl.kv dd { margin: 0; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.chart svg { width: 100%; height: 96px; display: block; }
+.chart .axis { stroke: var(--line); stroke-width: 1; }
+.chart .area { fill: var(--storm0); opacity: .45; }
+.chart .ln { fill: none; stroke: var(--storm1); stroke-width: 2; }
+.chart text { fill: var(--ink2); font: 10px var(--mono); }
+.hopstats { font-family: var(--mono); font-size: 13px; color: var(--ink2); min-height: 1.5em; }
 .inspector { display: flex; flex-direction: column; gap: 8px; }
 .inspector .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.inspector .ports { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 2px 14px; font-family: var(--mono); font-size: 12.5px; }
+.inspector .ports .b { color: var(--magenta); font-weight: 600; }
 .muted { color: var(--ink2); font-size: 13.5px; }
-
-/* math readout */
-.math { display: flex; flex-direction: column; gap: 12px; }
-.rho { display: flex; align-items: baseline; gap: 10px; }
-.rho .v { font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
-.rho .lbl { font-family: var(--mono); color: var(--ink2); }
-.verdict { display: inline-flex; gap: 6px; align-items: center; padding: 3px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
-.verdict.good { background: var(--good-bg); color: var(--good); }
-.verdict.warn { background: var(--warn-bg); color: var(--warn); }
-.verdict.crit { background: var(--crit-bg); color: var(--crit); }
-dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 13.5px; }
-dl.kv dt { color: var(--ink2); }
-dl.kv dd { margin: 0; font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
-.centers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.center { border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; background: var(--chip); }
-.center b { font-family: var(--mono); font-size: 13px; }
-.center span { font-size: 12px; font-weight: 600; }
-.center.good { background: var(--good-bg); } .center.good span { color: var(--good); }
-.center.warn { background: var(--warn-bg); } .center.warn span { color: var(--warn); }
-.center.crit { background: var(--crit-bg); } .center.crit span { color: var(--crit); }
-.groundstop { border-radius: 8px; padding: 8px 10px; font-weight: 600; background: var(--crit-bg); color: var(--crit); font-family: var(--display); font-size: 20px; letter-spacing: .03em; }
-.chart svg { width: 100%; height: 90px; display: block; }
-.chart .axis { stroke: var(--line); stroke-width: 1; }
-.chart .area { fill: var(--load0); opacity: .35; }
-.chart .ln { fill: none; stroke: var(--accent); stroke-width: 2; }
-.chart text { fill: var(--ink2); font: 10px var(--mono); }
 details summary { cursor: pointer; font-weight: 600; font-size: 14px; }
-canvas.matrix { width: 100%; max-width: 280px; aspect-ratio: 1; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; }
-.hopstats { font-family: var(--mono); font-size: 13px; }
-footer { margin-top: 16px; color: var(--ink2); font-size: 12.5px; max-width: 90ch; }
+canvas.matrix { width: 100%; max-width: 300px; aspect-ratio: 1; display: block; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; }
+footer { margin-top: 18px; color: var(--ink2); font-size: 12.5px; max-width: 95ch; }
 </style>
 
-<header class="top">
-  <div>
-    <h1>El Dorado Storm Lab</h1>
-    <p class="sub">The November 13, 2026 FAA ground stop, rebuilt as a network you can break. The storm math runs live: every cable you plug in is instantly analysed for loops.</p>
-  </div>
-  <div class="zulu" id="zulu" aria-live="polite">13 NOV 2026 · 2036Z</div>
+<header class="strip">
+  <div class="brand"><h1>El Dorado Storm Lab</h1><span>FAA ground stop · 13 Nov 2026 · a network you can break</span></div>
+  <div class="cell"><span class="k">Storm math</span><div class="rho"><span class="v" id="rho">0</span><span class="sym">ρ</span></div></div>
+  <div class="cell"><span class="k">Verdict</span><span id="verdict" class="verdict good" aria-live="polite"></span></div>
+  <div class="cell"><span class="k">Centers</span><div class="centers" id="centers"></div></div>
+  <div class="cell"><span class="k">Zulu</span><span class="zulu" id="zulu">2036Z</span></div>
+  <div class="groundstop" id="gs" hidden></div>
 </header>
 
 <main class="console">
-  <!-- MISSIONS -->
-  <section class="panel missions" aria-label="Missions">
-    <div class="mnav" id="mnav"></div>
+  <aside class="panel missions" aria-label="Missions">
+    <div class="stepper" id="mnav"></div>
     <article class="mission" id="mission"></article>
-  </section>
+  </aside>
 
-  <!-- MAP -->
-  <section class="panel mapwrap" aria-label="Network map">
-    <div class="toolbar">
-      <label for="src" class="muted">Broadcast from</label>
-      <select id="src"></select>
-      <button class="primary" id="send">Send one broadcast</button>
-      <span class="sep"></span>
-      <button id="mode" aria-pressed="false" title="Slow motion shows each hop; live shows link load over time">Mode: slow motion</button>
-      <button id="chatter" aria-pressed="false">ARP chatter: off</button>
-      <button id="drain">Clear storm</button>
+  <section class="stage">
+    <div class="panel mapcard">
+      <div class="toolbar">
+        <label for="src" class="muted">Broadcast from</label>
+        <select id="src"></select>
+        <button class="primary" id="send">Send one broadcast</button>
+        <span class="sep"></span>
+        <button id="mode" aria-pressed="false" title="Slow motion shows each hop; live shows link load over time">Mode: slow motion</button>
+        <button id="chatter" aria-pressed="false">ARP chatter: off</button>
+        <button id="drain">Clear storm</button>
+      </div>
+      <p class="swipe">Swipe the map sideways to see the whole network.</p>
+      <div class="mapscroll"><svg class="map" id="map" viewBox="0 0 1000 680" role="img" aria-label="FTI-lite network drawn on a chart of the south-central United States"></svg></div>
+      <div class="legend">
+        <span><i class="sw"></i>cable up</span>
+        <span><i class="sw s"></i>shut down</span>
+        <span><i class="sw d"></i>not installed · click to install</span>
+        <span><i class="sw l"></i>storm traffic · darker is fuller</span>
+        <span><svg width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" style="fill:var(--panel);stroke:var(--ink);stroke-width:1.5"/><path d="M4 4 L10 10 M10 4 L4 10" style="stroke:var(--ink);stroke-width:1.5"/></svg>port blocked by spanning tree</span>
+      </div>
     </div>
-    <div class="mapscroll"><svg class="map" id="map" viewBox="0 0 1000 660" role="img" aria-label="FTI-lite network map"></svg></div>
-    <div class="legend">
-      <span><i class="sw"></i>cable up</span>
-      <span><i class="sw s"></i>shut down</span>
-      <span><i class="sw d"></i>not installed (click to install)</span>
-      <span><i class="sw l"></i>storm traffic (darker = fuller)</span>
-      <span><svg width="14" height="14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" class="blk" style="fill:var(--panel);stroke:var(--ink)"/><path d="M3 3 L11 11 M11 3 L3 11" style="stroke:var(--ink)"/></svg>port blocked by spanning tree</span>
-    </div>
-    <div class="inspector panel" id="inspector" style="background:var(--bg)"></div>
-  </section>
 
-  <!-- MATH -->
-  <section class="panel math" aria-label="Storm math">
-    <h3>Storm math (live)</h3>
-    <div class="rho"><span class="v mono" id="rho">0</span><span class="lbl">ρ</span><span id="verdict" class="verdict good" aria-live="polite"></span></div>
-    <p class="muted" id="explain"></p>
-    <dl class="kv" id="kv"></dl>
-    <div>
-      <h3 style="margin-bottom:6px">Centers</h3>
-      <div class="centers" id="centers"></div>
+    <div class="readout">
+      <div class="panel" aria-label="Storm math">
+        <h3>What the math says</h3>
+        <p class="explain" id="explain"></p>
+        <dl class="kv" id="kv"></dl>
+      </div>
+      <div class="panel chart">
+        <h3>Busiest link · last 20 s</h3>
+        <svg id="chart" viewBox="0 0 300 96" preserveAspectRatio="none" aria-label="Load on the busiest link over time"></svg>
+        <div class="hopstats" id="hopstats" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h3>Inspector</h3>
+        <div class="inspector" id="inspector"></div>
+      </div>
     </div>
-    <div class="groundstop" id="gs" hidden></div>
-    <div class="chart">
-      <h3>Busiest link, last 20 s</h3>
-      <svg id="chart" viewBox="0 0 300 90" preserveAspectRatio="none" aria-label="Load on the busiest link over time"></svg>
-    </div>
-    <div class="hopstats" id="hopstats" aria-live="polite"></div>
-    <details>
-      <summary>Show the matrix</summary>
-      <p class="muted" style="margin-top:6px">Each row and column is one direction of one cable. A dot means "a frame on the row link becomes a frame on the column link one hop later." Magenta rows are links on a loop. During slow motion, lit rows are where frames are right now.</p>
-      <canvas class="matrix" id="matrix" width="560" height="560"></canvas>
+    <details class="panel">
+      <summary>Show the matrix behind ρ</summary>
+      <p class="muted" style="margin-top:6px">Each row and column is one direction of one cable. A dot means "a frame on the row link becomes a frame on the column link one hop later." Magenta rows lie on a loop. In slow motion, blue rows are where frames are right now.</p>
+      <canvas class="matrix" id="matrix" width="600" height="600"></canvas>
     </details>
   </section>
 </main>
 
 <footer>
-  Teaching model, not a reconstruction. As of Nov 17, 2026 the FAA has not said what protocol carried the flood. Link delays and speeds are illustrative. The math (non-backtracking matrix spectral radius and a renewal equation for growth) was checked against an independent packet simulator in the OpenPacketRouter proof of concept.
+  Teaching model, not a reconstruction. As of Nov 17, 2026 the FAA has not said what protocol carried the flood. Site positions use real latitude and longitude; the network core is drawn off-map. Link delays and speeds are illustrative. The storm math (non-backtracking matrix spectral radius, renewal-equation growth) was checked against an independent packet simulator in the OpenPacketRouter proof of concept.
 </footer>
 
 <script>
 "use strict";
 /* ========================================================================
    1. THE NETWORK  (same as the Packet Tracer lab)
+   Sites sit at their real longitude/latitude (latitude stretched 2x so the
+   region reads well). The FTI core is drawn off-map at the top.
    ======================================================================== */
 const FE = 100e6, GE = 1e9, FRAME_BITS = 84 * 8, SWITCH_LAT = 5e-6, MS = 1e-3, US = 1e-6;
+const LON0 = -108, LAT0 = 37.5;
+const proj = (lon, lat) => [Math.round(40 + (lon - LON0) * 46), Math.round(70 + (LAT0 - lat) * 92)];
+const [ABQ, AMA, FTW, ELD, MEM] = [proj(-106.65, 35.08), proj(-101.83, 35.19), proj(-97.32, 32.75), proj(-92.67, 33.21), proj(-90.05, 35.15)];
 const DEV = {
-  "NOC-SW":   {kind: "switch", x: 500, y: 92,  label: "NOC-SW", tag: "FTI core", prio: 4096, mac: 1},
-  "ZFW-SW":   {kind: "switch", x: 500, y: 330, label: "ZFW-SW", tag: "Fort Worth Center", prio: 32768, mac: 2},
-  "ZME-SW":   {kind: "switch", x: 820, y: 290, label: "ZME-SW", tag: "Memphis Center", prio: 32768, mac: 9},
-  "ZAB-SW":   {kind: "switch", x: 180, y: 290, label: "ZAB-SW", tag: "Albuquerque Center", prio: 32768, mac: 3},
-  "AMA-SW":   {kind: "switch", x: 300, y: 480, label: "AMA-SW", tag: "Amarillo radar site", prio: 32768, mac: 5},
-  "ELD-OLD":  {kind: "switch", x: 700, y: 520, label: "ELD-OLD", tag: "El Dorado (legacy)", prio: 32768, mac: 6},
-  "ELD-NEW":  {kind: "switch", x: 930, y: 520, label: "ELD-NEW", tag: "El Dorado (new)", prio: 32768, mac: 7},
-  "ELD-RTR":  {kind: "router", x: 930, y: 400, label: "ELD-RTR", tag: "routed edge", routedOnly: true},
-  "NOC-MON":  {kind: "host", x: 660, y: 60,  label: "NOC-MON"},
-  "ZFW-VOICE":{kind: "host", x: 620, y: 360, label: "ZFW-VOICE"},
-  "ZME-VOICE":{kind: "host", x: 940, y: 220, label: "ZME-VOICE"},
-  "ZAB-VOICE":{kind: "host", x: 70,  y: 220, label: "ZAB-VOICE"},
-  "AMA-RADAR":{kind: "host", x: 300, y: 615, label: "AMA-RADAR"},
-  "ELD-RADIO":{kind: "host", x: 700, y: 625, label: "ELD-RADIO"},
+  "NOC-SW":   {kind: "switch", x: 470, y: 118, label: "NOC-SW", tag: "FTI core", prio: 4096, mac: 1},
+  "ZFW-SW":   {kind: "switch", x: FTW[0], y: FTW[1], label: "ZFW-SW", tag: "Fort Worth Center", center: "ZFW", prio: 32768, mac: 2},
+  "ZME-SW":   {kind: "switch", x: MEM[0], y: MEM[1], label: "ZME-SW", tag: "Memphis Center", center: "ZME", prio: 32768, mac: 9},
+  "ZAB-SW":   {kind: "switch", x: ABQ[0] + 30, y: ABQ[1], label: "ZAB-SW", tag: "Albuquerque Center", center: "ZAB", prio: 32768, mac: 3},
+  "AMA-SW":   {kind: "switch", x: AMA[0], y: AMA[1], label: "AMA-SW", tag: "Amarillo radar site", prio: 32768, mac: 5},
+  "ELD-OLD":  {kind: "switch", x: ELD[0] - 25, y: ELD[1] + 30, label: "ELD-OLD", tag: "", prio: 32768, mac: 6},
+  "ELD-NEW":  {kind: "switch", x: ELD[0] + 150, y: ELD[1] + 30, label: "ELD-NEW", tag: "", prio: 32768, mac: 7},
+  "ELD-RTR":  {kind: "router", x: ELD[0] + 150, y: ELD[1] - 80, label: "ELD-RTR", tag: "routed edge", routedOnly: true},
+  "NOC-MON":  {kind: "host", x: 610, y: 84, label: "NOC-MON", glyph: "M"},
+  "ZFW-VOICE":{kind: "host", x: FTW[0] - 150, y: FTW[1], label: "ZFW-VOICE", glyph: "V"},
+  "ZME-VOICE":{kind: "host", x: MEM[0] + 90, y: MEM[1] - 80, label: "ZME-VOICE", glyph: "V"},
+  "ZAB-VOICE":{kind: "host", x: ABQ[0] + 30, y: ABQ[1] - 100, label: "ZAB-VOICE", glyph: "V"},
+  "AMA-RADAR":{kind: "host", x: AMA[0], y: AMA[1] - 100, label: "AMA-RADAR", glyph: "R"},
+  "ELD-RADIO":{kind: "host", x: ELD[0] - 25, y: ELD[1] + 130, label: "ELD-RADIO", glyph: "RF"},
 };
+const SITE = {x: ELD[0] - 105, y: ELD[1] - 40, w: 350, h: 215, label: "EL DORADO, AR · REMOTE RADIO SITE"};
 // id, a, aPort, b, bPort, propDelay(s), capacity, label, curve control point (optional)
 const LINKS = [
   ["L1", "NOC-SW", "Fa0/1", "ZFW-SW", "Fa0/1", 4*MS, FE, ""],
   ["L2", "NOC-SW", "Fa0/2", "ZME-SW", "Fa0/1", 6*MS, FE, ""],
   ["L3", "NOC-SW", "Fa0/3", "ZAB-SW", "Fa0/1", 8*MS, FE, ""],
   ["L4", "ZFW-SW", "Fa0/2", "ZME-SW", "Fa0/2", 5*MS, FE, "backup"],
-  ["L5", "ZME-SW", "Fa0/3", "ZAB-SW", "Fa0/2", 9*MS, FE, "backup", [500, 470]],
+  ["L5", "ZME-SW", "Fa0/3", "ZAB-SW", "Fa0/2", 9*MS, FE, "backup", [470, 480]],
   ["L6", "ZME-SW", "Fa0/4", "ELD-OLD","Fa0/1", 3*MS, FE, "old copper"],
   ["L7", "ZAB-SW", "Fa0/4", "AMA-SW", "Fa0/1", 3*MS, FE, ""],
   ["L8", "NOC-SW", "Fa0/10","NOC-MON","Fa0", 1*US, FE, ""],
@@ -251,9 +286,9 @@ const LINKS = [
   ["L11","ZAB-SW", "Fa0/11","ZAB-VOICE","Fa0", 1*US, FE, ""],
   ["L12","AMA-SW", "Fa0/10","AMA-RADAR","Fa0", 1*US, FE, ""],
   ["L13","ELD-OLD","Fa0/10","ELD-RADIO","Fa0", 1*US, FE, ""],
-  ["L14","NOC-SW", "Gi0/1", "ELD-NEW","Gi0/1", 7*MS, GE, "new fiber", [990, 150]],
-  ["L15","ELD-NEW","Fa0/23","ELD-OLD","Fa0/23", 1*US, FE, "cross-connect A", [815, 480]],
-  ["L16","ELD-NEW","Fa0/24","ELD-OLD","Fa0/24", 1*US, FE, "cross-connect B", [815, 565]],
+  ["L14","NOC-SW", "Gi0/1", "ELD-NEW","Gi0/1", 7*MS, GE, "new fiber"],
+  ["L15","ELD-NEW","Fa0/23","ELD-OLD","Fa0/23", 1*US, FE, "cross-connect A", [ELD[0] + 62, ELD[1] + 0]],
+  ["L16","ELD-NEW","Fa0/24","ELD-OLD","Fa0/24", 1*US, FE, "cross-connect B", [ELD[0] + 62, ELD[1] + 65]],
   ["L17","ZME-SW", "Fa0/4", "ELD-RTR","Gi0/0", 3*MS, FE, "", null, true],
   ["L18","ELD-RTR","Gi0/1", "ELD-NEW","Gi0/1", 1*US, FE, "", null, true],
 ].map(([id, a, ap, b, bp, prop, cap, label, ctrl, routedOnly]) => ({id, a, ap, b, bp, prop, cap, label, ctrl, routedOnly: !!routedOnly}));
@@ -495,7 +530,7 @@ function linkLoads(t) {
 const MISSIONS = [
   { title: "Briefing", preset: "baseline",
     body: `<p>On Friday, Nov 13, 2026, technicians replaced a router at a remote FAA radio site in <b>El Dorado, Arkansas</b>. At 3:36 p.m. ET controllers saw radar and radio problems. At 3:54 p.m. the FAA stopped every departure in the country. The FAA says data began <b>flooding</b> its telecom network, and 17 of 22 en route Centers became unstable.</p>
-      <p>This lab is a small model of that network. The <b>storm math</b> panel reads the map and computes one number, <b>ρ</b> (rho):</p>
+      <p>This lab is a small model of that network. The <b>storm math</b> in the top strip reads the map and computes one number, <b>ρ</b> (rho):</p>
       <ul style="margin:0;padding-left:20px"><li><b>ρ = 0</b>: no loops. Every broadcast dies out.</li><li><b>ρ = 1</b>: a loop. Frames circle forever and every new broadcast adds more.</li><li><b>ρ &gt; 1</b>: a storm. Frames multiply every hop.</li></ul>
       <p class="fact">How to use the map: click a cable or a device to inspect it. Dotted cables are not installed yet; click to install. "Send one broadcast" shows a broadcast hop by hop.</p>`,
     goal: "Send one broadcast from ZFW-VOICE in slow motion.", check: () => S.seen.sentSlow,
@@ -517,7 +552,7 @@ const MISSIONS = [
     q: "Explain the difference between 'circulating' and 'amplifying' in your own words. Which one is more dangerous, and why is the other one still bad?" },
   { title: "Ground stop", preset: "storm",
     body: `<p>It is 2036Z. The cutover is done, ARP chatter is normal, and the storm is spreading. You are the NOC.</p>
-      <ol><li>Watch the Center status tiles. When two Centers are down, the FAA calls a ground stop.</li><li><b>Contain it</b>: shut down El Dorado's links to the core (the fiber and the old copper) so every Center recovers.</li></ol>
+      <ol><li>Watch the Centers in the top strip and on the map. When two Centers are down, the FAA calls a ground stop.</li><li><b>Contain it</b>: shut down El Dorado's links to the core (the fiber and the old copper) so every Center recovers.</li></ol>
       <p class="fact">Real event: 18 minutes from first symptoms to ground stop, and 4 h 21 min until it was lifted. The real operator blocked traffic from the El Dorado and Amarillo sites.</p>`,
     goal: "Get all three Centers back to normal while the cross-connects stay installed.", check: () => S.seen.gsCleared && S.link.L15 === "up" && S.link.L16 === "up",
     q: "What did you give up to get the Centers back? What would that mean for pilots near El Dorado?" },
@@ -528,7 +563,7 @@ const MISSIONS = [
     q: "Name the three conditions that had to line up for this storm. Which one would you fix first, and why?" },
   { title: "Shrink the blast radius", preset: "fixed",
     body: `<p>Someone will make a config mistake again. The better question: how far can it spread? Routers do not forward broadcasts.</p>
-      <ol><li>Click <b>ELD-NEW</b> and choose <b>Install routed edge</b>. ELD-RTR replaces the direct links to the core.</li><li>Re-make the original mistake: turn spanning tree <b>off</b> on ELD-NEW and ELD-OLD.</li><li>Look at the storm reach and the Center tiles.</li></ol>`,
+      <ol><li>Click <b>ELD-NEW</b> and choose <b>Install routed edge</b>. ELD-RTR replaces the direct links to the core.</li><li>Re-make the original mistake: turn spanning tree <b>off</b> on ELD-NEW and ELD-OLD.</li><li>Look at the storm reach and the Centers.</li></ol>`,
     goal: "A storm inside El Dorado that cannot reach any Center.", check: () => S.routed && M.regime !== "TREE" && !CENTERS.some(([c, h]) => M.reachDevs.has(h)),
     q: "The mistake still happened. Why is this a better outcome, and what does a routed design cost?" },
   { title: "Change plan", preset: "baseline",
@@ -552,10 +587,10 @@ function openMission(i) {
   preset(MISSIONS[i].preset);
   if (i === 7) S.seen.planStart = true;
   const m = MISSIONS[i], el = document.getElementById("mission");
-  el.innerHTML = `<h3>Mission ${i}</h3><h2>${m.title}</h2><div class="body">${m.body}
-    <div class="goal" id="goal"><span class="tick">○</span><span>${m.goal}</span></div>
+  el.innerHTML = `<div class="num">Mission ${i} of ${MISSIONS.length - 1}</div><h2>${m.title}</h2><div class="body">${m.body}
+    <div class="goal" id="goal"><span class="tick"></span><span><span class="gl">Goal</span>${m.goal}</span></div>
     <div class="q"><label for="ans">${m.q}</label><textarea id="ans" placeholder="Your answer (saved in this browser only)"></textarea></div>
-    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button id="reset">Reset this mission</button>${i < MISSIONS.length - 1 ? '<button id="next">Next mission</button>' : ""}</div></div>`;
+    <div class="mrow"><button id="reset">Reset this mission</button>${i < MISSIONS.length - 1 ? '<button id="next">Next mission</button>' : ""}</div></div>`;
   const ans = document.getElementById("ans"); ans.value = storeGet("ans" + i, "");
   ans.oninput = () => storeSet("ans" + i, ans.value);
   document.getElementById("reset").onclick = () => openMission(i);
@@ -567,7 +602,7 @@ function checkGoal() {
   if (ok && !done[S.mission]) { done[S.mission] = true; storeSet("done", done); renderNav(); }
   const g = document.getElementById("goal"); if (!g) return;
   g.classList.toggle("met", ok || !!done[S.mission]);
-  g.querySelector(".tick").textContent = (ok || done[S.mission]) ? "✓" : "○";
+  g.querySelector(".tick").textContent = (ok || done[S.mission]) ? "✓" : "";
 }
 
 /* ========================================================================
@@ -576,11 +611,27 @@ function checkGoal() {
 const svg = document.getElementById("map");
 const NS = "http://www.w3.org/2000/svg";
 const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const txt = (attrs, parent, s) => { const t = el("text", attrs, parent); t.textContent = s; return t; };
 function pathOf(l) { const A = DEV[l.a], B = DEV[l.b];
   return l.ctrl ? `M${A.x},${A.y} Q${l.ctrl[0]},${l.ctrl[1]} ${B.x},${B.y}` : `M${A.x},${A.y} L${B.x},${B.y}`; }
 function pointOn(l, t, fromA) { const A = DEV[l.a], B = DEV[l.b]; if (!fromA) t = 1 - t;
   if (!l.ctrl) return [A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t];
   const [cx, cy] = l.ctrl, u = 1 - t; return [u*u*A.x + 2*u*t*cx + t*t*B.x, u*u*A.y + 2*u*t*cy + t*t*B.y]; }
+
+// chart furniture: graticule with real coordinates, the core band, the El Dorado site
+const gBase = el("g", {}, svg);
+const TOP = 168;
+el("line", {x1: 0, y1: TOP, x2: 1000, y2: TOP, class: "grat", "stroke-dasharray": "2 4"}, gBase);
+txt({x: 14, y: TOP - 8, class: "gratlbl"}, gBase, "NETWORK CORE · NOT TO SCALE");
+for (let lon = -106; lon <= -90; lon += 2) { const [x] = proj(lon, 35);
+  el("line", {x1: x, y1: TOP, x2: x, y2: 680, class: "grat"}, gBase);
+  txt({x: x + 4, y: 672, class: "gratlbl"}, gBase, `${-lon}°W`); }
+for (let lat = 36; lat >= 32; lat--) { const [, y] = proj(-100, lat);
+  el("line", {x1: 0, y1: y, x2: 1000, y2: y, class: "grat"}, gBase);
+  txt({x: 6, y: y - 5, class: "gratlbl"}, gBase, `${lat}°N`); }
+el("rect", {x: SITE.x, y: SITE.y, width: SITE.w, height: SITE.h, rx: 14, class: "site"}, gBase);
+txt({x: SITE.x + 14, y: SITE.y + 19, class: "sitelbl"}, gBase, SITE.label);
+
 const gLinks = el("g", {}, svg), gFlow = el("g", {}, svg), gPorts = el("g", {}, svg), gDev = el("g", {}, svg), gPkt = el("g", {}, svg);
 const linkEls = {}, flowEls = {};
 for (const l of LINKS) {
@@ -589,21 +640,35 @@ for (const l of LINKS) {
   const hit = el("path", {d: pathOf(l), class: "hit", tabindex: 0, role: "button", "aria-label": `Cable ${l.a} ${l.ap} to ${l.b} ${l.bp}`}, g);
   hit.onclick = () => select({link: l.id});
   hit.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select({link: l.id}); } };
-  let lab = null;
-  if (l.label) { const [x, y] = pointOn(l, l.id === "L5" ? .2 : .5, true); const below = l.id === "L16";
-    lab = el("text", {x: l.id === "L15" || l.id === "L16" ? x : x + 6, y: below ? y + 16 : y - 7, "text-anchor": l.id === "L15" || l.id === "L16" ? "middle" : "start", class: "linklabel"}, g); lab.textContent = l.label; }
-  linkEls[l.id] = {g, p, lab};
-  flowEls[l.id] = el("path", {d: pathOf(l), class: "flow", opacity: 0}, gFlow);
+  if (l.label) {
+    const xc = l.id === "L15" || l.id === "L16";
+    const [x, y] = pointOn(l, l.id === "L5" ? .22 : l.id === "L14" ? .42 : l.id === "L6" ? .62 : .5, true);
+    txt({x: xc ? x : x + 8, y: l.id === "L16" ? y + 17 : y - 8, "text-anchor": xc ? "middle" : "start", class: "linklabel"}, g, l.label);
+  }
+  linkEls[l.id] = {g, p};
+  const fg = el("g", {opacity: 0}, gFlow);
+  flowEls[l.id] = {g: fg, glow: el("path", {d: pathOf(l), class: "glow"}, fg), dash: el("path", {d: pathOf(l), class: "flow"}, fg)};
 }
 const devEls = {};
 for (const [name, d] of Object.entries(DEV)) {
   const g = el("g", {class: "dev", tabindex: 0, role: "button", "aria-label": name}, gDev);
-  if (d.kind === "host") { el("circle", {cx: d.x, cy: d.y, r: 9}, g);
-    const t = el("text", {x: d.x, y: d.y + 27, "text-anchor": "middle"}, g); t.textContent = d.label; }
-  else { el("rect", {x: d.x - 56, y: d.y - 18, width: 112, height: 36, rx: d.kind === "router" ? 18 : 5}, g);
-    const t = el("text", {x: d.x, y: d.y + 5, "text-anchor": "middle"}, g); t.textContent = d.label;
-    const tg = el("text", {x: d.x, y: d.y + 35, "text-anchor": "middle", class: "tag"}, g); tg.textContent = d.tag;
-    if (d.kind === "switch") { const so = el("text", {x: d.x, y: d.y - 25, "text-anchor": "middle", class: "stpoff"}, g); so.textContent = "STP OFF"; devEls[name + ":stp"] = so; } }
+  if (d.kind === "host") {
+    el("circle", {cx: d.x, cy: d.y, r: 12, class: "hostc"}, g);
+    txt({x: d.x, y: d.y + 3.5, "text-anchor": "middle", class: "glyph"}, g, d.glyph);
+    txt({x: d.x, y: d.y + 28, "text-anchor": "middle", class: "hname"}, g, d.label);
+  } else {
+    const ring = el("rect", {x: d.x - 66, y: d.y - 25, width: 132, height: 50, rx: 10, class: "ring", stroke: "none"}, g);
+    el("rect", {x: d.x - 60, y: d.y - 19, width: 120, height: 38, rx: d.kind === "router" ? 19 : 6, class: "box"}, g);
+    txt({x: d.x, y: d.y + 5, "text-anchor": "middle", class: "name"}, g, d.label);
+    const tag = txt({x: d.x, y: d.y + 40, "text-anchor": "middle", class: "tag"}, g, d.tag);
+    devEls[name + ":ring"] = ring; devEls[name + ":tag"] = tag;
+    if (d.kind === "switch") {
+      const pg = el("g", {}, g);
+      el("rect", {x: d.x - 30, y: d.y - 36, width: 60, height: 15, rx: 7.5, class: "pill"}, pg);
+      txt({x: d.x, y: d.y - 25, "text-anchor": "middle", class: "pilltxt"}, pg, "STP OFF");
+      devEls[name + ":stp"] = pg;
+    }
+  }
   g.onclick = () => select({dev: name});
   g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select({dev: name}); } };
   devEls[name] = g;
@@ -614,7 +679,18 @@ function lerpColor(a, b, t) { const pa = a.match(/\w\w/g).map(h => parseInt(h, 1
   return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, "0")).join(""); }
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
+// Center health = storm load on the Center's voice position or its uplink from the core
+function centerHealth(loads) {
+  const out = {};
+  for (const [c, host, up] of CENTERS) {
+    let L = 0; M.edges.forEach((e, i) => { if (e.head === host || (e.link === up && e.tail === "NOC-SW")) L = Math.max(L, loads ? loads[i] : 0); });
+    out[c] = {L, cls: L >= 0.6 ? "crit" : L >= 0.05 ? "warn" : "good"};
+  }
+  return out;
+}
+
 function renderMap(loads) {
+  const H = centerHealth(loads);
   for (const l of LINKS) {
     const st = S.link[l.id]; const {g, p} = linkEls[l.id];
     const visible = l.routedOnly ? S.routed : !(S.routed && (l.id === "L6" || l.id === "L14"));
@@ -625,63 +701,68 @@ function renderMap(loads) {
     const g = devEls[name]; g.style.display = d.routedOnly && !S.routed ? "none" : "";
     g.setAttribute("class", "dev" + (S.sel && S.sel.dev === name ? " sel" : ""));
     if (devEls[name + ":stp"]) devEls[name + ":stp"].style.display = S.stp[name] ? "none" : "";
+    if (d.center) {
+      const h = H[d.center], ring = devEls[name + ":ring"], tag = devEls[name + ":tag"];
+      ring.setAttribute("stroke", h.cls === "good" ? "none" : css(h.cls === "crit" ? "--crit" : "--warn"));
+      tag.setAttribute("class", "tag " + (h.cls === "good" ? "" : h.cls));
+      tag.textContent = d.tag + (h.cls === "crit" ? " · ▲ DOWN" : h.cls === "warn" ? " · ● DEGRADED" : "");
+    }
   }
-  // blocked ports
   gPorts.innerHTML = "";
+  const act = activeLinks();
   for (const key of M.blocked) {
     const [dev, port] = key.split("|");
-    const l = activeLinks().find(l => (l.a === dev && l.ap === port) || (l.b === dev && l.bp === port)); if (!l) continue;
-    const [x, y] = pointOn(l, 0.2, l.a === dev);
-    el("rect", {x: x - 7, y: y - 7, width: 14, height: 14, class: "blk"}, gPorts);
-    el("path", {d: `M${x-4},${y-4} L${x+4},${y+4} M${x+4},${y-4} L${x-4},${y+4}`, class: "blkx"}, gPorts);
+    const l = act.find(l => (l.a === dev && l.ap === port) || (l.b === dev && l.bp === port)); if (!l) continue;
+    const len = Math.hypot(DEV[l.b].x - DEV[l.a].x, DEV[l.b].y - DEV[l.a].y);
+    const [x, y] = pointOn(l, l.ctrl && len > 400 ? .25 : Math.min(.45, 130 / len), l.a === dev);
+    el("rect", {x: x - 7, y: y - 7, width: 14, height: 14, rx: 2, class: "blk"}, gPorts);
+    el("path", {d: `M${x-3.5},${y-3.5} L${x+3.5},${y+3.5} M${x+3.5},${y-3.5} L${x-3.5},${y+3.5}`, class: "blkx"}, gPorts);
   }
-  // storm load on links (max of both directions)
   const per = {};
   if (loads) M.edges.forEach((e, i) => per[e.link] = Math.max(per[e.link] || 0, loads[i]));
-  const c0 = css("--load0"), c1 = css("--load1");
+  const c0 = css("--storm0"), c1 = css("--storm1");
   for (const l of LINKS) { const f = flowEls[l.id]; const v = per[l.id] || 0;
-    if (v > 0.002 && S.live) { f.setAttribute("opacity", 1); f.setAttribute("stroke", lerpColor(c0, c1, Math.min(1, v)));
-      f.setAttribute("stroke-width", 3 + 5 * v); f.style.animationDuration = (1.2 - v) + "s"; }
-    else f.setAttribute("opacity", 0); }
+    if (v > 0.002 && S.live) { const col = lerpColor(c0, c1, Math.min(1, v));
+      f.g.setAttribute("opacity", 1);
+      f.dash.setAttribute("stroke", col); f.dash.setAttribute("stroke-width", 3 + 4 * v);
+      f.glow.setAttribute("stroke", col); f.glow.setAttribute("stroke-width", 8 + 12 * v);
+      f.dash.style.animationDuration = (1.1 - .8 * v) + "s"; }
+    else f.g.setAttribute("opacity", 0); }
 }
 
 function fmt(x) { return x >= 1e6 ? (x / 1e6).toFixed(1) + "M" : x >= 1e4 ? Math.round(x / 1e3) + "k" : Math.round(x).toLocaleString(); }
 function renderMath(R, loads) {
   document.getElementById("rho").textContent = M.rho < 1e-9 ? "0" : M.rho.toFixed(3).replace(/\.?0+$/, "");
   const v = document.getElementById("verdict");
-  const V = {TREE: ["good", "✓ No loops"], CIRCULATING: ["warn", "⟳ Loop: circulating"], AMPLIFYING: ["crit", "▲ Storm: amplifying"]}[M.regime];
+  const V = {TREE: ["good", "✓ No loops"], CIRCULATING: ["warn", "⟳ Loop · circulating"], AMPLIFYING: ["crit", "▲ Storm · amplifying"]}[M.regime];
   v.className = "verdict " + V[0]; v.textContent = V[1];
-  const ex = {TREE: "Every broadcast dies out after a few hops.",
-    CIRCULATING: "One broadcast circles forever without multiplying. Each new broadcast adds more looping frames, so load piles up.",
+  document.getElementById("explain").textContent = {
+    TREE: "Every broadcast dies out after a few hops. Spanning tree (or the cabling) leaves no way back.",
+    CIRCULATING: "A broadcast that reaches the loop circles forever without multiplying. Each new broadcast adds more looping frames, so load piles up.",
     AMPLIFYING: "Frames multiply every time they pass a switch with more than one looped way out. Growth is exponential."}[M.regime];
-  document.getElementById("explain").textContent = ex;
   const kv = []; const reachHosts = [...M.reachDevs].filter(d => DEV[d].kind === "host");
   kv.push(["Links on a loop", M.loops.reduce((s, c) => s + c.length, 0) + " of " + M.n]);
-  kv.push(["Storm reaches", reachHosts.length ? reachHosts.length + " hosts" : "nothing"]);
+  kv.push(["Storm can reach", reachHosts.length ? reachHosts.length + " hosts" : "nothing"]);
   if (M.regime === "CIRCULATING") {
     const {y} = steadyRates(document.getElementById("src").value || "ZFW-VOICE");
     let worst = 0; M.edges.forEach((e, i) => worst = Math.max(worst, y[i] / e.cap));
-    kv.push(["1 broadcast adds", worst > 0 ? Math.round(worst * 100) + "% load" : "0%"]);
+    kv.push(["One broadcast adds", worst > 0 ? Math.round(worst * 100) + "% load" : "nothing (never reaches the loop)"]);
     kv.push(["Broadcasts to fill a link", worst > 0 ? String(Math.ceil(1 / worst)) : "never"]);
   }
-  if (M.regime === "AMPLIFYING") kv.push(["Doubles every", (Math.log(2) / M.r * 1000).toFixed(2) + " ms"]);
+  if (M.regime === "AMPLIFYING") kv.push(["Frames double every", (Math.log(2) / M.r * 1000).toFixed(2) + " ms"]);
   if (S.live) { let busy = 0; for (const x of loads) busy = Math.max(busy, x); kv.push(["Busiest link now", Math.round(busy * 100) + "%"]); }
   document.getElementById("kv").innerHTML = kv.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
-  // centers
-  const box = document.getElementById("centers"); box.innerHTML = "";
-  let down = 0;
-  for (const [c, host, up] of CENTERS) {
-    let L = 0; M.edges.forEach((e, i) => { if ((e.head === host) || (e.link === up && e.tail === "NOC-SW")) L = Math.max(L, loads ? loads[i] : 0); });
-    const cls = L >= 0.6 ? "crit" : L >= 0.05 ? "warn" : "good"; if (cls === "crit") down++;
-    const word = {crit: "▲ Down", warn: "● Degraded", good: "✓ Normal"}[cls];
-    const d = document.createElement("div"); d.className = "center " + cls;
-    d.innerHTML = `<b>${c}</b><span>${word}</span><span class="mono" style="font-weight:400">${Math.round(L * 100)}% storm</span>`; box.appendChild(d);
-  }
+  // centers in the strip
+  const H = centerHealth(loads); let down = 0;
+  document.getElementById("centers").innerHTML = CENTERS.map(([c]) => { const h = H[c]; if (h.cls === "crit") down++;
+    const word = {crit: "▲ Down", warn: "● Degraded", good: "✓ Normal"}[h.cls];
+    return `<div class="center ${h.cls}"><b>${c}</b><span>${word}${h.L > 0.004 ? " · " + Math.round(h.L * 100) + "%" : ""}</span></div>`; }).join("");
   const gs = document.getElementById("gs"); const t = performance.now();
   if (down >= 2) { if (!S.gsStart) S.gsStart = t; S.gsLast = null;
-    const s = Math.floor((t - S.gsStart) / 1000); gs.hidden = false; gs.textContent = `GROUND STOP · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+    const s = Math.floor((t - S.gsStart) / 1000); gs.hidden = false; gs.className = "groundstop";
+    gs.textContent = `GROUND STOP ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
   else if (S.gsStart) { const s = Math.floor((t - S.gsStart) / 1000); S.gsLast = s; S.gsStart = null; S.seen.gsCleared = true;
-    gs.hidden = false; gs.textContent = `Ground stop lifted after ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+    gs.hidden = false; gs.className = "groundstop lifted"; gs.textContent = `Ground stop lifted after ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
   else if (S.gsLast === null) gs.hidden = true;
   if (M.regime === "CIRCULATING") S.seen.circ = true;
   if (M.regime === "AMPLIFYING") { S.seen.amp = true; if (["NOC-SW","ZFW-SW","ZME-SW","ZAB-SW"].some(d => !S.stp[d])) S.seen.coreAmp = true; }
@@ -691,41 +772,41 @@ function renderMath(R, loads) {
 
 function renderChart() {
   const svgc = document.getElementById("chart"); const H = S.history; const now_ = now();
-  const pts = H.filter(h => h[0] > now_ - 20).map(h => [300 * (1 - (now_ - h[0]) / 20), 84 - 78 * h[1]]);
-  let s = `<line class="axis" x1="0" y1="84" x2="300" y2="84"/><line class="axis" x1="0" y1="6" x2="300" y2="6" stroke-dasharray="3 3"/>
-           <text x="2" y="16">100%</text><text x="2" y="80">0%</text>`;
+  const pts = H.filter(h => h[0] > now_ - 20).map(h => [300 * (1 - (now_ - h[0]) / 20), 88 - 80 * h[1]]);
+  let s = `<line class="axis" x1="0" y1="88" x2="300" y2="88"/><line class="axis" x1="0" y1="8" x2="300" y2="8" stroke-dasharray="3 3"/>
+           <text x="2" y="19">100%</text><text x="2" y="84">0%</text>`;
   if (pts.length > 1) { const d = pts.map(p => p.join(",")).join(" ");
-    s += `<polygon class="area" points="${pts[0][0]},84 ${d} ${pts[pts.length-1][0]},84"/><polyline class="ln" points="${d}"/>`; }
+    s += `<polygon class="area" points="${pts[0][0]},88 ${d} ${pts[pts.length-1][0]},88"/><polyline class="ln" points="${d}"/>`; }
+  else s += `<text x="150" y="52" text-anchor="middle">Switch to live mode to plot load</text>`;
   svgc.innerHTML = s;
 }
 
 function renderInspector() {
   const box = document.getElementById("inspector");
-  if (!S.sel) { box.innerHTML = `<p class="muted">Click a cable or a device on the map to inspect it.</p>`; return; }
+  if (!S.sel) { box.innerHTML = `<p class="muted">Click a cable or a device on the map. Dotted cables are not installed yet.</p>`; return; }
   if (S.sel.link) {
     const l = LINK[S.sel.link], st = S.link[l.id];
     const optional = ["L14", "L15", "L16"].includes(l.id);
-    const dirs = M.edges.map((e, i) => [e, i]).filter(([e]) => e.link === l.id);
-    const onLoop = dirs.some(([, i]) => M.inComp[i] >= 0);
-    box.innerHTML = `<h3>Cable</h3><p class="mono">${l.a} ${l.ap} ↔ ${l.b} ${l.bp}</p>
-      <p class="muted">${l.cap >= GE ? "Gigabit" : "FastEthernet"} · ${l.prop >= 1e-3 ? (l.prop * 1e3) + " ms" : "local patch"} · ${st === "absent" ? "not installed" : st === "shut" ? "shut down" : "up"}${onLoop ? " · <b>on a loop</b>" : ""}</p>
+    const onLoop = M.edges.some((e, i) => e.link === l.id && M.inComp[i] >= 0);
+    box.innerHTML = `<p class="mono" style="font-weight:600">${l.a} ${l.ap} ↔ ${l.b} ${l.bp}</p>
+      <p class="muted">${l.label ? l.label + " · " : ""}${l.cap >= GE ? "Gigabit" : "FastEthernet"} · ${l.prop >= 1e-3 ? (l.prop * 1e3) + " ms" : "local patch"} · ${st === "absent" ? "not installed" : st === "shut" ? "shut down" : "up"}${onLoop ? ' · <b style="color:var(--magenta)">on a loop</b>' : ""}</p>
       <div class="row">${st === "absent" ? `<button class="primary" data-act="install">Install cable</button>` :
         `<button data-act="toggle">${st === "up" ? "Shut down" : "No shutdown"}</button>${optional ? `<button data-act="remove">Remove cable</button>` : ""}`}</div>`;
   } else {
     const d = S.sel.dev, D = DEV[d];
     if (D.kind === "switch") {
       const ports = activeLinks().filter(l => l.a === d || l.b === d).map(l => {
-        const port = l.a === d ? l.ap : l.bp; const blk = M.blocked.has(d + "|" + port);
-        return `<span class="mono">${port}: ${blk ? "BLOCKED" : "forwarding"}</span>`; }).join("<br>");
-      box.innerHTML = `<h3>${D.tag}</h3><p class="mono">${d}${D.prio === 4096 ? " · STP root priority 4096" : ""}</p>
+        const port = l.a === d ? l.ap : l.bp, other = l.a === d ? l.b : l.a; const blk = M.blocked.has(d + "|" + port);
+        return `<span>${port} → ${other}</span><span class="${blk ? "b" : ""}">${blk ? "BLOCKED" : "forwarding"}</span>`; }).join("");
+      box.innerHTML = `<p class="mono" style="font-weight:600">${d} <span class="muted">· ${D.tag}${D.prio === 4096 ? " · STP root" : ""}</span></p>
         <div class="row"><button data-act="stp" aria-pressed="${!!S.stp[d]}">Spanning tree: ${S.stp[d] ? "ON" : "OFF"}</button>
-        ${!S.stp[d] ? `<button data-act="bpdu" aria-pressed="${S.bpduPass}">BPDUs: ${S.bpduPass ? "passed along (real Cisco)" : "dropped"}</button>` : ""}
+        ${!S.stp[d] ? `<button data-act="bpdu" aria-pressed="${S.bpduPass}">BPDUs: ${S.bpduPass ? "passed along" : "dropped"}</button>` : ""}
         ${d === "ELD-NEW" ? `<button data-act="routed">${S.routed ? "Remove routed edge" : "Install routed edge"}</button>` : ""}</div>
-        <p class="muted">${ports || "No cables up."}</p>`;
+        <div class="ports">${ports || '<span class="muted">No cables up.</span>'}</div>`;
     } else if (D.kind === "router") {
-      box.innerHTML = `<h3>Router</h3><p class="mono">${d}</p><p class="muted">Routers never forward broadcasts. The broadcast domain ends here.</p>`;
+      box.innerHTML = `<p class="mono" style="font-weight:600">${d}</p><p class="muted">Routers never forward broadcasts. The broadcast domain ends here.</p>`;
     } else {
-      box.innerHTML = `<h3>Host</h3><p class="mono">${d}</p><p class="muted">Receives broadcasts, never forwards them.</p>
+      box.innerHTML = `<p class="mono" style="font-weight:600">${d}</p><p class="muted">Receives broadcasts and never forwards them.</p>
         <div class="row"><button data-act="sendfrom">Send a broadcast from here</button></div>`;
     }
   }
@@ -797,7 +878,7 @@ function drawMatrix(x) {
 function recompute() { buildModel(); renderAll(); }
 function renderAll() {
   const {load} = S.live ? linkLoads(now()) : {load: new Float64Array(M.n)};
-  renderMap(load); renderMath(null, load); renderInspector(); checkGoal(); drawMatrix(null);
+  renderMap(load); renderMath(null, load); renderInspector(); checkGoal(); drawMatrix(null); renderChart();
   document.getElementById("mode").textContent = "Mode: " + (S.live ? "live" : "slow motion");
   document.getElementById("mode").setAttribute("aria-pressed", S.live);
   document.getElementById("chatter").textContent = "ARP chatter: " + (S.chatter ? "on" : "off");
@@ -823,7 +904,7 @@ function frame(t) {
       S.history.push([tn, busy]); S.history = S.history.filter(h => h[0] > tn - 21);
       renderMap(load); renderMath(null, load); renderChart(); checkGoal();
       const z = new Date(Date.UTC(2026, 10, 13, 20, 36) + tn * 1000);
-      document.getElementById("zulu").textContent = "13 NOV 2026 · " + String(z.getUTCHours()).padStart(2, "0") + String(z.getUTCMinutes()).padStart(2, "0") + "Z";
+      document.getElementById("zulu").textContent = String(z.getUTCHours()).padStart(2, "0") + String(z.getUTCMinutes()).padStart(2, "0") + "Z";
     }
   } else drawAnim(t);
   requestAnimationFrame(frame);
