@@ -16,10 +16,10 @@
 const TOL = 1e-6;
 export const STORM_DEFAULTS = {frameBits: 84 * 8, switchLatency: 5e-6, capacity: 100e6};
 
-/** Can this switch port carry data frames? (STP state when the switch has one, else the `blocked` list.) */
+/** Can this switch port carry data frames? (the `blocked` list and, with spanning tree on, the port's STP state) */
 function forwards(node, port) {
   if (node.kind !== "switch") return true;
-  if (typeof node.forwards === "function") return node.forwards(port);
+  if (typeof node._fwd === "function") return node._fwd(port);    // Switch: blocked list + spanning-tree port state
   return !(node.blocked && node.blocked.has(port));
 }
 

@@ -72,3 +72,13 @@ test("steady storm rates on a ring: trapped frames lap the loop forever", () => 
   assert.ok(Math.abs(r.hostRates.H - 2 / (3 * d)) < 1e-6);   // both directions pass S0 and leak a copy to H
   assert.equal(stormRates(switches(4, [[0, 1], [1, 2]]), "H"), null);
 });
+
+test("spanning tree turns a ring into a tree once it converges (STP-blocked ports count)", () => {
+  const net = new Network();
+  for (let i = 0; i < 3; i++) net.addSwitch(`S${i}`, {stp: {priority: 4096 * (i + 1)}});
+  net.addHost("H", {ifaces: {eth0: "10.0.0.1/24"}});
+  [[0, 1], [1, 2], [2, 0]].forEach(([a, b], k) => net.link(`S${a}:p${k}a`, `S${b}:p${k}b`, {delay: 0.001}));
+  net.link("H:eth0", "S0:h");
+  net.run(net.time + 60);                                  // listening + learning: 2 x forward delay
+  assert.equal(stormAnalysis(net).regime, "TREE");
+});
