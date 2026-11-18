@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Shaped host uplink",
+  "about": "A sends through a 100 kbit/s token bucket on its own uplink (burst 2500 bytes, queue 5000 bytes). B has nothing listening, so it answers each datagram with ICMP port unreachable on the unshaped way back.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+  ],
+  "links": [
+    ["A:eth0", "SW:p1", 1, {"shape": {"rate": "100kbit", "burst": 2500, "limit": 5000}}],
+    ["B:eth0", "SW:p2", 1]
+  ]
+}

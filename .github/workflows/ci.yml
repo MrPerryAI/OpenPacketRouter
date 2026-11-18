@@ -32,3 +32,5 @@ jobs:
         run: npm test
       - name: Engine vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" python3 validate/l3/run_kernel_l3.py
+      - name: Link shaping vs real Linux tbf (frame for frame)
+        run: sudo env "PATH=$PATH" python3 validate/links/run_kernel_links.py
