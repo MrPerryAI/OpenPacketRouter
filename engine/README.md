@@ -47,8 +47,12 @@ TCP, DHCP, VLANs, spanning tree (in this engine), dynamic routing (OSPF/BGP), li
 ## Tests
 
 ```bash
-npm test                                  # 17 unit tests: engine and spec format
+npm test                                  # 23 unit tests: engine, spec format, storm math
 ```
+
+## Storm math
+
+`src/storm.js` answers "what would one broadcast do on this network?" from the live topology, without sending frames. It returns ρ (the spectral radius of the non-backtracking flood matrix), a regime (**tree**: broadcasts die out; **circulating**: frames loop without multiplying; **amplifying**: frames multiply, a storm), the growth rate and doubling time for amplifying networks, and the loop and reach edges. It respects link up/down, blocked switch ports, and per-link capacity. The model is the one in `poc/storm-math`; `tests/test_engine_storm.py` checks every scenario there for an exact match.
 
 ```bash
 sudo python3 ../validate/l3/run_kernel_l3.py   # frame-for-frame against Linux (Linux host or CI)
