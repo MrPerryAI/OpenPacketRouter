@@ -38,5 +38,7 @@ npm test                                  # unit tests
 ```
 
 ```bash
-sudo python3 ../validate/l3/run_kernel_l3.py   # frame-for-frame against Linux
+sudo python3 ../validate/l3/run_kernel_l3.py   # frame-for-frame against Linux (Linux host or CI)
 ```
+
+On a Mac, never run the `sudo` line on the host. From the **repo root** run `validate/docker/run.sh l3` instead; it runs the same check in a privileged Linux container. The recipe is in [docs/docker-validation.md](../docs/docker-validation.md).
