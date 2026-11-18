@@ -22,6 +22,7 @@
 
 import {Stp} from "./stp.js";
 import {dhcpServer} from "./dhcp.js";
+import {tcpInput} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 import {shape} from "./link.js";
 
@@ -40,9 +41,10 @@ class Heap {
   static lt(x, y) { return x.t < y.t || (x.t === y.t && x.seq < y.seq); }
 }
 
+const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
 const describe = f => f.type === "bpdu" ? `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
-  : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
+  : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : f.ip.proto === "tcp" ? `TCP ${f.ip.tcp.sport}→${f.ip.tcp.dport} ${tcpName(f.ip.tcp)}${f.ip.tcp.len ? ` ${f.ip.tcp.len}B` : ""}` : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"][i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
 
 class Device {
@@ -177,6 +179,7 @@ export class IpNode extends Device {
       this.log("echo-reply", `answering ping from ${p.src}`);
       return this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "icmp", icmp: {type: 0, code: 0, id: p.icmp.id, seq: p.icmp.seq}});
     }
+    if (p.proto === "tcp") return tcpInput(this, p);
     if (p.proto === "udp") {
       if (this.sockets.has(p.udp.dport)) return;   // an app is waiting on this port
       const svc = this.udpService(p.udp.dport);
@@ -273,6 +276,7 @@ export class Network {
     const key = `${node.name}:${ifname}>${i.peer.node.name}:${i.peer.name}`;
     this.counters.set(key, (this.counters.get(key) || 0) + 1);
     const peer = i.peer;
+    if (this.taps) for (const t of this.taps) t(node, ifname, frame);
     this._after(l.delay, () => peer.node.receive(peer.name, frame));
   }
   /** daemon events (protocol timers) don't keep run() going when nothing else is pending. */

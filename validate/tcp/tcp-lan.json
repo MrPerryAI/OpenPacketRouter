@@ -1,0 +1,83 @@
+{
+ "version": 1,
+ "name": "TCP across a router",
+ "about": "A client, a router and two echo servers (TCP port 7). S has a default route back; S2 has none, so it never answers and the client's SYN is retransmitted.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch"
+  },
+  {
+   "name": "SW2",
+   "kind": "switch"
+  },
+  {
+   "name": "R",
+   "kind": "router",
+   "ifaces": {
+    "a": "10.1.0.1/24",
+    "b": "10.2.0.1/24"
+   }
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.1.0.10/24"
+   },
+   "gw": "10.1.0.1"
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.2.0.10/24"
+   },
+   "gw": "10.2.0.1",
+   "services": {
+    "tcp": {
+     "7": "echo"
+    }
+   }
+  },
+  {
+   "name": "S2",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.2.0.20/24"
+   },
+   "services": {
+    "tcp": {
+     "7": "echo"
+    }
+   }
+  }
+ ],
+ "links": [
+  [
+   "C:eth0",
+   "SW1:p1",
+   1
+  ],
+  [
+   "R:a",
+   "SW1:p2",
+   1
+  ],
+  [
+   "R:b",
+   "SW2:p1",
+   1
+  ],
+  [
+   "S:eth0",
+   "SW2:p2",
+   1
+  ],
+  [
+   "S2:eth0",
+   "SW2:p3",
+   1
+  ]
+ ]
+}
