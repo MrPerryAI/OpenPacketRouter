@@ -82,3 +82,18 @@ test("spanning tree turns a ring into a tree once it converges (STP-blocked port
   net.run(net.time + 60);                                  // listening + learning: 2 x forward delay
   assert.equal(stormAnalysis(net).regime, "TREE");
 });
+
+test("the packet engine's own storm matches the math, cable by cable", () => {
+  // a ring with unequal delays and two hosts; one ARP broadcast circulates forever (no STP)
+  const net = new Network();
+  for (let i = 0; i < 3; i++) net.addSwitch(`S${i}`);
+  net.addHost("H", {ifaces: {eth0: "10.0.0.1/24"}}); net.addHost("G", {ifaces: {eth0: "10.0.0.2/24"}});
+  [[0, 1, 0.001], [1, 2, 0.002], [2, 0, 0.0015]].forEach(([a, b, d], k) => net.link(`S${a}:p${k}a`, `S${b}:p${k}b`, {delay: d}));
+  net.link("H:eth0", "S0:h"); net.link("G:eth0", "S2:g");
+  const pred = stormRates(net, "H", {frameBits: 0, switchLatency: 0});   // the engine has no serialization or lookup time
+  const h = net.node("H").ifaces.eth0;
+  net.node("H").send("eth0", {src: h.mac, dst: "ff:ff:ff:ff:ff:ff", type: "arp", arp: {op: "request", sha: h.mac, spa: "10.0.0.1", tha: "00:00:00:00:00:00", tpa: "10.0.0.99"}});
+  net.run(1); const before = net.snapshot(); net.run(11); const seen = net.diff(before);
+  assert.deepEqual(Object.keys(seen).sort(), Object.keys(pred.rates).sort());
+  for (const [k, v] of Object.entries(pred.rates)) assert.ok(Math.abs(seen[k] / 10 - v) / v < 0.01, `${k}: engine ${seen[k] / 10}/s vs math ${v}/s`);
+});
