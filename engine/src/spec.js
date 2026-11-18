@@ -21,7 +21,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked"],
+  switch: ["blocked", "stp", "vlans"],                     // stp/vlans: engine/src/stp.js, Switch in network.js
   router: ["ifaces", "routes", "gw"],
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
@@ -34,6 +34,12 @@ const IP_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 const isIp = s => typeof s === "string" && IP_RE.test(s) && s.split(".").every(o => +o <= 255);
 const isCidr = s => { if (typeof s !== "string") return false; const [ip, p, ...rest] = s.split("/");
   return !rest.length && isIp(ip) && /^\d{1,2}$/.test(p ?? "") && +p <= 32; };
+
+// `ip link set NAME …` prefix-matches its keywords, so an interface named like the start of one ("a" →
+// address, "b" → broadcast, "m" → mtu …) can't be built by the Linux validators. Warn early.
+const IP_LINK_KEYWORDS = ["address", "broadcast", "mtu", "name", "netns", "master", "nomaster", "up", "down", "type",
+  "dev", "group", "alias", "vf", "state", "arp", "multicast", "allmulticast", "promisc", "txqueuelen", "qlen", "link", "mode", "protodown", "xdp", "addrgenmode"];
+const ambiguousIfname = n => IP_LINK_KEYWORDS.find(k => k.startsWith(n));
 
 /** Check a spec. Returns {ok, errors: [{path, message}], warnings: [...]}; never throws. */
 export function validateSpec(spec) {
@@ -67,6 +73,7 @@ export function validateSpec(spec) {
     if (n.ifaces !== undefined && !isObj(n.ifaces)) err(`${p}.ifaces`, `node "${n.name}": ifaces must map interface name to "a.b.c.d/len"`);
     const nets = [];
     for (const [ifn, cidr] of Object.entries(isObj(n.ifaces) ? n.ifaces : {})) {
+      if (ambiguousIfname(ifn)) warn(`${p}.ifaces.${ifn}`, `node "${n.name}": interface name "${ifn}" reads as \`ip link\` keyword "${ambiguousIfname(ifn)}": the Linux validators can't build it (use e.g. eth0)`);
       if (cidr === "dhcp") continue;
       if (!isCidr(cidr)) { err(`${p}.ifaces.${ifn}`, `node "${n.name}": "${cidr}" is not an address like 10.0.0.1/24`); continue; }
       nets.push(parseCidr(cidr));
@@ -117,6 +124,7 @@ export function validateSpec(spec) {
       const [node, ifn] = ref.split(":"); const n = ifaces.get(node);
       if (!n) { err(p, `no node named "${node}"`); continue; }
       if (n.kind !== "switch" && !n.ifaces.has(ifn)) err(p, `${node} has no interface "${ifn}" (it has ${[...n.ifaces].join(", ") || "none"})`);
+      if (n.kind === "switch" && ambiguousIfname(ifn)) warn(p, `${node}: port name "${ifn}" reads as \`ip link\` keyword "${ambiguousIfname(ifn)}": the Linux validators can't build it (use e.g. p1)`);
       if (cabled.has(ref)) err(p, `${ref} is cabled twice`);
       cabled.add(ref);
     }

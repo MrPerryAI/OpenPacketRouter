@@ -86,3 +86,19 @@ test("--text report: result line, decisions in plain English, frames per cable",
   assert.match(out, /frames: 9 on 5 cable directions/);
   assert.doesNotMatch(out, /VLAN 0 not allowed/);       // plain switches forward known unicast, they don't drop it
 });
+
+test("interface names that `ip link` would read as a keyword get a warning", () => {
+  const s = tiny(); s.nodes.push({name: "R", kind: "router", ifaces: {a: "10.9.0.1/24", lan: "10.8.0.1/24"}}); s.links.push(["R:a", "SW:m"]);
+  const v = validateSpec(s);
+  assert.equal(v.ok, true);
+  assert.deepEqual(v.warnings.map(w => w.path), ["$.nodes[3].ifaces.a", "$.links[2]"]);
+  assert.match(v.warnings[0].message, /keyword "address"/);
+  for (const name of ["fti-routed", "fti-loop", "fti-noreturn"]) assert.deepEqual(validateSpec(read(`${name}.json`)).warnings, []);
+});
+
+test("CLI check knows stp and vlans (no 'unknown key' warnings for the L2 specs)", () => {
+  for (const f of ["l2/stp-ring.json", "l2/vlan-trunk.json"]) {
+    const r = spawnSync("node", [CLI, "check", new URL(`../../validate/${f}`, import.meta.url).pathname], {encoding: "utf8"});
+    assert.equal(r.status, 0); assert.equal(r.stderr, "", f);
+  }
+});
