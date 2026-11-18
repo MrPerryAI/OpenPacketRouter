@@ -42,13 +42,17 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-TCP, DHCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), link capacity and queues, IPv6, NAT, and firewalls.
+TCP, DHCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below).
 
 ## Tests
 
 ```bash
-npm test                                  # 34 unit tests: engine, spec format, storm math, spanning tree, VLANs
+npm test                                  # 38 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping
 ```
+
+## Link capacity and queues
+
+A link option in a spec, `shape` or `shapeBack` on an interface's egress, puts a token-bucket shaper on that end, the way Linux's `tbf` qdisc does. Frames that wait too long for tokens queue up; a frame that would overflow the queue limit is dropped and counted. The engine follows the kernel's order (offer to the queue, then drain while tokens last) so the same burst gives the same drops. `validate/links/` checks the frame counts and drops against real `tc … tbf` on veth links: [validate/links/results.md](../validate/links/results.md). Delay and loss (netem) are not modeled.
 
 ## Storm math
 

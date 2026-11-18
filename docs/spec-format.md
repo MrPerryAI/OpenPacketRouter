@@ -48,7 +48,7 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `blocked` | Switches: ports that drop everything. A manual override; spanning tree (`stp`) blocks ports by itself. |
 | `stp` | Switches: turns on spanning tree. Optional fields: `priority` (default 32768), `mac`, `hello` (2 s), `maxAge` (20 s), `forwardDelay` (15 s), `cost` (`{"p1": n}`), `portPriority` (`{"p1": n}`). Timers are in seconds, the 802.1D defaults in brackets. |
 | `vlans` | Switches: makes the switch VLAN-aware. Per port: `{"access": 10}` or `{"trunk": [10, 20], "native": 1}`. Ports not listed are access VLAN 1. |
-| `links[]` | Cables: `["node:iface", "node:iface", delayMs?]`. Delay defaults to 1 ms. Each end may be cabled once. |
+| `links[]` | Cables: `["node:iface", "node:iface", delayMs?, {shape?, shapeBack?}?]`. Delay defaults to 1 ms. Each end may be cabled once. `shape` limits the egress of the first end and `shapeBack` the second: `{"rate": "1mbit", "burst": 3000, "limit": 4000}` (bytes for burst and queue). Modeled on the Linux `tbf` qdisc: rate is the link's capacity, burst is how much may leave back to back, limit is the queue; frames that overflow it are dropped. |
 
 Unknown keys are **warnings**, not errors, so a spec written for a newer feature still loads (the key is
 ignored). Features that add keys register them with `registerNodeKeys(kind, keys)` in `spec.js`, which
@@ -65,6 +65,7 @@ frame counts don't depend on the order of actions — the same rule the Linux va
 | `traceroute` | `src`, `dst` | `maxHops` (8) |
 | `dns` | `src`, `server`, `name` | |
 | `udp` | `src`, `dst`, `port` | |
+| `udpBurst` | `src`, `dst`, `port`, `count`, `size` | sends `count` UDP datagrams of `size` bytes back to back, to load a shaped link |
 
 Every action also takes `settle` (seconds to let frames in flight land after the answer, default 1).
 Features add action types with `registerAction(name, {required, run})`.
