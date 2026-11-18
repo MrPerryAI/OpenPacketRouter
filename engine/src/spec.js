@@ -12,6 +12,7 @@
 import {Network} from "./network.js";
 import {ping, traceroute, dns, udpRequest} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
+import {parseRate, queueStats} from "./link.js";
 
 export const SPEC_VERSION = 1;
 export const RESULT_FORMAT = "openpacketrouter.result/1";
@@ -93,8 +94,17 @@ export function validateSpec(spec) {
   const cabled = new Set();
   (Array.isArray(spec.links) ? spec.links : []).forEach((l, i) => {
     const p = `$.links[${i}]`;
-    if (!Array.isArray(l) || l.length < 2 || l.length > 3) return err(p, `a link is ["node:iface", "node:iface", delayMs?]`);
-    if (l.length === 3 && !(typeof l[2] === "number" && l[2] >= 0)) err(`${p}[2]`, "delay must be a number of milliseconds ≥ 0");
+    if (!Array.isArray(l) || l.length < 2 || l.length > 4) return err(p, `a link is ["node:iface", "node:iface", delayMs?, {shape?, shapeBack?}?]`);
+    if (l.length >= 3 && !(typeof l[2] === "number" && l[2] >= 0)) err(`${p}[2]`, "delay must be a number of milliseconds ≥ 0");
+    if (l.length === 4) {
+      if (!isObj(l[3])) err(`${p}[3]`, "link options must be an object");
+      else for (const [k, v] of Object.entries(l[3])) {
+        if (!["shape", "shapeBack"].includes(k)) { warn(`${p}[3].${k}`, `unknown link option "${k}" (ignored)`); continue; }
+        if (!isObj(v)) { err(`${p}[3].${k}`, `${k} is {rate, burst, limit}`); continue; }
+        try { parseRate(v.rate); } catch (e) { err(`${p}[3].${k}.rate`, e.message); }
+        for (const b of ["burst", "limit"]) if (!(Number.isInteger(v[b]) && v[b] > 0)) err(`${p}[3].${k}.${b}`, `${b} must be a positive number of bytes`);
+      }
+    }
     for (const ref of l.slice(0, 2)) {
       if (typeof ref !== "string" || ref.split(":").length !== 2) { err(p, `"${ref}" is not "node:iface"`); continue; }
       const [node, ifn] = ref.split(":"); const n = ifaces.get(node);
@@ -113,6 +123,12 @@ export const ACTIONS = {
   traceroute: {required: ["src", "dst"], run: (net, a) => traceroute(net, a.src, a.dst, {maxHops: a.maxHops ?? 8})},
   dns: {required: ["src", "server", "name"], run: (net, a) => dns(net, a.src, a.server, a.name)},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
+  // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
+  udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {
+    const n = net.node(a.src); const sport = n.nextPort++; let sent = 0;
+    for (let k = 0; k < a.count; k++) if (n.sendIp({dst: a.dst, ttl: 64, proto: "udp", udp: {sport, dport: a.port, payload: null, size: a.size}})) sent++;
+    return {sent};
+  }},
 };
 export function registerAction(name, def) { ACTIONS[name] = def; }
 
@@ -155,10 +171,12 @@ export function runActions(spec, actions, {trace = false} = {}) {
   const out = [];
   for (const a of actions) {
     net.flushCaches();
-    const before = net.snapshot(); const t0 = net.trace.length;
+    const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
     net.settle(a.settle ?? 1);
     const entry = {action: a, result, frames: net.diff(before)};
+    const q = queueStats(net);
+    if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
     if (trace) entry.trace = net.trace.slice(t0);
     out.push(entry);
   }

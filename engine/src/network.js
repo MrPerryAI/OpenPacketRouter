@@ -22,6 +22,7 @@
 
 import {Stp} from "./stp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
+import {shape} from "./link.js";
 
 class Heap {
   constructor() { this.a = []; }
@@ -257,6 +258,12 @@ export class Network {
   _transmit(node, ifname, frame) {
     const i = node.ifaces[ifname]; const l = i.link;
     if (!l || !l.up) return;
+    if (i.shaper) return i.shaper.enqueue(this, frame, f => this._wire(node, ifname, f), node.name);   // link.js
+    this._wire(node, ifname, frame);
+  }
+  _wire(node, ifname, frame) {
+    const i = node.ifaces[ifname]; const l = i.link;
+    if (!l || !l.up) return;
     const key = `${node.name}:${ifname}>${i.peer.node.name}:${i.peer.name}`;
     this.counters.set(key, (this.counters.get(key) || 0) + 1);
     const peer = i.peer;
@@ -292,7 +299,11 @@ export class Network {
       const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, blocked: n.blocked, stp: n.stp, vlans: n.vlans};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
-    for (const [a, b, ms] of spec.links) net.link(a, b, {delay: (ms ?? 1) / 1000});
+    for (const [a, b, ms, opts] of spec.links) {
+      net.link(a, b, {delay: (ms ?? 1) / 1000});
+      if (opts && opts.shape) shape(net, a, opts.shape);                      // egress of the first end (link.js)
+      if (opts && opts.shapeBack) shape(net, b, opts.shapeBack);              // egress of the second end
+    }
     return net;
   }
 }
