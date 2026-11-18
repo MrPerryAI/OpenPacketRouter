@@ -1,0 +1,93 @@
+{
+ "name": "STP triangle",
+ "about": "Three STP bridges in a ring plus a square-ish spur: SW1 has the lowest id (root), SW3's port toward SW2 blocks. SW4 hangs off SW2 and SW3 with a cheaper cost toward SW3.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:01",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:02",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW4",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:04",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "cost": {
+     "p2": 4
+    }
+   }
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:p1",
+   "SW2:p1"
+  ],
+  [
+   "SW2:p2",
+   "SW3:p1"
+  ],
+  [
+   "SW3:p2",
+   "SW1:p2"
+  ],
+  [
+   "SW2:p3",
+   "SW4:p1"
+  ],
+  [
+   "SW4:p2",
+   "SW3:p3"
+  ],
+  [
+   "A:eth0",
+   "SW1:p3"
+  ],
+  [
+   "B:eth0",
+   "SW4:p3"
+  ]
+ ]
+}
