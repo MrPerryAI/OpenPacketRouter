@@ -26,8 +26,10 @@ python3 tools/build_web.py --check
 python3 -m pytest -q tests
 node tests/web/smoke.mjs
 (cd engine && npm test)
-sudo python3 validate/l3/run_kernel_l3.py   # needs root
+sudo python3 validate/l3/run_kernel_l3.py   # needs root (Linux only)
 ```
+On a Mac, run the root checks in a privileged Linux container instead, never with sudo on the host:
+`validate/docker/run.sh` (see docs/docker-validation.md). GitHub CI runs them too.
 
 ## Conventions
 - Accuracy: the FAA has not published the flood's protocol. Keep the "teaching model, not a reconstruction"
