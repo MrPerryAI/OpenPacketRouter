@@ -5,7 +5,8 @@
 //   - a segment to a closed port is answered with RST+ACK; the client sees "connection refused";
 //   - every data segment and every FIN is acknowledged at once (Linux "quick ack" mode, which covers the
 //     first segments of a connection); no delayed ACKs, no window or congestion modeling yet;
-//   - teardown: FIN+ACK, ACK, FIN+ACK, ACK. The side that closes first goes to TIME_WAIT (no frames).
+//   - teardown: FIN+ACK, FIN+ACK, ACK (the closing peer's ACK of the FIN rides on its own FIN, because its app
+//     closes at once). The side that closes first goes to TIME_WAIT (no frames).
 // Not modeled: data retransmission, reordering, windows, options, simultaneous open/close.
 // Servers: services.tcp = {"7": "echo"} listens on port 7 and echoes what it receives, then closes when
 // the client does.
@@ -62,11 +63,10 @@ function onSegment(conn, t) {
         else if (conn.onEvent) conn.onEvent("data", t.len);
       }
       if (f.includes("F")) {
-        conn.rcv += 1; if (f === "FA" && conn.state === "FIN_WAIT_1") conn.snd += 0;
-        seg(conn, "A");
-        if (conn.state === "ESTABLISHED") {          // the peer closed first: the app sees EOF and closes too
-          setState(conn, "LAST_ACK"); seg(conn, "FA"); conn.snd += 1;
-        } else { setState(conn, "TIME_WAIT"); drop(conn); }                       // our FIN was already out
+        conn.rcv += 1;
+        if (conn.state === "ESTABLISHED") {          // the peer closed first: the app sees EOF and closes at once, so our ACK
+          setState(conn, "LAST_ACK"); seg(conn, "FA"); conn.snd += 1;                 // rides on our own FIN (Linux does not ACK a FIN on its own here)
+        } else { seg(conn, "A"); setState(conn, "TIME_WAIT"); drop(conn); }       // our FIN was already out
       }
       return;
     }
