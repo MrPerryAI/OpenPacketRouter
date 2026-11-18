@@ -12,3 +12,9 @@
 | stp-ring | SW1-SW2 cut | roles, states, costs | ✓ |
 | stp-ring | ping A → 10.0.0.2 | reachable | ✓ |
 | stp-ring | restored | roles, states, costs | ✓ |
+| stp-tiebreak | converged | roles, states, costs | ✓ |
+| stp-tiebreak | ping A → 10.0.0.2 | reachable | ✓ |
+| stp-tiebreak | first cable cut | roles, states, costs | ✓ |
+| stp-tiebreak | ping A → 10.0.0.2 | reachable | ✓ |
+| stp-tiebreak | both cables cut | roles, states, costs | ✓ |
+| stp-tiebreak | ping A → 10.0.0.2 | reachable | ✓ |
