@@ -36,3 +36,7 @@ jobs:
         run: sudo env "PATH=$PATH" python3 validate/l2/run_kernel_l2.py
       - name: Link shaping vs real Linux tbf (frame for frame)
         run: sudo env "PATH=$PATH" python3 validate/links/run_kernel_links.py
+      - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)
+        run: |
+          sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null)
+          sudo env "PATH=$PATH" python3 validate/dhcp/run_kernel_dhcp.py

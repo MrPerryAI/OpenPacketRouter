@@ -4,6 +4,7 @@
 #   validate/docker/run.sh l3         # just the engine-vs-Linux L3 check
 #   validate/docker/run.sh storm      # just the storm-math kernel-bridge check
 #   validate/docker/run.sh links      # just the link-shaping (tbf) check
+#   validate/docker/run.sh dhcp       # just the DHCP check (dnsmasq + udhcpc)
 #   validate/docker/run.sh full       # every check in CLAUDE.md except the browser smoke test
 #   validate/docker/run.sh -- CMD...  # any command, as root, in /repo (e.g. python3 validate/l2/run_kernel_l2.py)
 set -euo pipefail
@@ -15,17 +16,19 @@ l3='python3 validate/l3/run_kernel_l3.py'
 l2='python3 validate/l2/run_kernel_l2.py'
 storm='cd poc/storm-math && python3 run_kernel.py'
 links='python3 validate/links/run_kernel_links.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); '"$l3"'; '"$l2"'; '"$links"'; ('"$storm"')'
+dhcp='python3 validate/dhcp/run_kernel_dhcp.py'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
   l2)    cmd="$l2" ;;
   storm) cmd="$storm" ;;
   links) cmd="$links" ;;
-  all)   cmd="set -e; $l3; $l2; $links; ($storm)" ;;
+  dhcp)  cmd="$dhcp" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.

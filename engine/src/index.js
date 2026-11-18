@@ -4,6 +4,7 @@ export {ping, traceroute, udpRequest, dns} from "./apps.js";
 export {TokenBucket, shape, queueStats, frameBytes, parseRate} from "./link.js";
 export * from "./addr.js";
 export * from "./spec.js";
+export {dhcp, dhcpServer} from "./dhcp.js";
 
 import {registerNodeKeys} from "./spec.js";
 registerNodeKeys("switch", ["stp", "vlans"]);   // spanning tree and VLAN settings (engine/src/stp.js, Switch in network.js)
