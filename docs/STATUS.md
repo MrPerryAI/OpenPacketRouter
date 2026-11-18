@@ -1,6 +1,6 @@
 # Project status and hand-off
 
-*Last updated 17 Nov 2026. Read this first in a new session. CLAUDE.md has the rules; this file has the state.*
+*Last updated 18 Nov 2026. Read this first in a new session. CLAUDE.md has the rules; this file has the state.*
 
 ## Direction
 
@@ -32,7 +32,9 @@ node tests/web/smoke.mjs
 sudo python3 validate/l3/run_kernel_l3.py
 ```
 
-The last command needs root, iproute2 and `unshare`. In a cloud session, install `iproute2` with apt first. CI runs all of these on every push (`.github/workflows/ci.yml`).
+The last command needs root, iproute2 and `unshare`. In a cloud session, install `iproute2` with apt first.
+
+**On a Mac, do not run the last command with `sudo` on the host.** The kernel checks need a privileged Linux container instead (Docker Desktop). The recipe for that container is being written by the lead; until it lands, the Mac is not a validated environment for `validate/l3/`, and the `poc/storm-math` kernel test (`run_kernel.py`) has the same limit. CI runs all of these on every push (`.github/workflows/ci.yml`).
 
 ## Decisions made
 
