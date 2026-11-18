@@ -21,6 +21,19 @@ dns(net, "ZME-VOICE", "10.0.0.53", "eld-radio.fti");
 net.counters;                                  // frames sent per cable direction
 ```
 
+## Spec files and the CLI
+
+A network is a JSON spec file; the actions to run on it are a second JSON file. The format is documented in [docs/spec-format.md](../docs/spec-format.md). From `engine/`:
+
+```bash
+node bin/openpacketrouter.mjs check ../validate/l3/fti-routed.json            # validate a spec
+node bin/openpacketrouter.mjs run   ../validate/l3/fti-routed.json            # runs its actions file
+node bin/openpacketrouter.mjs run   spec.json actions.json --trace            # print every engine decision
+node bin/openpacketrouter.mjs actions                                         # list action types
+```
+
+Exit codes: `0` ok, `1` invalid spec or actions (each problem is printed), `2` usage or file error. Only JSON is supported for now.
+
 ## Validated against real Linux
 
 `validate/l3/run_kernel_l3.py` builds each spec out of Linux network namespaces. Every client, server and router is a real Linux network stack, every switch a kernel bridge. It runs the same actions and compares results **and the number of frames on every cable direction**. All 12 actions across three networks match exactly: [validate/l3/results.md](../validate/l3/results.md). The networks are a healthy routed FTI, a routing loop, and a missing return route.
@@ -34,7 +47,7 @@ TCP, DHCP, VLANs, spanning tree (in this engine), dynamic routing (OSPF/BGP), li
 ## Tests
 
 ```bash
-npm test                                  # unit tests
+npm test                                  # 17 unit tests: engine and spec format
 ```
 
 ```bash
