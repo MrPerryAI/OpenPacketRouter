@@ -28,10 +28,12 @@ export function stormEdges(net, opts = {}) {
   const o = {...STORM_DEFAULTS, ...opts}; const edges = [];
   for (const l of net.links) {
     if (!l.up || !forwards(l.a.node, l.a.name) || !forwards(l.b.node, l.b.name)) continue;
-    const delay = o.frameBits / (l.capacity ?? o.capacity) + l.delay + o.switchLatency;
-    for (const [t, h] of [[l.a, l.b], [l.b, l.a]])
+    for (const [t, h] of [[l.a, l.b], [l.b, l.a]]) {
+      // capacity of this direction: a token-bucket shaper on the sending interface (link.js) sets it
+      const delay = o.frameBits / (t.shaper?.rate ?? l.capacity ?? o.capacity) + l.delay + o.switchLatency;
       edges.push({link: l.id, tail: t.node.name, head: h.node.name, headIsSwitch: h.node.kind === "switch",
         label: `${t.node.name}:${t.name}>${h.node.name}:${h.name}`, delay});
+    }
   }
   return edges;
 }
