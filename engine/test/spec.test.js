@@ -38,10 +38,10 @@ test("bad specs: every problem is reported with a path", () => {
 });
 
 test("unknown keys are warnings, so specs from newer features still load", () => {
-  const s = tiny(); s.nodes[0].stp = {priority: 4096};
+  const s = tiny(); s.nodes[0].futureFeature = {x: 1};
   const v = validateSpec(s);
   assert.equal(v.ok, true);
-  assert.equal(v.warnings[0].path, "$.nodes[0].stp");
+  assert.equal(v.warnings[0].path, "$.nodes[0].futureFeature");
 });
 
 test("loadSpec throws a SpecError listing everything wrong", () => {
