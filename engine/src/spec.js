@@ -10,6 +10,7 @@
 // capacity, DHCP …) are reported as warnings, not errors, until they are registered here.
 
 import {Network} from "./network.js";
+import {dhcp} from "./dhcp.js";
 import {ping, traceroute, dns, udpRequest} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
 
@@ -65,6 +66,7 @@ export function validateSpec(spec) {
     if (n.ifaces !== undefined && !isObj(n.ifaces)) err(`${p}.ifaces`, `node "${n.name}": ifaces must map interface name to "a.b.c.d/len"`);
     const nets = [];
     for (const [ifn, cidr] of Object.entries(isObj(n.ifaces) ? n.ifaces : {})) {
+      if (cidr === "dhcp") continue;
       if (!isCidr(cidr)) { err(`${p}.ifaces.${ifn}`, `node "${n.name}": "${cidr}" is not an address like 10.0.0.1/24`); continue; }
       nets.push(parseCidr(cidr));
     }
@@ -87,6 +89,11 @@ export function validateSpec(spec) {
       if (!isObj(n.services)) err(`${p}.services`, `node "${n.name}": services must be an object`);
       else if (n.services.dns !== undefined && !(isObj(n.services.dns) && Object.values(n.services.dns).every(isIp)))
         err(`${p}.services.dns`, `node "${n.name}": dns must map names to IPv4 addresses`);
+      if (isObj(n.services) && n.services.dhcp !== undefined) {
+        const d = n.services.dhcp;
+        if (!isObj(d) || !Array.isArray(d.range) || d.range.length !== 2 || !d.range.every(isIp)) err(`${p}.services.dhcp`, `node "${n.name}": dhcp needs range: ["first", "last"]`);
+        else if (nets.length && !reachable(d.range[0])) err(`${p}.services.dhcp.range`, `node "${n.name}": DHCP range is on none of its subnets`);
+      }
     }
   });
 
@@ -112,6 +119,7 @@ export const ACTIONS = {
   ping: {required: ["src", "dst"], run: (net, a) => ping(net, a.src, a.dst, {ttl: a.ttl ?? 64, timeout: a.timeout ?? 2})},
   traceroute: {required: ["src", "dst"], run: (net, a) => traceroute(net, a.src, a.dst, {maxHops: a.maxHops ?? 8})},
   dns: {required: ["src", "server", "name"], run: (net, a) => dns(net, a.src, a.server, a.name)},
+  dhcp: {required: ["src"], run: (net, a) => dhcp(net, a.src, {iface: a.iface, tries: a.tries ?? 3, interval: a.interval ?? 1})},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
 };
 export function registerAction(name, def) { ACTIONS[name] = def; }

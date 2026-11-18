@@ -21,6 +21,7 @@
 // Every decision is written to `net.trace` with a plain-English reason.
 
 import {Stp} from "./stp.js";
+import {dhcpServer} from "./dhcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 
 class Heap {
@@ -110,7 +111,9 @@ export class IpNode extends Device {
   constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
-    for (const [n, cidr] of Object.entries(ifaces)) { const c = parseCidr(cidr); this.addIface(n, {ip: c.ip, prefix: c.prefix, net: c.net, mask: c.mask}); }
+    for (const [n, cidr] of Object.entries(ifaces)) {
+      if (cidr === "dhcp") { this.addIface(n, {dhcp: true}); continue; }                 // address comes from DHCP (dhcp.js)
+      const c = parseCidr(cidr); this.addIface(n, {ip: c.ip, prefix: c.prefix, net: c.net, mask: c.mask}); }
     this.routes = routes.map(([dst, via]) => ({...parseCidr(dst), via}));
     if (gw) this.routes.push({...parseCidr("0.0.0.0/0"), via: gw});
     this.services = services;          // {dns: {"name": "ip"}, udp: {port: fn(payload) -> reply}}
@@ -137,6 +140,7 @@ export class IpNode extends Device {
   receive(ifname, f) {
     const i = this.ifaces[ifname];
     if (f.dst !== i.mac && f.dst !== BROADCAST_MAC) return;            // NIC filter
+    if (this.rawHook && this.rawHook(ifname, f)) return;              // a raw-socket client (DHCP, dhcp.js)
     if (f.type === "arp") return this.onArp(ifname, f.arp);
     if (f.type === "ipv4") return this.onIp(ifname, f.ip);
   }
@@ -157,7 +161,7 @@ export class IpNode extends Device {
   }
 
   onIp(ifname, p) {
-    if (this.owns(p.dst)) return this.deliver(ifname, p);
+    if (this.owns(p.dst) || p.dst === "255.255.255.255") return this.deliver(ifname, p);
     if (!this.forwarding) { this.log("drop", `${describe({type: "ipv4", ip: p})}: not for me and I don't route`); return; }
     if (p.ttl <= 1) { this.log("ttl-expired", `${describe({type: "ipv4", ip: p})}: TTL ran out here`); return this.icmpError(p, 11, 0); }
     const r = this.route(p.dst);
@@ -175,12 +179,14 @@ export class IpNode extends Device {
     if (p.proto === "udp") {
       if (this.sockets.has(p.udp.dport)) return;   // an app is waiting on this port
       const svc = this.udpService(p.udp.dport);
+      if (!svc && p.dst === "255.255.255.255") return;                // no ICMP errors for broadcasts
       if (!svc) { this.log("port-closed", `nothing listens on UDP ${p.udp.dport}`); return this.icmpError(p, 3, 3, p.dst); }
       const reply = svc(p.udp.payload, p);
       if (reply !== undefined) this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "udp", udp: {sport: p.udp.dport, dport: p.udp.sport, payload: reply}});
     }
   }
   udpService(port) {
+    if (port === 67 && this.services.dhcp) return this._dhcpd ||= dhcpServer(this, this.services.dhcp);
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
     return this.services.udp && this.services.udp[port];
