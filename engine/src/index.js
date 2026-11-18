@@ -1,4 +1,4 @@
-export {stormAnalysis, stormEdges, STORM_DEFAULTS} from "./storm.js";
+export {stormAnalysis, stormEdges, stormRates, STORM_DEFAULTS} from "./storm.js";
 export {Network, Switch, IpNode} from "./network.js";
 export {ping, traceroute, udpRequest, dns} from "./apps.js";
 export {TokenBucket, shape, queueStats, frameBytes, parseRate} from "./link.js";

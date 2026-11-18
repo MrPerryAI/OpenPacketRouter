@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {Network, stormAnalysis, shape} from "../src/index.js";
+import {Network, stormAnalysis, stormRates, shape} from "../src/index.js";
 
 // Switches S0..S(n-1) joined by `pairs` (cables with 1 ms delay), a host on S0.
 function switches(n, pairs, {blocked = {}} = {}) {
@@ -61,4 +61,39 @@ test("a shaped link is slower: the storm on it grows more slowly", () => {
   const d = 672 / 1e6 + 0.001 + 5e-6;                    // 1 Mbit/s serialization instead of 100 Mbit/s
   assert.ok(Math.abs(slow.doublingTime - d) / d < 1e-6, `doubling ${slow.doublingTime} vs ${d}`);
   assert.ok(slow.doublingTime > fast.doublingTime);
+});
+
+test("steady storm rates on a ring: trapped frames lap the loop forever", () => {
+  const net = switches(3, [[0, 1], [1, 2], [2, 0]]);
+  const r = stormRates(net, "H");
+  // one broadcast from H puts one frame each way round the ring: 1 frame per lap of 3 hops
+  const d = 672 / 100e6 + 0.001 + 5e-6;
+  assert.ok(Math.abs(r.rates["S0:p0a>S1:p0b"] - 1 / (3 * d)) < 1e-6);
+  assert.ok(Math.abs(r.hostRates.H - 2 / (3 * d)) < 1e-6);   // both directions pass S0 and leak a copy to H
+  assert.equal(stormRates(switches(4, [[0, 1], [1, 2]]), "H"), null);
+});
+
+test("spanning tree turns a ring into a tree once it converges (STP-blocked ports count)", () => {
+  const net = new Network();
+  for (let i = 0; i < 3; i++) net.addSwitch(`S${i}`, {stp: {priority: 4096 * (i + 1)}});
+  net.addHost("H", {ifaces: {eth0: "10.0.0.1/24"}});
+  [[0, 1], [1, 2], [2, 0]].forEach(([a, b], k) => net.link(`S${a}:p${k}a`, `S${b}:p${k}b`, {delay: 0.001}));
+  net.link("H:eth0", "S0:h");
+  net.run(net.time + 60);                                  // listening + learning: 2 x forward delay
+  assert.equal(stormAnalysis(net).regime, "TREE");
+});
+
+test("the packet engine's own storm matches the math, cable by cable", () => {
+  // a ring with unequal delays and two hosts; one ARP broadcast circulates forever (no STP)
+  const net = new Network();
+  for (let i = 0; i < 3; i++) net.addSwitch(`S${i}`);
+  net.addHost("H", {ifaces: {eth0: "10.0.0.1/24"}}); net.addHost("G", {ifaces: {eth0: "10.0.0.2/24"}});
+  [[0, 1, 0.001], [1, 2, 0.002], [2, 0, 0.0015]].forEach(([a, b, d], k) => net.link(`S${a}:p${k}a`, `S${b}:p${k}b`, {delay: d}));
+  net.link("H:eth0", "S0:h"); net.link("G:eth0", "S2:g");
+  const pred = stormRates(net, "H", {frameBits: 0, switchLatency: 0});   // the engine has no serialization or lookup time
+  const h = net.node("H").ifaces.eth0;
+  net.node("H").send("eth0", {src: h.mac, dst: "ff:ff:ff:ff:ff:ff", type: "arp", arp: {op: "request", sha: h.mac, spa: "10.0.0.1", tha: "00:00:00:00:00:00", tpa: "10.0.0.99"}});
+  net.run(1); const before = net.snapshot(); net.run(11); const seen = net.diff(before);
+  assert.deepEqual(Object.keys(seen).sort(), Object.keys(pred.rates).sort());
+  for (const [k, v] of Object.entries(pred.rates)) assert.ok(Math.abs(seen[k] / 10 - v) / v < 0.01, `${k}: engine ${seen[k] / 10}/s vs math ${v}/s`);
 });

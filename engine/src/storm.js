@@ -16,10 +16,10 @@
 const TOL = 1e-6;
 export const STORM_DEFAULTS = {frameBits: 84 * 8, switchLatency: 5e-6, capacity: 100e6};
 
-/** Can this switch port carry data frames? (STP state when the switch has one, else the `blocked` list.) */
+/** Can this switch port carry data frames? (the `blocked` list and, with spanning tree on, the port's STP state) */
 function forwards(node, port) {
   if (node.kind !== "switch") return true;
-  if (typeof node.forwards === "function") return node.forwards(port);
+  if (typeof node._fwd === "function") return node._fwd(port);    // Switch: blocked list + spanning-tree port state
   return !(node.blocked && node.blocked.has(port));
 }
 
@@ -127,4 +127,36 @@ export function stormAnalysis(net, opts = {}) {
     hostsReached: [...devices].filter(d => net.node(d).kind !== "switch").sort(),
     edges: edges.map(({label, delay}) => ({label, delay})),
   };
+}
+
+/**
+ * CIRCULATING networks only (else null): after ONE broadcast from `host`, the long-run frames per second on
+ * every cable direction, before any link saturates. Port of poc/storm-math `steady_rates`.
+ * Each loop is a single directed cycle of edges, so the frames trapped on it are conserved; a trapped frame
+ * passes each cycle edge once per lap (rate N / L, L = the loop's latency). Copies leaking off a loop flow
+ * through the loop-free rest of the network. Returns {rates: {"A:if>B:if": frames/s}, hostRates: {device: frames/s}}.
+ */
+export function stormRates(net, host, opts = {}) {
+  const edges = stormEdges(net, opts), adj = nbAdjacency(edges), n = edges.length;
+  const loops = sccs(adj).filter(c => c.length > 1 || adj[c[0]].includes(c[0]));
+  const rho = loops.reduce((m, c) => Math.max(m, compRadius(c, adj, () => 1)), 0);
+  if (regimeOf(rho) !== "CIRCULATING") return null;
+  const step = x => { const y = new Float64Array(n); for (let i = 0; i < n; i++) if (x[i]) for (const j of adj[i]) y[j] += x[i]; return y; };
+  let x = new Float64Array(n); edges.forEach((e, i) => { if (e.tail === host) x[i] = 1; });
+  if (!x.some(v => v)) throw new Error(`${host} has no forwarding link`);
+  for (let k = 0; k < 4 * n; k++) x = step(x);             // every transient copy has landed on a loop or died
+  const rates = new Float64Array(n), onCycle = new Uint8Array(n);
+  for (const c of loops) {
+    const N = c.reduce((s, i) => s + x[i], 0), L = c.reduce((s, i) => s + edges[i].delay, 0);
+    for (const i of c) { rates[i] = N / L; onCycle[i] = 1; }
+  }
+  let y = Float64Array.from(rates);
+  for (let k = 0; k < 4 * n; k++) {                        // the loop-free part is acyclic: this converges exactly
+    const next = step(y); for (let i = 0; i < n; i++) if (onCycle[i]) next[i] = rates[i];
+    const same = next.every((v, i) => Math.abs(v - y[i]) <= 1e-8 + 1e-5 * Math.abs(y[i]));
+    y = next; if (same) break;
+  }
+  const out = {rates: {}, hostRates: {}};
+  edges.forEach((e, i) => { if (y[i] > 0) { out.rates[e.label] = y[i]; if (!e.headIsSwitch) out.hostRates[e.head] = y[i]; } });
+  return out;
 }
