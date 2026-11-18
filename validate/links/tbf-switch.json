@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Shaped switch port",
+  "about": "The switch port toward B is a 1 mbit/s bottleneck (burst 3000 bytes, queue 4000 bytes); the hosts' own links are not shaped. The ARP broadcast flooded to B uses tokens too.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+  ],
+  "links": [
+    ["A:eth0", "SW:p1", 1],
+    ["SW:p2", "B:eth0", 1, {"shape": {"rate": "1mbit", "burst": 3000, "limit": 4000}}]
+  ]
+}
