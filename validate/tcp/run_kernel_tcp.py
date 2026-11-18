@@ -56,7 +56,7 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in SPECS}))
 
 
-comparable = lambda r: {k: v for k, v in r.items() if k != "rtt_ms"}
+comparable = lambda r: {k: v for k, v in r.items() if k not in ("rtt_ms", "times_s")}
 
 
 def main():
@@ -78,7 +78,7 @@ def main():
             what = f'tcp {a["src"]} → {a["dst"]}:{a["port"]}' + (f' ({a.get("size", 100)} bytes)' if res.get("ok") else "")
             summary = (f'echo of {res["bytes"]} bytes' if res.get("ok") else res.get("error")) + " · " + " ".join(w.replace("out ", ">").replace("in ", "<") for w in res["wire"])
             rows.append((name, what, summary, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
-            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "kernel": comparable(k["result"]), "frame_diffs": fd}
+            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "kernel": k["result"], "frame_diffs": fd}
     md = ["| Network | Action | Engine result and client-side segments (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n")

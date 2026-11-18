@@ -11,10 +11,10 @@ function lan() {
 }
 const act = (net, a) => tcpAction(net, {src: "C", dst: "10.0.0.2", port: 7, ...a});
 
-test("TCP: handshake, echo, and a four-segment close", () => {
+test("TCP: handshake, echo, and a three-segment close", () => {
   const r = act(lan(), {size: 100});
   assert.equal(r.ok, true); assert.equal(r.bytes, 100);
-  assert.deepEqual(r.wire, ["out S", "in SA", "out A", "out PA 100", "in A", "in PA 100", "out A", "out FA", "in A", "in FA", "out A"]);
+  assert.deepEqual(r.wire, ["out S", "in SA", "out A", "out PA 100", "in A", "in PA 100", "out A", "out FA", "in FA", "out A"]);
 });
 test("TCP: a closed port answers RST+ACK and the client sees 'refused'", () => {
   const r = act(lan(), {port: 8});
