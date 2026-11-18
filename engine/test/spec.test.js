@@ -85,6 +85,8 @@ test("--text report: result line, decisions in plain English, frames per cable",
   assert.match(out, /SW-ZFW +IPv4 10\.1\.0\.10 → 10\.1\.0\.1 ttl 64 echo request: 02:00:00:00:00:04 learned on p1/);
   assert.match(out, /frames: 9 on 5 cable directions/);
   assert.doesNotMatch(out, /VLAN 0 not allowed/);       // plain switches forward known unicast, they don't drop it
+});
+
 test("interface names that `ip link` would read as a keyword get a warning", () => {
   const s = tiny(); s.nodes.push({name: "R", kind: "router", ifaces: {a: "10.9.0.1/24", lan: "10.8.0.1/24"}}); s.links.push(["R:a", "SW:m"]);
   const v = validateSpec(s);
