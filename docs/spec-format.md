@@ -14,6 +14,7 @@ and other tools; `openpacketrouter check` also checks meaning (gateways on a sub
 node engine/bin/openpacketrouter.mjs check validate/l3/fti-routed.json            # validate only
 node engine/bin/openpacketrouter.mjs run   validate/l3/fti-routed.json            # uses fti-routed.actions.json
 node engine/bin/openpacketrouter.mjs run   spec.json actions.json --trace         # add every engine decision
+node engine/bin/openpacketrouter.mjs run   spec.json actions.json --text          # readable report instead of JSON
 node engine/bin/openpacketrouter.mjs actions                                      # list action types
 ```
 
