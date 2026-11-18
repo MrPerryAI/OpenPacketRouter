@@ -94,7 +94,7 @@ export class Switch extends Device {
     const out = f.dst === BROADCAST_MAC ? null : this.table.get(key(f.dst));
     if (out === ifname) { this.log("filter", `drop: ${f.dst} lives on the port it came in on (${ifname})`); return; }
     const emit = p => {
-      if (!this.vlans) return this.send(p, f);
+      if (!this.vlans) { this.send(p, f); return true; }
       const c = this.vcfg(p); if (!c.member.has(vid)) return false;
       const g = {...f}; if (c.untagged.has(vid)) delete g.vlan; else g.vlan = vid;
       this.send(p, g); return true;

@@ -1,0 +1,38 @@
+// Plain-English report of a run (the CLI's --text): what each action did, why, and what it cost on the wire.
+
+const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 2 : 1).padStart(8)} ms`;
+
+/** One line describing an action's outcome. */
+export function describeResult(a, r) {
+  const what = a.do === "dns" ? `dns ${a.name} via ${a.server} from ${a.src}` :
+    a.do === "udpBurst" ? `${a.count} UDP datagrams of ${a.size} B ${a.src} → ${a.dst}:${a.port}` :
+    a.do === "dhcp" ? `dhcp on ${a.src}` : `${a.do} ${a.src} → ${a.dst}${a.port ? ":" + a.port : ""}`;
+  let how;
+  if (r.hops) how = (r.reached ? "reached: " : "not reached: ") + r.hops.map(h => h.from ?? "*").join(" → ");
+  else if (a.do === "udpBurst") how = `${r.sent} sent`;
+  else if (r.ok) how = "ok" + (r.answer !== undefined ? `, answer ${r.answer}` : "") + (r.ip ? `, got ${r.ip} from ${r.server} for ${r.lease} s` : "") +
+    (r.from && !r.ip ? ` from ${r.from}` : "") + (r.rtt_ms !== undefined ? ` in ${r.rtt_ms} ms` : "");
+  else how = `failed: ${r.error}` + (r.from ? ` (from ${r.from})` : "");
+  return `${what}: ${how}`;
+}
+
+/** Text report for runActions(..., {trace: true}) results. `maxEvents` caps each action's trace. */
+export function textReport(specName, results, {maxEvents = 200} = {}) {
+  const out = [];
+  if (specName) out.push(`# ${specName}`, "");
+  results.forEach((e, k) => {
+    out.push(`${k + 1}. ${describeResult(e.action, e.result)}`);
+    if (e.trace) {
+      const t0 = e.trace.length ? e.trace[0].t : 0;
+      for (const ev of e.trace.slice(0, maxEvents)) out.push(`   ${ms(ev.t - t0)}  ${ev.node.padEnd(12)} ${ev.detail}`);
+      if (e.trace.length > maxEvents) out.push(`   … ${e.trace.length - maxEvents} more decisions`);
+    }
+    const frames = Object.entries(e.frames).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+    const total = frames.reduce((s, [, v]) => s + v, 0);
+    out.push(`   frames: ${total} on ${frames.length} cable direction${frames.length === 1 ? "" : "s"}` +
+      (frames.length ? ": " + frames.map(([c, v]) => `${c} ${v}`).join(", ") : ""));
+    if (e.drops && Object.keys(e.drops).length) out.push(`   dropped in queues: ${Object.entries(e.drops).map(([i, v]) => `${i} ${v}`).join(", ")}`);
+    out.push("");
+  });
+  return out.join("\n");
+}
