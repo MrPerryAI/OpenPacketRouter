@@ -77,3 +77,12 @@ test("CLI run prints a versioned result document; check and errors use exit code
     assert.equal(spawnSync("node", [CLI, "frobnicate"]).status, 2);
   } finally { fs.rmSync(dir, {recursive: true}); }
 });
+
+test("--text report: result line, decisions in plain English, frames per cable", () => {
+  const out = execFileSync("node", [CLI, "run", file("fti-routed.json").pathname, "--text"]).toString();
+  assert.match(out, /^# FTI routed/);
+  assert.match(out, /1\. ping ZFW-VOICE → 10\.1\.0\.1: ok from 10\.1\.0\.1 in 8 ms/);
+  assert.match(out, /SW-ZFW +IPv4 10\.1\.0\.10 → 10\.1\.0\.1 ttl 64 echo request: 02:00:00:00:00:04 learned on p1/);
+  assert.match(out, /frames: 9 on 5 cable directions/);
+  assert.doesNotMatch(out, /VLAN 0 not allowed/);       // plain switches forward known unicast, they don't drop it
+});
