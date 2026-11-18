@@ -58,6 +58,10 @@ Unknown keys are **warnings**, not errors, so a spec written for a newer feature
 ignored). Features that add keys register them with `registerNodeKeys(kind, keys)` in `spec.js`, which
 silences the warning.
 
+`check` also warns about interface and port names that read as an `ip link` keyword, such as `a` (address),
+`m` (mtu) or `up`. The Linux validators build interfaces with `ip link`, so those names can't be built there.
+Use names like `eth0` for hosts and routers, and `p1` for switch ports.
+
 ## Actions
 
 A JSON array. Each action starts from a cold network (ARP caches and switch MAC tables flushed), so its
