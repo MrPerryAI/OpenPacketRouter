@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT / "validate" / "l3"))
 from run_kernel_l3 import sh, nsx, sysctl, no_ipv6, comparable  # noqa: E402
 
 VLAN = ["vlan-trunk", "vlan-native"]
-STP = [("stp-ring", "stp-ring.steps")]
+STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
 
 
 class Net:
