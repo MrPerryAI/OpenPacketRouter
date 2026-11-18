@@ -42,13 +42,17 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-TCP, DHCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below).
+TCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
 
 ## Tests
 
 ```bash
-npm test                                  # 38 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping
+npm test                                  # 41 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP
 ```
+
+## DHCP
+
+A node with `services.dhcp` runs a DHCP server on its subnet: it hands out addresses from a range, with a lease time, and can name a router and DNS server. An interface marked `"dhcp"` has no address until a `dhcp` action runs a client on it. The engine picks the same address a real server gives and reports the server and lease. `validate/dhcp/` checks this against real `dnsmasq` and `udhcpc` (client): the lease result and the frames on every cable, in [validate/dhcp/results.md](../validate/dhcp/results.md). The spec keys are in [docs/spec-format.md](../docs/spec-format.md).
 
 ## Link capacity and queues
 
