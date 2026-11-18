@@ -4,7 +4,7 @@ A deterministic, packet-level network simulator in plain JavaScript (ES modules,
 
 | Device | What it does |
 |---|---|
-| **Switch** | Learning bridge. It learns source MACs, forwards known unicast out one port, and floods broadcasts and unknown destinations. Ports can be marked `blocked`. Spanning tree lives in the lab engine for now. |
+| **Switch** | Learning bridge. It learns source MACs, forwards known unicast out one port, and floods broadcasts and unknown destinations. Ports can be marked `blocked`. Optional **spanning tree** (802.1D with real BPDUs: root bridge, root/designated/blocked ports, listening/learning/forwarding timers, max-age expiry) and **VLANs** (access and trunk ports, native VLAN, per-VLAN MAC tables; `vlans` in the spec). See `engine/src/stp.js`. |
 | **Router** | IPv4 forwarding: longest-prefix match over connected and static routes, TTL decrement, ICMP time exceeded / net unreachable / host unreachable. |
 | **Host / server** | Clients and servers: IPv4 interfaces, a default gateway, ARP, ICMP echo, and UDP services (a DNS-style name server built in; custom UDP handlers). |
 
@@ -29,7 +29,7 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-TCP, DHCP, VLANs, spanning tree (in this engine), dynamic routing (OSPF/BGP), link capacity and queues, IPv6, NAT, and firewalls.
+TCP, DHCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), link capacity and queues, IPv6, NAT, and firewalls.
 
 ## Tests
 
@@ -39,4 +39,8 @@ npm test                                  # unit tests
 
 ```bash
 sudo python3 ../validate/l3/run_kernel_l3.py   # frame-for-frame against Linux
+```
+
+```bash
+sudo python3 ../validate/l2/run_kernel_l2.py   # spanning tree roles + VLAN trunks vs Linux kernel bridges
 ```
