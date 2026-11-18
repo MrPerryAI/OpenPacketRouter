@@ -13,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "poc" / "storm-math"))
-from stormmath.analysis import predict  # noqa: E402
+from stormmath.analysis import predict, steady_rates  # noqa: E402
 from stormmath.scenarios import scenarios  # noqa: E402
 
 PY = scenarios()
@@ -39,8 +39,10 @@ def to_spec(topo):
             "capacities": [l.capacity for l in topo.links]}
 
 
-def engine(topo):
-    out = subprocess.run(["node", str(ROOT / "engine" / "tools" / "storm.mjs")], input=json.dumps(to_spec(topo)),
+def engine(topo, host=None):
+    payload = to_spec(topo)
+    if host: payload["host"] = host
+    out = subprocess.run(["node", str(ROOT / "engine" / "tools" / "storm.mjs")], input=json.dumps(payload),
                          check=True, capture_output=True, text=True).stdout
     return json.loads(out)
 
@@ -59,3 +61,22 @@ def test_engine_storm_matches_poc(name):
     label = lambda e: f"{e.tail}:{e.tail_port}>{e.head}:{e.head_port}"
     assert set(js["reachEdges"]) == {label(p.edges[i]) for i in p.reach_edges}
     assert set(js["loopEdges"]) == {label(p.edges[i]) for i in p.loop_edges}
+
+
+@pytest.mark.parametrize("name,src", [("3b-xconA-core-blind", "ZFW-VOICE"), ("4a-xconAB-core-sees", "ZFW-VOICE"),
+                                      ("6-routed-rebreak", "ELD-RADIO")])
+def test_engine_steady_rates_match_poc(name, src):
+    topo = PY[name][1]
+    p = predict(topo)
+    y = steady_rates(topo, p, src)
+    label = lambda e: f"{e.tail}:{e.tail_port}>{e.head}:{e.head_port}"
+    py = {label(e): y[i] for i, e in enumerate(p.edges) if y[i] > 0}
+    js = engine(topo, src)["steady"]["rates"]
+    assert set(js) == set(py)
+    for k, v in py.items():
+        assert js[k] == pytest.approx(v, rel=1e-6)
+
+
+def test_engine_steady_rates_none_unless_circulating():
+    assert engine(PY["1-baseline"][1], "ZFW-VOICE")["steady"] is None
+    assert engine(PY["7-core-stp-off"][1], "ZFW-VOICE")["steady"] is None

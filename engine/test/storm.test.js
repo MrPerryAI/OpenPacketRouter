@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {Network, stormAnalysis, shape} from "../src/index.js";
+import {Network, stormAnalysis, stormRates, shape} from "../src/index.js";
 
 // Switches S0..S(n-1) joined by `pairs` (cables with 1 ms delay), a host on S0.
 function switches(n, pairs, {blocked = {}} = {}) {
@@ -61,4 +61,14 @@ test("a shaped link is slower: the storm on it grows more slowly", () => {
   const d = 672 / 1e6 + 0.001 + 5e-6;                    // 1 Mbit/s serialization instead of 100 Mbit/s
   assert.ok(Math.abs(slow.doublingTime - d) / d < 1e-6, `doubling ${slow.doublingTime} vs ${d}`);
   assert.ok(slow.doublingTime > fast.doublingTime);
+});
+
+test("steady storm rates on a ring: trapped frames lap the loop forever", () => {
+  const net = switches(3, [[0, 1], [1, 2], [2, 0]]);
+  const r = stormRates(net, "H");
+  // one broadcast from H puts one frame each way round the ring: 1 frame per lap of 3 hops
+  const d = 672 / 100e6 + 0.001 + 5e-6;
+  assert.ok(Math.abs(r.rates["S0:p0a>S1:p0b"] - 1 / (3 * d)) < 1e-6);
+  assert.ok(Math.abs(r.hostRates.H - 2 / (3 * d)) < 1e-6);   // both directions pass S0 and leak a copy to H
+  assert.equal(stormRates(switches(4, [[0, 1], [1, 2]]), "H"), null);
 });
