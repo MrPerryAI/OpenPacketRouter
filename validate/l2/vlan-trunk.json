@@ -1,0 +1,120 @@
+{
+ "name": "VLAN trunk",
+ "about": "Two VLAN-aware switches joined by a trunk carrying VLANs 10 and 20. A,C are in VLAN 10; B,D in VLAN 20. E and F are in VLAN 5, which is not on the trunk, so they cannot reach each other.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "vlans": {
+    "p1": {
+     "access": 10
+    },
+    "p2": {
+     "access": 20
+    },
+    "tr0": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "nv0": {
+     "access": 5
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "vlans": {
+    "p1": {
+     "access": 10
+    },
+    "p2": {
+     "access": 20
+    },
+    "tr0": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "nv0": {
+     "access": 5
+    }
+   }
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.3/24"
+   }
+  },
+  {
+   "name": "D",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.4/24"
+   }
+  },
+  {
+   "name": "E",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.5/24"
+   }
+  },
+  {
+   "name": "F",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.6/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW1:p1"
+  ],
+  [
+   "B:eth0",
+   "SW1:p2"
+  ],
+  [
+   "C:eth0",
+   "SW2:p1"
+  ],
+  [
+   "D:eth0",
+   "SW2:p2"
+  ],
+  [
+   "SW1:tr0",
+   "SW2:tr0"
+  ],
+  [
+   "E:eth0",
+   "SW1:nv0"
+  ],
+  [
+   "F:eth0",
+   "SW2:nv0"
+  ]
+ ]
+}

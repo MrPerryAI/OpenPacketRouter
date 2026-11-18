@@ -20,6 +20,7 @@
 //
 // Every decision is written to `net.trace` with a plain-English reason.
 
+import {Stp} from "./stp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 
 class Heap {
@@ -37,7 +38,7 @@ class Heap {
   static lt(x, y) { return x.t < y.t || (x.t === y.t && x.seq < y.seq); }
 }
 
-const describe = f => f.type === "arp"
+const describe = f => f.type === "bpdu" ? `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
   : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"][i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
@@ -48,19 +49,59 @@ class Device {
   send(ifname, frame) { this.net._transmit(this, ifname, frame); }
   log(event, detail) { this.net.log(this.name, event, detail); }
   flush() {}
+  start() {}
+  linkChange() {}
 }
 
 export class Switch extends Device {
-  constructor(net, name, {blocked = []} = {}) { super(net, name, "switch"); this.table = new Map(); this.blocked = new Set(blocked); }
+  /** opts: blocked: [ports]; stp: {priority, mac, hello, maxAge, forwardDelay, cost, portPriority} (spanning tree on);
+   *  vlans: {port: {access: 10} | {trunk: [10, 20], native: 1}} (makes the switch VLAN-aware, like a kernel
+   *  bridge with vlan_filtering; ports not listed are access ports in VLAN 1). */
+  constructor(net, name, {blocked = [], stp = null, vlans = null} = {}) {
+    super(net, name, "switch"); this.table = new Map(); this.blocked = new Set(blocked);
+    this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
+    this.vlans = vlans;
+  }
+  /** {pvid, member: Set, untagged: Set} for a port of a VLAN-aware switch. */
+  vcfg(port) {
+    const c = (this.vlans && this.vlans[port]) || {access: 1};
+    if (c.access !== undefined) return {pvid: c.access, member: new Set([c.access]), untagged: new Set([c.access])};
+    const native = c.native ?? null, member = new Set(c.trunk); if (native !== null) member.add(native);
+    return {pvid: native, member, untagged: new Set(native !== null ? [native] : [])};
+  }
+  _fwd(p) { return !this.blocked.has(p) && (!this.stp || !this.stp.ports.get(p) || this.stp.ports.get(p).state === "forwarding"); }
+  flushPort(p) { for (const [k, v] of this.table) if (v === p) this.table.delete(k); }
+  linkChange(ifname, up) { if (this.stp) this.stp.linkChange(ifname, up); }
+  start() { if (this.stp) this.stp.start(); }
+
   receive(ifname, f) {
     if (this.blocked.has(ifname)) return;
-    if (f.src !== BROADCAST_MAC && this.table.get(f.src) !== ifname) { this.table.set(f.src, ifname); }
-    const out = f.dst === BROADCAST_MAC ? null : this.table.get(f.dst);
+    if (this.stp && f.type === "bpdu") return this.stp.receive(ifname, f);   // STP-enabled bridges consume BPDUs; others flood them like any multicast
+    const st = this.stp && this.stp.ports.get(ifname) ? this.stp.ports.get(ifname).state : "forwarding";
+    if (st === "disabled" || st === "listening" || st === "blocking") return;
+    // VLAN classification
+    let vid = 0;
+    if (this.vlans) {
+      const c = this.vcfg(ifname);
+      vid = f.vlan !== undefined ? f.vlan : c.pvid;
+      if (vid === null || !c.member.has(vid)) { this.log("vlan-drop", `${describe(f)}: VLAN ${f.vlan ?? "untagged"} not allowed in on ${ifname}`); return; }
+    }
+    const key = m => vid + "|" + m;
+    if (f.src !== BROADCAST_MAC && this.table.get(key(f.src)) !== ifname) { this.table.set(key(f.src), ifname); }
+    if (st === "learning") return;
+    const out = f.dst === BROADCAST_MAC ? null : this.table.get(key(f.dst));
     if (out === ifname) { this.log("filter", `drop: ${f.dst} lives on the port it came in on (${ifname})`); return; }
-    if (out) { this.log("forward", `${describe(f)}: ${f.dst} learned on ${out}`); this.send(out, f); return; }
-    const ports = Object.keys(this.ifaces).filter(p => p !== ifname && !this.blocked.has(p) && this.ifaces[p].link);
-    this.log("flood", `${describe(f)}: ${f.dst === BROADCAST_MAC ? "broadcast" : "unknown destination " + f.dst} → ${ports.join(", ") || "nowhere"}`);
-    for (const p of ports) this.send(p, f);
+    const emit = p => {
+      if (!this.vlans) return this.send(p, f);
+      const c = this.vcfg(p); if (!c.member.has(vid)) return false;
+      const g = {...f}; if (c.untagged.has(vid)) delete g.vlan; else g.vlan = vid;
+      this.send(p, g); return true;
+    };
+    const vtag = this.vlans ? ` [VLAN ${vid}]` : "";
+    if (out && this._fwd(out)) { if (emit(out)) this.log("forward", `${describe(f)}${vtag}: ${f.dst} learned on ${out}`); else this.log("vlan-drop", `${describe(f)}: VLAN ${vid} not allowed out ${out}`); return; }
+    const ports = Object.keys(this.ifaces).filter(p => p !== ifname && this._fwd(p) && this.ifaces[p].link && (!this.vlans || this.vcfg(p).member.has(vid)));
+    this.log("flood", `${describe(f)}${vtag}: ${f.dst === BROADCAST_MAC ? "broadcast" : "unknown destination " + f.dst} → ${ports.join(", ") || "nowhere"}`);
+    for (const p of ports) emit(p);
   }
   flush() { this.table.clear(); }
 }
@@ -189,7 +230,7 @@ export class IpNode extends Device {
 export class Network {
   constructor() {
     this.nodes = new Map(); this.links = []; this.time = 0; this.q = new Heap(); this.seq = 0; this.macN = 0;
-    this.counters = new Map(); this.trace = []; this.traceLimit = 50000; this.events = 0; this.listeners = new Set();
+    this.live = 0; this.started = false; this.counters = new Map(); this.trace = []; this.traceLimit = 50000; this.events = 0; this.listeners = new Set();
   }
   _mac() { return macFor(++this.macN); }
   _add(node) { if (this.nodes.has(node.name)) throw new Error(`duplicate device ${node.name}`); this.nodes.set(node.name, node); return node; }
@@ -208,7 +249,10 @@ export class Network {
     const l = {id: this.links.length, a, b, delay, up: true, name: `${aRef}—${bRef}`};
     a.link = b.link = l; a.peer = b; b.peer = a; this.links.push(l); return l;
   }
-  setLink(aRef, up) { const [n, i] = aRef.split(":"); this.node(n).ifaces[i].link.up = up; }
+  setLink(aRef, up) {
+    const [n, i] = aRef.split(":"); const iface = this.node(n).ifaces[i]; iface.link.up = up;
+    for (const e of [iface, iface.peer]) e.node.linkChange(e.name, up);   // switches running STP react to carrier
+  }
 
   _transmit(node, ifname, frame) {
     const i = node.ifaces[ifname]; const l = i.link;
@@ -218,15 +262,17 @@ export class Network {
     const peer = i.peer;
     this._after(l.delay, () => peer.node.receive(peer.name, frame));
   }
-  _after(dt, fn) { this.q.push({t: this.time + dt, seq: ++this.seq, fn}); }
+  /** daemon events (protocol timers) don't keep run() going when nothing else is pending. */
+  _after(dt, fn, daemon = false) { if (!daemon) this.live++; this.q.push({t: this.time + dt, seq: ++this.seq, fn, daemon}); }
+  _start() { if (this.started) return; this.started = true; for (const n of this.nodes.values()) n.start(); }
   _local(node, p) { for (const fn of this.listeners) fn(node, p); }
   log(node, event, detail) { if (this.trace.length < this.traceLimit) this.trace.push({t: this.time, node, event, detail}); }
 
   /** Process events until `until` (seconds), the queue empties, or `stop()` returns true. */
   run(until = Infinity, stop = null, maxEvents = 5e6) {
-    let n = 0;
-    while (this.q.size && this.q.peek().t <= until) {
-      const e = this.q.pop(); this.time = e.t; e.fn(); this.events++;
+    let n = 0; this._start();
+    while (this.q.size && this.q.peek().t <= until && (until !== Infinity || this.live > 0)) {
+      const e = this.q.pop(); this.time = e.t; if (!e.daemon) this.live--; e.fn(); this.events++;
       if (++n >= maxEvents) throw new Error("event limit reached (a loop that never ends?)");
       if (stop && stop()) return true;
     }
@@ -243,7 +289,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, blocked: n.blocked};
+      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, blocked: n.blocked, stp: n.stp, vlans: n.vlans};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms] of spec.links) net.link(a, b, {delay: (ms ?? 1) / 1000});

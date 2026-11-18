@@ -1,0 +1,1 @@
+[{"wait": 14}, {"snapshot": "converged"}, {"ping": ["A", "10.0.0.2"]}, {"linkDown": "SW1:p1"}, {"wait": 16}, {"snapshot": "SW1-SW2 cut"}, {"ping": ["A", "10.0.0.2"]}, {"linkUp": "SW1:p1"}, {"wait": 16}, {"snapshot": "restored"}]
