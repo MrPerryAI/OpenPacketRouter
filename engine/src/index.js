@@ -8,3 +8,4 @@ export {dhcp, dhcpServer} from "./dhcp.js";
 
 import {registerNodeKeys} from "./spec.js";
 registerNodeKeys("switch", ["stp", "vlans"]);   // spanning tree and VLAN settings (engine/src/stp.js, Switch in network.js)
+export {tcpRequest, tcpAction} from "./tcp.js";

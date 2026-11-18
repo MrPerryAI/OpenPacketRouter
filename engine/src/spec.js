@@ -10,6 +10,7 @@
 // capacity, DHCP …) are reported as warnings, not errors, until they are registered here.
 
 import {Network} from "./network.js";
+import {tcpAction} from "./tcp.js";
 import {dhcp} from "./dhcp.js";
 import {ping, traceroute, dns, udpRequest} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
@@ -130,6 +131,7 @@ export const ACTIONS = {
   traceroute: {required: ["src", "dst"], run: (net, a) => traceroute(net, a.src, a.dst, {maxHops: a.maxHops ?? 8})},
   dns: {required: ["src", "server", "name"], run: (net, a) => dns(net, a.src, a.server, a.name)},
   dhcp: {required: ["src"], run: (net, a) => dhcp(net, a.src, {iface: a.iface, tries: a.tries ?? 3, interval: a.interval ?? 1})},
+  tcp: {required: ["src", "dst", "port"], run: (net, a) => tcpAction(net, a)},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
   udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {
