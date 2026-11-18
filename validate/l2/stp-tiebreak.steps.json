@@ -1,0 +1,1 @@
+[{"wait": 14}, {"snapshot": "converged"}, {"ping": ["A", "10.0.0.2"]}, {"linkDown": "SW1:p1"}, {"wait": 16}, {"snapshot": "first cable cut"}, {"ping": ["A", "10.0.0.2"]}, {"linkDown": "SW1:p2"}, {"wait": 20}, {"snapshot": "both cables cut"}, {"ping": ["A", "10.0.0.2"]}]
