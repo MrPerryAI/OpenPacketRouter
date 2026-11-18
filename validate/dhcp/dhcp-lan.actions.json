@@ -1,0 +1,4 @@
+[
+ {"do": "dhcp", "src": "PC1", "settle": 1},
+ {"do": "dhcp", "src": "PC2", "settle": 1}
+]
