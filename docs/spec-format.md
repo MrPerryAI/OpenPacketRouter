@@ -1,0 +1,88 @@
+# Network spec format, version 1
+
+A network is one JSON file; what to do on it is a second JSON file (actions). The engine, the CLI and
+the Linux validators (`validate/*/run_kernel_*.py`) all read the same two files, so a spec that passes
+the validator is the same network the engine simulates.
+
+The reference implementation is `engine/src/spec.js` (`validateSpec`, `validateActions`, `runActions`).
+
+## Running it
+
+```bash
+node engine/bin/openpacketrouter.mjs check validate/l3/fti-routed.json            # validate only
+node engine/bin/openpacketrouter.mjs run   validate/l3/fti-routed.json            # uses fti-routed.actions.json
+node engine/bin/openpacketrouter.mjs run   spec.json actions.json --trace         # add every engine decision
+node engine/bin/openpacketrouter.mjs actions                                      # list action types
+```
+
+(`npm link` in `engine/` installs it as `openpacketrouter`.) Exit codes: `0` ok, `1` the spec or actions
+are invalid (every problem is printed to stderr as `error: spec $.path: message`), `2` usage or file error.
+
+## Spec
+
+```json
+{
+  "version": 1,
+  "name": "Two LANs",
+  "about": "Free text.",
+  "nodes": [
+    {"name": "R1", "kind": "router", "ifaces": {"a": "10.0.0.1/24", "b": "10.1.0.1/24"}},
+    {"name": "SW1", "kind": "switch"},
+    {"name": "PC1", "kind": "host", "ifaces": {"eth0": "10.0.0.10/24"}, "gw": "10.0.0.1"},
+    {"name": "DNS", "kind": "server", "ifaces": {"eth0": "10.1.0.53/24"}, "gw": "10.1.0.1",
+     "services": {"dns": {"pc1.lan": "10.0.0.10"}}}
+  ],
+  "links": [["R1:a", "SW1:p1", 1], ["PC1:eth0", "SW1:p2"], ["R1:b", "DNS:eth0", 2]]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `version` | Format version. Optional; missing means `1`. Any other number is rejected. |
+| `name`, `about` | Free text. `name` is echoed in CLI results. |
+| `nodes[]` | Devices. `name` is unique and has no `:`. `kind` is `switch`, `router`, `host` or `server`. |
+| `ifaces` | Routers/hosts/servers: interface name → `"a.b.c.d/len"`. Switch ports are created by `links`. |
+| `gw` | Default gateway. Must be on one of the node's subnets. |
+| `routes` | Static routes: `[["10.2.0.0/24", "10.0.0.2"], …]`. The next hop must be on one of the node's subnets. |
+| `services.dns` | A DNS server on UDP 53: name → IPv4 address. |
+| `blocked` | Switches: ports that drop everything (a manual stand-in until spanning tree lands). |
+| `links[]` | Cables: `["node:iface", "node:iface", delayMs?]`. Delay defaults to 1 ms. Each end may be cabled once. |
+
+Unknown keys are **warnings**, not errors, so a spec written for a newer feature still loads (the key is
+ignored). Features that add keys register them with `registerNodeKeys(kind, keys)` in `spec.js`, which
+silences the warning.
+
+## Actions
+
+A JSON array. Each action starts from a cold network (ARP caches and switch MAC tables flushed), so its
+frame counts don't depend on the order of actions — the same rule the Linux validators use.
+
+| `do` | Required | Optional |
+|---|---|---|
+| `ping` | `src`, `dst` | `ttl` (64), `timeout` s (2) |
+| `traceroute` | `src`, `dst` | `maxHops` (8) |
+| `dns` | `src`, `server`, `name` | |
+| `udp` | `src`, `dst`, `port` | |
+
+Every action also takes `settle` (seconds to let frames in flight land after the answer, default 1).
+Features add action types with `registerAction(name, {required, run})`.
+
+## Result (`openpacketrouter.result/1`)
+
+```json
+{"format": "openpacketrouter.result/1", "spec": "Two LANs", "specVersion": 1,
+ "actions": [{"action": {...}, "result": {"ok": true, "from": "10.1.0.53", "rtt_ms": 8},
+              "frames": {"PC1:eth0>SW1:p2": 2, ...},
+              "trace": [{"t": 0, "node": "PC1", "event": "arp-request", "detail": "who has 10.0.0.1? (try 1)"}, ...]}]}
+```
+
+- `frames`: frames sent on each cable direction during the action (`"A:if>B:if": n`). This is what the
+  validators compare against Linux.
+- `trace` (with `--trace`): every decision, in plain English, with simulated time in seconds.
+
+`engine/tools/run_spec.mjs` prints the bare `actions` array (no envelope); the Python validators read it.
+
+## Stability
+
+Version 1 is stable: new optional keys and action types may be added; nothing is renamed or removed and no
+default changes without bumping `version` (and `format`).

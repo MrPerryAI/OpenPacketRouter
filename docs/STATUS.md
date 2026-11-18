@@ -34,7 +34,7 @@ sudo python3 validate/l3/run_kernel_l3.py
 
 The last command needs root, iproute2 and `unshare`. In a cloud session, install `iproute2` with apt first.
 
-**On a Mac, do not run the last command with `sudo` on the host.** The kernel checks need a privileged Linux container instead (Docker Desktop). The recipe for that container is being written by the lead; until it lands, the Mac is not a validated environment for `validate/l3/`, and the `poc/storm-math` kernel test (`run_kernel.py`) has the same limit. CI runs all of these on every push (`.github/workflows/ci.yml`).
+**On a Mac, do not run the last command with `sudo` on the host.** Use the privileged Linux container instead: `validate/docker/run.sh` runs the kernel checks (`l3`, `storm`, or `full`). The steps and troubleshooting are in [docs/docker-validation.md](docker-validation.md). CI runs all of these on every push (`.github/workflows/ci.yml`) and is the reference result for merging.
 
 ## Decisions made
 
