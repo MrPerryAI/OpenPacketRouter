@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MrPerryAI/OpenPacketRouter/engine/spec.schema.json",
+  "title": "OpenPacketRouter network spec, version 1",
+  "description": "Structure only. `openpacketrouter check` also checks meaning (gateways on a subnet, cabled interfaces exist, ...). Reference: docs/spec-format.md.",
+  "type": "object",
+  "required": ["nodes", "links"],
+  "properties": {
+    "version": {"const": 1},
+    "name": {"type": "string"},
+    "about": {"type": "string"},
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+    "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}
+  },
+  "$defs": {
+    "ipv4": {"type": "string", "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$"},
+    "cidr": {"type": "string", "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/([0-9]|[12][0-9]|3[0-2])$"},
+    "ref": {"type": "string", "pattern": "^[^:]+:[^:]+$", "description": "node:iface"},
+    "shape": {
+      "type": "object", "required": ["rate", "burst", "limit"],
+      "properties": {
+        "rate": {"oneOf": [{"type": "number", "exclusiveMinimum": 0}, {"type": "string", "pattern": "^[0-9]+(\\.[0-9]+)?\\s*(bit|kbit|mbit|gbit|bps|kbps|mbps)?$"}], "description": "bits/s, or tc units"},
+        "burst": {"type": "integer", "minimum": 1, "description": "bytes"},
+        "limit": {"type": "integer", "minimum": 1, "description": "bytes of queue"}
+      }
+    },
+    "link": {
+      "type": "array", "minItems": 2, "maxItems": 4,
+      "prefixItems": [
+        {"$ref": "#/$defs/ref"}, {"$ref": "#/$defs/ref"},
+        {"type": "number", "minimum": 0, "description": "one-way delay, ms (default 1)"},
+        {"type": "object", "properties": {"shape": {"$ref": "#/$defs/shape"}, "shapeBack": {"$ref": "#/$defs/shape"}}}
+      ]
+    },
+    "ipNode": {
+      "properties": {
+        "ifaces": {"type": "object", "additionalProperties": {"oneOf": [{"$ref": "#/$defs/cidr"}, {"const": "dhcp"}]}},
+        "gw": {"$ref": "#/$defs/ipv4"},
+        "routes": {"type": "array", "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/cidr"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2}},
+        "services": {
+          "type": "object",
+          "properties": {
+            "dns": {"type": "object", "additionalProperties": {"$ref": "#/$defs/ipv4"}},
+            "dhcp": {"type": "object", "required": ["range"], "properties": {
+              "range": {"type": "array", "prefixItems": [{"$ref": "#/$defs/ipv4"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2},
+              "lease": {"type": "integer", "minimum": 1}, "router": {"$ref": "#/$defs/ipv4"}, "dns": {"$ref": "#/$defs/ipv4"}}}
+          }
+        }
+      }
+    },
+    "vlanPort": {"oneOf": [
+      {"type": "object", "required": ["access"], "properties": {"access": {"type": "integer", "minimum": 1, "maximum": 4094}}},
+      {"type": "object", "required": ["trunk"], "properties": {"trunk": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 4094}}, "native": {"type": "integer", "minimum": 1, "maximum": 4094}}}
+    ]},
+    "node": {
+      "type": "object", "required": ["name", "kind"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[^:]+$"},
+        "kind": {"enum": ["switch", "router", "host", "server"]},
+        "about": {"type": "string"}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "switch"}}}, "then": {"properties": {
+          "blocked": {"type": "array", "items": {"type": "string"}},
+          "stp": {"type": "object", "properties": {
+            "priority": {"type": "integer", "minimum": 0, "maximum": 65535}, "mac": {"type": "string"},
+            "hello": {"type": "number"}, "maxAge": {"type": "number"}, "forwardDelay": {"type": "number"},
+            "cost": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+            "portPriority": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 255}}}},
+          "vlans": {"type": "object", "additionalProperties": {"$ref": "#/$defs/vlanPort"}}
+        }}},
+        {"if": {"properties": {"kind": {"enum": ["router", "host", "server"]}}}, "then": {"$ref": "#/$defs/ipNode"}}
+      ]
+    }
+  }
+}

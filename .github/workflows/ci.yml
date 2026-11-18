@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: "22"
       - name: Python dependencies
-        run: pip install numpy matplotlib pytest
+        run: pip install numpy matplotlib pytest jsonschema
       - name: Lab build is up to date
         run: python3 tools/build_web.py --check
       - name: Storm math proof of concept
