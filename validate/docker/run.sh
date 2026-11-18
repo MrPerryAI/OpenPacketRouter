@@ -11,16 +11,18 @@ IMAGE="${OPR_VALIDATE_IMAGE:-openpacketrouter-validate}"
 docker build -q -t "$IMAGE" "$ROOT/validate/docker" >/dev/null
 
 l3='python3 validate/l3/run_kernel_l3.py'
+l2='python3 validate/l2/run_kernel_l2.py'
 storm='cd poc/storm-math && python3 run_kernel.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); '"$l3"'; ('"$storm"')'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); '"$l3"'; '"$l2"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
+  l2)    cmd="$l2" ;;
   storm) cmd="$storm" ;;
-  all)   cmd="set -e; $l3; ($storm)" ;;
+  all)   cmd="set -e; $l3; $l2; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
