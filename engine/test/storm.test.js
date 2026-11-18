@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {Network, stormAnalysis} from "../src/index.js";
+import {Network, stormAnalysis, shape} from "../src/index.js";
 
 // Switches S0..S(n-1) joined by `pairs` (cables with 1 ms delay), a host on S0.
 function switches(n, pairs, {blocked = {}} = {}) {
@@ -49,4 +49,16 @@ test("full mesh of 4 switches amplifies: rho 2, growth from the renewal equation
 test("two parallel cables between two switches: the classic 2-cycle loop, rho 1", () => {
   const r = stormAnalysis(switches(2, [[0, 1], [0, 1]]));
   assert.equal(r.regime, "CIRCULATING");
+});
+
+test("a shaped link is slower: the storm on it grows more slowly", () => {
+  const pairs = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]];
+  const fast = stormAnalysis(switches(4, pairs));
+  const net = switches(4, pairs);
+  for (const l of net.links.slice(0, 6)) for (const e of [l.a, l.b]) shape(net, `${e.node.name}:${e.name}`, {rate: "1mbit", burst: 3000, limit: 6000});
+  const slow = stormAnalysis(net);
+  assert.equal(slow.regime, "AMPLIFYING");
+  const d = 672 / 1e6 + 0.001 + 5e-6;                    // 1 Mbit/s serialization instead of 100 Mbit/s
+  assert.ok(Math.abs(slow.doublingTime - d) / d < 1e-6, `doubling ${slow.doublingTime} vs ${d}`);
+  assert.ok(slow.doublingTime > fast.doublingTime);
 });
