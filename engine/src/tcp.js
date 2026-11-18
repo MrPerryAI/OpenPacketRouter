@@ -1,7 +1,8 @@
 // TCP (RFC 793), the part that decides which frames appear on the wire, modeled on what a Linux
 // kernel puts on the cable (validated in validate/tcp/):
 //   - three-way handshake SYN → SYN+ACK → ACK; the client's ACK goes out at once, before any data;
-//   - SYN retransmission with a 1 s initial timeout that doubles (1, 3, 7 s after the first SYN);
+//   - SYN retransmission with a 1 s initial timeout that doubles (1, 3, 7 s after the first SYN). Linux 6.7+
+//     defaults to four linear 1 s retries first (tcp_syn_linear_timeouts); validation pins that to 0;
 //   - a segment to a closed port is answered with RST+ACK; the client sees "connection refused";
 //   - every data segment and every FIN is acknowledged at once (Linux "quick ack" mode, which covers the
 //     first segments of a connection); no delayed ACKs, no window or congestion modeling yet;
