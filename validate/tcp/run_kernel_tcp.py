@@ -23,6 +23,10 @@ SPECS = ["tcp-lan"]
 class TcpNet(l3.KernelNet):
     def __init__(self, spec):
         super().__init__(spec)
+        # Linux >= 6.7 retransmits the first 4 SYNs on a linear 1 s timer (tcp_syn_linear_timeouts, default 4).
+        # Pin the classic exponential backoff (1, 2, 4 s) that the engine models; older kernels have no such knob.
+        for ns in self.ns.values():
+            l3.nsx(ns, "sh", "-c", "[ -e /proc/sys/net/ipv4/tcp_syn_linear_timeouts ] && echo 0 > /proc/sys/net/ipv4/tcp_syn_linear_timeouts || true")
         for n in spec["nodes"]:
             ports = (n.get("services") or {}).get("tcp")
             if ports:
