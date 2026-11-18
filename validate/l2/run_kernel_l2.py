@@ -154,7 +154,10 @@ def inner():
 def main():
     if os.geteuid() != 0 or not shutil.which("unshare") or not shutil.which("ip") or not shutil.which("bridge"):
         print("Needs root, `unshare`, iproute2 (ip, bridge). Skipping."); return 0
-    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=900).stdout)
+    proc = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=900)
+    if proc.returncode:
+        print("kernel side failed:\n" + proc.stderr[-3000:]); return 1
+    kern = json.loads(proc.stdout)
     md = ["| Network | Check | Result | Match |", "|---|---|---|---|"]; ok_all = True; detail = {}
     for name in VLAN:
         eng = json.loads(sh("node", str(ROOT / "engine/tools/run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
