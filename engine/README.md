@@ -30,9 +30,10 @@ node bin/openpacketrouter.mjs check ../validate/l3/fti-routed.json            # 
 node bin/openpacketrouter.mjs run   ../validate/l3/fti-routed.json            # runs its actions file
 node bin/openpacketrouter.mjs run   spec.json actions.json --trace            # print every engine decision
 node bin/openpacketrouter.mjs actions                                         # list action types
+node bin/openpacketrouter.mjs schema                                          # JSON Schema of the spec format
 ```
 
-Exit codes: `0` ok, `1` invalid spec or actions (each problem is printed), `2` usage or file error. Only JSON is supported for now.
+Exit codes: `0` ok, `1` invalid spec or actions (each problem is printed), `2` usage or file error. Only JSON is supported for now. The schema is in `spec.schema.json`, for editors and other tools.
 
 ## Validated against real Linux
 
@@ -47,7 +48,7 @@ TCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routin
 ## Tests
 
 ```bash
-npm test                                  # 41 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP
+npm test                                  # 44 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP
 ```
 
 ## DHCP
