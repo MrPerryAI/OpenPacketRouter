@@ -47,7 +47,7 @@ TCP, DHCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic 
 ## Tests
 
 ```bash
-npm test                                  # 23 unit tests: engine, spec format, storm math
+npm test                                  # 34 unit tests: engine, spec format, storm math, spanning tree, VLANs
 ```
 
 ## Storm math

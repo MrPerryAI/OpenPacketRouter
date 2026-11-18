@@ -45,7 +45,9 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `gw` | Default gateway. Must be on one of the node's subnets. |
 | `routes` | Static routes: `[["10.2.0.0/24", "10.0.0.2"], …]`. The next hop must be on one of the node's subnets. |
 | `services.dns` | A DNS server on UDP 53: name → IPv4 address. |
-| `blocked` | Switches: ports that drop everything (a manual stand-in until spanning tree lands). |
+| `blocked` | Switches: ports that drop everything. A manual override; spanning tree (`stp`) blocks ports by itself. |
+| `stp` | Switches: turns on spanning tree. Optional fields: `priority` (default 32768), `mac`, `hello` (2 s), `maxAge` (20 s), `forwardDelay` (15 s), `cost` (`{"p1": n}`), `portPriority` (`{"p1": n}`). Timers are in seconds, the 802.1D defaults in brackets. |
+| `vlans` | Switches: makes the switch VLAN-aware. Per port: `{"access": 10}` or `{"trunk": [10, 20], "native": 1}`. Ports not listed are access VLAN 1. |
 | `links[]` | Cables: `["node:iface", "node:iface", delayMs?]`. Delay defaults to 1 ms. Each end may be cabled once. |
 
 Unknown keys are **warnings**, not errors, so a spec written for a newer feature still loads (the key is
