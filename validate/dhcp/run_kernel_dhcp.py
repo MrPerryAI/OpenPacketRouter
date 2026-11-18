@@ -4,7 +4,8 @@
     sudo python3 validate/dhcp/run_kernel_dhcp.py        # on a Mac: validate/docker/run.sh dhcp
 
 Builds each spec from network namespaces like validate/l3 (it reuses that harness). Interfaces marked
-"dhcp" get no address; a node with services.dhcp runs dnsmasq (no DNS, no ping check) on its subnet.
+"dhcp" get no address; a node with services.dhcp runs dnsmasq (no DNS, no ping check) on its subnet, plus
+`pools` for subnets behind a relay; a router with services.dhcpRelay runs busybox `dhcprelay CLIENTS SERVER_IF SERVER`.
 The `dhcp` action runs `udhcpc -n -q -t TRIES -T INTERVAL` (no script: the client only reports its lease).
 Compared: the result (address, server, lease time) and the frames sent on every cable direction.
 """
@@ -16,7 +17,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["dhcp-lan"]
+SPECS = ["dhcp-lan", "dhcp-relay"]
 
 
 class DhcpNet(l3.KernelNet):
@@ -36,7 +37,17 @@ class DhcpNet(l3.KernelNet):
                     f"--interface={ifn}", "--bind-interfaces", f"--dhcp-range={d['range'][0]},{d['range'][1]},{mask},{d.get('lease', 3600)}",
                     f"--dhcp-leasefile={self.tmp}/{n['name']}.leases", f"--pid-file={self.tmp}/{n['name']}.pid"]
             args.append(f"--dhcp-option=3,{d['router']}" if d.get("router") else "--dhcp-option=3")
+            for q in d.get("pools", []):   # subnets behind a relay (giaddr)
+                args.append(f"--dhcp-range={q['range'][0]},{q['range'][1]},{q.get('mask', '255.255.255.0')},{d.get('lease', 3600)}")
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], *args], stderr=subprocess.DEVNULL))
+        for n in spec["nodes"]:
+            r = (n.get("services") or {}).get("dhcpRelay")
+            if not r: continue
+            ns = self.ns[n["name"]]
+            dev = re.search(r"dev (\S+)", l3.sh("ip", "-n", ns, "route", "get", r["server"]))[1]
+            clients = r.get("clients") or [i for i in n["ifaces"] if i != dev]
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", ns, "busybox", "dhcprelay", ",".join(clients), dev, r["server"]],
+                                               stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL))
         time.sleep(1)
 
     def act(self, a):

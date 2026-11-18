@@ -4,5 +4,5 @@ export {ping, traceroute, udpRequest, dns} from "./apps.js";
 export {TokenBucket, shape, queueStats, frameBytes, parseRate} from "./link.js";
 export * from "./addr.js";
 export * from "./spec.js";
-export {dhcp, dhcpServer} from "./dhcp.js";
+export {dhcp, dhcpServer, dhcpRelay} from "./dhcp.js";
 export {tcpRequest, tcpAction} from "./tcp.js";

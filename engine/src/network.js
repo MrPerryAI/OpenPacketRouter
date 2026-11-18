@@ -21,7 +21,7 @@
 // Every decision is written to `net.trace` with a plain-English reason.
 
 import {Stp} from "./stp.js";
-import {dhcpServer} from "./dhcp.js";
+import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 import {shape} from "./link.js";
@@ -185,12 +185,13 @@ export class IpNode extends Device {
       const svc = this.udpService(p.udp.dport);
       if (!svc && p.dst === "255.255.255.255") return;                // no ICMP errors for broadcasts
       if (!svc) { this.log("port-closed", `nothing listens on UDP ${p.udp.dport}`); return this.icmpError(p, 3, 3, p.dst); }
-      const reply = svc(p.udp.payload, p);
+      const reply = svc(p.udp.payload, p, ifname);
       if (reply !== undefined) this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "udp", udp: {sport: p.udp.dport, dport: p.udp.sport, payload: reply}});
     }
   }
   udpService(port) {
     if (port === 67 && this.services.dhcp) return this._dhcpd ||= dhcpServer(this, this.services.dhcp);
+    if (port === 67 && this.services.dhcpRelay) return this._dhcpRelay ||= dhcpRelay(this, this.services.dhcpRelay);
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
     return this.services.udp && this.services.udp[port];
