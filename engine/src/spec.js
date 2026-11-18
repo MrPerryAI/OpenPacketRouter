@@ -22,7 +22,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans"],                     // stp/vlans: engine/src/stp.js, Switch in network.js
-  router: ["ifaces", "routes", "gw"],
+  router: ["ifaces", "routes", "gw", "services"],
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
 };
@@ -101,6 +101,12 @@ export function validateSpec(spec) {
         const d = n.services.dhcp;
         if (!isObj(d) || !Array.isArray(d.range) || d.range.length !== 2 || !d.range.every(isIp)) err(`${p}.services.dhcp`, `node "${n.name}": dhcp needs range: ["first", "last"]`);
         else if (nets.length && !reachable(d.range[0])) err(`${p}.services.dhcp.range`, `node "${n.name}": DHCP range is on none of its subnets`);
+      }
+      if (isObj(n.services) && n.services.dhcpRelay !== undefined) {
+        const r = n.services.dhcpRelay;
+        if (!isObj(r) || !isIp(r.server)) err(`${p}.services.dhcpRelay`, `node "${n.name}": dhcpRelay needs server: "a.b.c.d"`);
+        else if (r.clients !== undefined && !(Array.isArray(r.clients) && r.clients.every(c => isObj(n.ifaces) && c in n.ifaces)))
+          err(`${p}.services.dhcpRelay.clients`, `node "${n.name}": clients must list its own interfaces`);
       }
     }
   });

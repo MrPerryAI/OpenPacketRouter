@@ -11,34 +11,72 @@ import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet} from "./addr.js";
 
 const BCAST_IP = "255.255.255.255";
 
-/** The DHCP server service on a node: services.dhcp = {range: [first, last], lease?: s, router?, dns?}. */
+/**
+ * The DHCP server service on a node: services.dhcp = {range: [first, last], lease?: s, router?, dns?} for its own
+ * subnet, plus optional `pools: [{range, mask, router?, dns?}]` for subnets reached through a relay (giaddr).
+ */
 export function dhcpServer(node, cfg) {
-  const first = ipToInt(cfg.range[0]), last = ipToInt(cfg.range[1]);
   const iface = Object.values(node.ifaces).find(i => i.ip && inSubnet(cfg.range[0], i.net, i.mask));
   if (!iface) throw new Error(`${node.name}: DHCP range ${cfg.range.join("-")} is on none of its subnets`);
+  const pools = [{range: cfg.range, mask: iface.mask, router: cfg.router, dns: cfg.dns},
+    ...(cfg.pools || []).map(q => ({...q, mask: ipToInt(q.mask ?? "255.255.255.0")}))];
   const leases = node.dhcpLeases || (node.dhcpLeases = new Map());   // chaddr -> ip
-  const pick = mac => {
+  const poolFor = req => req.giaddr
+    ? pools.slice(1).find(q => inSubnet(q.range[0], (ipToInt(req.giaddr) & q.mask) >>> 0, q.mask))
+    : pools[0];
+  const pick = (mac, q) => {
     if (leases.has(mac)) return leases.get(mac);
     const used = new Set(leases.values());
-    for (let a = first; a <= last; a++) if (!used.has(intToIp(a))) return intToIp(a);
+    for (let a = ipToInt(q.range[0]); a <= ipToInt(q.range[1]); a++) if (!used.has(intToIp(a))) return intToIp(a);
     return null;
   };
-  const reply = (kind, req, yiaddr) => {
-    node.log("dhcp", `${kind.toUpperCase()} ${yiaddr} to ${req.chaddr}`);
+  const reply = (kind, req, yiaddr, q) => {
+    const payload = {dhcp: kind, xid: req.xid, chaddr: req.chaddr, yiaddr, server: iface.ip, giaddr: req.giaddr ?? null,
+      mask: intToIp(q.mask), router: q.router ?? null, dns: q.dns ?? null, lease: cfg.lease ?? 3600};
+    node.log("dhcp", `${kind.toUpperCase()} ${yiaddr} to ${req.chaddr}${req.giaddr ? ` via relay ${req.giaddr}` : ""}`);
+    if (req.giaddr) return node.sendIp({dst: req.giaddr, ttl: 64, proto: "udp", udp: {sport: 67, dport: 67, payload}});
     node.send(iface.name, {src: iface.mac, dst: req.chaddr, type: "ipv4", ip: {src: iface.ip, dst: yiaddr, ttl: 64, proto: "udp",
-      udp: {sport: 67, dport: 68, payload: {dhcp: kind, xid: req.xid, chaddr: req.chaddr, yiaddr, server: iface.ip,
-        mask: intToIp(iface.mask), router: cfg.router ?? null, dns: cfg.dns ?? null, lease: cfg.lease ?? 3600}}}});
+      udp: {sport: 67, dport: 68, payload}}});
   };
   return payload => {
     if (!payload || !payload.dhcp) return undefined;
+    const q = poolFor(payload);
+    if (!q) { node.log("dhcp", `${payload.dhcp.toUpperCase()} via ${payload.giaddr}: no pool for that subnet`); return undefined; }
     if (payload.dhcp === "discover") {
-      const ip = pick(payload.chaddr);
+      const ip = pick(payload.chaddr, q);
       if (!ip) { node.log("dhcp", `DISCOVER from ${payload.chaddr}: no address available`); return undefined; }
-      reply("offer", payload, ip);
+      reply("offer", payload, ip, q);
     } else if (payload.dhcp === "request" && payload.server === iface.ip) {
-      const ip = pick(payload.chaddr);
+      const ip = pick(payload.chaddr, q);
       if (ip !== payload.requested) { node.log("dhcp", `REQUEST for ${payload.requested} from ${payload.chaddr}: not offered`); return undefined; }
-      leases.set(payload.chaddr, ip); reply("ack", payload, ip);
+      leases.set(payload.chaddr, ip); reply("ack", payload, ip, q);
+    }
+    return undefined;
+  };
+}
+
+/**
+ * A DHCP relay on a router, like busybox `dhcprelay CLIENT_IFACES SERVER_IFACE SERVER_IP`:
+ * services.dhcpRelay = {server: "a.b.c.d", clients?: ["lan", ...]} (default: every interface but the one toward the server).
+ * Requests from clients go to the server by unicast, from port 67, with giaddr = the client-side address;
+ * answers come back to giaddr:67 and are broadcast on the client's interface (the client has no address yet).
+ */
+export function dhcpRelay(node, cfg) {
+  const pending = new Map();                                // xid -> client interface
+  const towardServer = () => node.route(cfg.server)?.iface;
+  return (payload, p, ifname) => {
+    if (!payload || !payload.dhcp) return undefined;
+    if (["discover", "request"].includes(payload.dhcp)) {
+      if (ifname === towardServer() || (cfg.clients && !cfg.clients.includes(ifname))) return undefined;
+      const giaddr = payload.giaddr || node.ifaces[ifname].ip;
+      pending.set(payload.xid, ifname);
+      node.log("dhcp-relay", `${payload.dhcp.toUpperCase()} from ${payload.chaddr} on ${ifname} → server ${cfg.server} (giaddr ${giaddr})`);
+      node.sendIp({dst: cfg.server, ttl: 64, proto: "udp", udp: {sport: 67, dport: 67, payload: {...payload, giaddr}}});
+    } else if (["offer", "ack"].includes(payload.dhcp) && pending.has(payload.xid)) {
+      const out = node.ifaces[pending.get(payload.xid)]; pending.delete(payload.xid);
+      node.log("dhcp-relay", `${payload.dhcp.toUpperCase()} for ${payload.chaddr} → broadcast on ${out.name}`);
+      node.send(out.name, {src: out.mac, dst: BROADCAST_MAC, type: "ipv4", ip: {src: out.ip, dst: BCAST_IP, ttl: 64, proto: "udp",
+        udp: {sport: 67, dport: 68, payload}}});
     }
     return undefined;
   };
