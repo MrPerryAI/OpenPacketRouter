@@ -46,8 +46,10 @@ class DhcpNet(l3.KernelNet):
             ns = self.ns[n["name"]]
             dev = re.search(r"dev (\S+)", l3.sh("ip", "-n", ns, "route", "get", r["server"]))[1]
             clients = r.get("clients") or [i for i in n["ifaces"] if i != dev]
+            log = open(f"{self.tmp}/{n['name']}.relay.log", "w")
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", ns, "busybox", "dhcprelay", ",".join(clients), dev, r["server"]],
-                                               stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL))
+                                               stderr=log, stdout=log))
+            self.relay_logs = getattr(self, "relay_logs", []) + [f"{self.tmp}/{n['name']}.relay.log"]
         time.sleep(1)
 
     def act(self, a):
@@ -70,6 +72,8 @@ def kernel_run(name):
             k.flush(); before = k.counters(); r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
             out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}})
     finally:
+        for f in getattr(k, "relay_logs", []):
+            print(f"relay log {f}: {open(f).read()[:500]!r}", file=sys.stderr)
         k.close()
     return out
 
@@ -83,8 +87,10 @@ def main():
     need = ["unshare", "ip", "dnsmasq", "busybox"]
     if os.geteuid() != 0 or not all(shutil.which(x) for x in need):
         print(f"Needs root and {', '.join(need)}. Skipping."); return 0
-    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True,
-                                     capture_output=True, text=True, timeout=600).stdout)
+    print("busybox dhcp applets:", [a for a in subprocess.run(["busybox", "--list"], capture_output=True, text=True).stdout.split() if "dhcp" in a])
+    p = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=600)
+    if p.stderr: print(p.stderr[-2000:])
+    kern = json.loads(p.stdout)
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
