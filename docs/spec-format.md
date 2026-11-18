@@ -5,6 +5,8 @@ the Linux validators (`validate/*/run_kernel_*.py`) all read the same two files,
 the validator is the same network the engine simulates.
 
 The reference implementation is `engine/src/spec.js` (`validateSpec`, `validateActions`, `runActions`).
+A JSON Schema of the structure is in `engine/spec.schema.json` (`openpacketrouter schema` prints it) for editors
+and other tools; `openpacketrouter check` also checks meaning (gateways on a subnet, cabled interfaces exist).
 
 ## Running it
 
