@@ -41,10 +41,11 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `version` | Format version. Optional; missing means `1`. Any other number is rejected. |
 | `name`, `about` | Free text. `name` is echoed in CLI results. |
 | `nodes[]` | Devices. `name` is unique and has no `:`. `kind` is `switch`, `router`, `host` or `server`. |
-| `ifaces` | Routers/hosts/servers: interface name → `"a.b.c.d/len"`. Switch ports are created by `links`. |
+| `ifaces` | Routers/hosts/servers: interface name → `"a.b.c.d/len"`, or `"dhcp"` for an interface that gets its address from a DHCP server. Switch ports are created by `links`. |
 | `gw` | Default gateway. Must be on one of the node's subnets. |
 | `routes` | Static routes: `[["10.2.0.0/24", "10.0.0.2"], …]`. The next hop must be on one of the node's subnets. |
 | `services.dns` | A DNS server on UDP 53: name → IPv4 address. |
+| `services.dhcp` | A DHCP server on the node's subnet: `{"range": ["first", "last"], "lease": 3600, "router": "ip", "dns": "ip"}`. `lease` is seconds (default 3600); `router` and `dns` are optional. The first address of the range must be on one of the node's subnets. |
 | `blocked` | Switches: ports that drop everything. A manual override; spanning tree (`stp`) blocks ports by itself. |
 | `stp` | Switches: turns on spanning tree. Optional fields: `priority` (default 32768), `mac`, `hello` (2 s), `maxAge` (20 s), `forwardDelay` (15 s), `cost` (`{"p1": n}`), `portPriority` (`{"p1": n}`). Timers are in seconds, the 802.1D defaults in brackets. |
 | `vlans` | Switches: makes the switch VLAN-aware. Per port: `{"access": 10}` or `{"trunk": [10, 20], "native": 1}`. Ports not listed are access VLAN 1. |
@@ -66,6 +67,7 @@ frame counts don't depend on the order of actions — the same rule the Linux va
 | `dns` | `src`, `server`, `name` | |
 | `udp` | `src`, `dst`, `port` | |
 | `udpBurst` | `src`, `dst`, `port`, `count`, `size` | sends `count` UDP datagrams of `size` bytes back to back, to load a shaped link |
+| `dhcp` | `src` | `iface` (default: the first interface marked `"dhcp"`), `tries` (3), `interval` (1 s). Runs a DHCP client; the result is the address, server and lease. |
 
 Every action also takes `settle` (seconds to let frames in flight land after the answer, default 1).
 Features add action types with `registerAction(name, {required, run})`.
