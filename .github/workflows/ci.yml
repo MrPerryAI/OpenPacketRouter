@@ -27,6 +27,8 @@ jobs:
           npm install
           npx playwright install --with-deps chromium
           node tests/web/smoke.mjs
+      - name: Studio smoke test
+        run: node tests/studio/smoke.mjs
       - name: Engine unit tests
         working-directory: engine
         run: npm test

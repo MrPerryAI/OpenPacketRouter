@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenPacketRouter Studio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <h1>OpenPacketRouter <span>Studio</span></h1>
+  <label>Lab <select id="examples" aria-label="Example lab"></select></label>
+  <label class="file">Open spec… <input type="file" id="specFile" accept=".json,application/json"></label>
+  <label class="file">Open actions… <input type="file" id="actionsFile" accept=".json,application/json"></label>
+  <div id="storm" class="storm" title="Storm math: what one broadcast would do on this network as cabled now (a teaching model)"></div>
+</header>
+
+<main>
+  <section class="stage">
+    <div id="title" class="title"></div>
+    <div id="errors" class="errors" hidden></div>
+    <svg id="map" viewBox="0 0 900 560" role="img" aria-label="Network map"></svg>
+    <div class="legend" id="legend"></div>
+    <div class="player">
+      <button id="first" title="Back to the start (Home)">⏮</button>
+      <button id="back" title="Step back (←)">◀</button>
+      <button id="play" title="Play / pause (Space)">▶</button>
+      <button id="step" title="Step forward (→)">▶|</button>
+      <label class="speed">Speed <input type="range" id="speed" min="-2" max="4" step="0.25" value="0"><output id="speedOut">1×</output></label>
+      <span id="counter" class="counter"></span>
+    </div>
+    <div id="reason" class="reason" aria-live="polite"></div>
+  </section>
+
+  <aside class="side">
+    <section>
+      <h2>Actions</h2>
+      <ol id="actions" class="actions"></ol>
+    </section>
+    <section id="device" class="device">
+      <h2>Device</h2>
+      <p class="hint">Click a device to see its tables. Click a cable to unplug it (or plug it back in).</p>
+    </section>
+  </aside>
+</main>
+
+<section id="console" class="console" hidden>
+  <div class="console-head"><span id="consoleTitle">Console</span><button id="consoleClose" title="Close the console">✕</button></div>
+  <pre id="consoleOut" class="console-out"></pre>
+  <div class="console-in"><span id="consolePrompt"></span><input id="consoleInput" autocomplete="off" spellcheck="false" aria-label="Command"></div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

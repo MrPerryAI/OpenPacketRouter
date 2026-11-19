@@ -1,0 +1,348 @@
+// OpenPacketRouter Studio: load a spec, draw it, run its actions on the engine and play the frames back.
+import {validateSpec, validateActions} from "../engine/src/spec.js";
+import {simulate, analyse} from "./sim.js";
+import {autoLayout} from "./layout.js";
+import {EXAMPLES} from "./examples.js";
+
+const $ = s => document.querySelector(s);
+const SVG = "http://www.w3.org/2000/svg";
+const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu"];
+const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
+const vlanColor = v => v === 1 ? "#98a2b3" : VLAN_COLORS[(v * 7) % VLAN_COLORS.length];
+const HALF = {switch: [34, 16], router: [24, 24], server: [24, 22], host: [28, 18]};   // half width/height of each device shape
+const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 3 : 1)} ms`;
+
+export const S = {spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
+  playing: false, speed: 1, selected: null, timer: null, anim: null, error: null};
+
+// ---------------------------------------------------------------- loading
+
+async function fetchJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); }
+
+/** The example list: examples/index.json when it exists, else the built-in list. */
+async function exampleList() {
+  try {
+    const idx = await fetchJson("../examples/index.json");
+    if (Array.isArray(idx.labs)) return idx.labs.map(l => ({id: l.id, title: l.name || l.id,
+      spec: new URL(l.spec, new URL("../examples/", location.href)).href, actions: l.actions && new URL(l.actions, new URL("../examples/", location.href)).href}));
+  } catch { /* not there yet */ }
+  return EXAMPLES.map(e => ({...e, spec: `../examples/${e.id}/spec.json`, actions: `../examples/${e.id}/actions.json`}));
+}
+
+async function loadExample(ex) {
+  const spec = await fetchJson(ex.spec);
+  const actions = ex.actions ? await fetchJson(ex.actions).catch(() => []) : [];
+  load(spec, actions, ex.id);
+}
+
+/** Show a spec. Problems with the spec or the actions are listed instead of thrown. */
+export function load(spec, actions = [], name = "") {
+  stop();
+  const v = validateSpec(spec);
+  const errs = v.errors.map(e => `spec ${e.path}: ${e.message}`);
+  if (v.ok) for (const e of validateActions(actions, spec).errors) errs.push(`actions ${e.path}: ${e.message}`);
+  showErrors(errs.concat(v.warnings.map(w => `warning: spec ${w.path}: ${w.message}`)));
+  if (!v.ok) return false;
+  S.spec = spec; S.actions = errs.length ? [] : actions; S.name = name; S.cut = new Set(); S.selected = null;
+  S.pos = savedLayout(spec) || autoLayout(spec);
+  $("#title").innerHTML = `${esc(spec.name || name || "Untitled network")}${spec.about ? `<small>${esc(spec.about)}</small>` : ""}`;
+  rerun();
+  return true;
+}
+
+function showErrors(list) { const e = $("#errors"); e.hidden = !list.length; e.textContent = list.join("\n"); }
+
+/** Run the engine again (after loading, or when a cable is cut or restored). */
+export function rerun() {
+  stop();
+  const cut = [...S.cut];
+  try {
+    S.an = analyse(S.spec, {cut});
+    S.sim = simulate(S.spec, S.actions, {cut});
+  } catch (e) { showErrors([String(e.message || e)]); S.sim = {actions: [], steps: [], routes: {}, final: {}}; }
+  S.step = -1;
+  drawMap(); drawStorm(); drawActions(); showStep(); drawDevice();
+}
+
+const layoutKey = spec => "studio-layout:" + (spec.name || "") + ":" + spec.nodes.map(n => n.name).join(",");
+function savedLayout(spec) {
+  try { const p = JSON.parse(localStorage.getItem(layoutKey(spec)));
+    return p && spec.nodes.every(n => p[n.name]) ? p : null; } catch { return null; }
+}
+
+// ---------------------------------------------------------------- map
+
+function linkInfo(l, idx) {
+  const [a, b] = [l[0], l[1]].map(r => { const [node, iface] = r.split(":"); return {node, iface}; });
+  const vl = end => { const n = S.spec.nodes.find(x => x.name === end.node); if (!n || n.kind !== "switch" || !n.vlans) return null;
+    const c = n.vlans[end.iface] || {access: 1}; return c.access !== undefined ? {access: c.access} : {trunk: c.trunk, native: c.native}; };
+  const va = vl(a), vb = vl(b), trunk = (va && va.trunk) || (vb && vb.trunk);
+  const access = !trunk && ((va && va.access) || (vb && vb.access));
+  return {idx, a, b, trunk, access, delay: l[2] ?? 1, shape: l[3]};
+}
+
+function portState(sw, port) {
+  const node = S.spec.nodes.find(n => n.name === sw);
+  if (node && node.blocked && node.blocked.includes(port)) return "blocked";
+  const st = currentState(), d = st && st[sw];
+  if (d && d.stp && d.stp.ports[port]) return d.stp.ports[port].state;
+  return S.an ? S.an.ports[`${sw}:${port}`] || "forwarding" : "forwarding";
+}
+
+function drawMap() {
+  const svg = $("#map"); svg.innerHTML = "";
+  const gl = el("g", {class: "links"}, svg), gp = el("g", {class: "ports"}, svg), gn = el("g", {class: "nodes"}, svg);
+  S.pktLayer = el("g", {class: "packets"}, svg);
+  S.cableEls = {};
+  S.spec.links.forEach((l, i) => {
+    const info = linkInfo(l, i), p = S.pos[info.a.node], q = S.pos[info.b.node];
+    if (!p || !q) return;
+    const g = el("g", {class: "cable-group", "data-link": i}, gl);
+    const cls = ["cable"]; if (info.trunk) cls.push("trunk"); if (S.cut.has(i)) cls.push("cut");
+    const line = el("line", {class: cls.join(" "), x1: p.x, y1: p.y, x2: q.x, y2: q.y, "data-link": i}, g);
+    const hit = el("line", {class: "cable-hit", x1: p.x, y1: p.y, x2: q.x, y2: q.y}, g);   // wide, invisible, on top: easy to click
+    if (info.access && !S.cut.has(i)) line.style.stroke = vlanColor(info.access);
+    if (info.trunk && !S.cut.has(i)) line.style.stroke = "#475467";
+    const title = el("title", {}, g);
+    title.textContent = `${l[0]} — ${l[1]}, ${info.delay} ms` + (info.trunk ? `, trunk VLANs ${info.trunk.join(", ")}` : info.access ? `, VLAN ${info.access}` : "") +
+      (info.shape ? `, shaped ${info.shape.shape?.rate ?? ""}` : "") + (S.cut.has(i) ? " (unplugged: click to plug back in)" : " (click to unplug)");
+    hit.addEventListener("click", () => toggleCut(i));
+    S.cableEls[i] = line;
+    const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+    if (S.cut.has(i)) { const t = el("text", {class: "cutmark", x: mx, y: my + 5, "text-anchor": "middle"}, g); t.textContent = "✂"; }
+    else if (info.trunk || info.access > 1) {
+      const t = el("text", {class: "vlan-label", x: mx + 6, y: my - 6}, g);
+      t.textContent = info.trunk ? `trunk ${info.trunk.join(",")}` : `VLAN ${info.access}`;
+    }
+    // port labels and spanning-tree dots near each end
+    for (const [end, from, to] of [[info.a, p, q], [info.b, q, p]]) {
+      const d = Math.hypot(to.x - from.x, to.y - from.y) || 1, ux = (to.x - from.x) / d, uy = (to.y - from.y) / d;
+      const n = S.spec.nodes.find(z => z.name === end.node);
+      const [hw, hh] = HALF[n ? n.kind : "host"], edge = Math.min(hw / (Math.abs(ux) || 1e-9), hh / (Math.abs(uy) || 1e-9)) + 8;
+      const x = from.x + ux * edge, y = from.y + uy * edge, lx = from.x + ux * (edge + 16), ly = from.y + uy * (edge + 16);
+      const lbl = el("text", {class: "port", x: lx - uy * 9, y: ly + ux * 9 + 3, "text-anchor": "middle"}, gp); lbl.textContent = end.iface;
+      if (n && n.kind === "switch") {
+        const st = portState(end.node, end.iface);
+        const dot = el("circle", {class: `port-dot ${st}`, cx: x, cy: y, r: 5, "data-port": `${end.node}:${end.iface}`}, gp);
+        el("title", {}, dot).textContent = `${end.node} ${end.iface}: ${st}`;
+      }
+    }
+  });
+  for (const n of S.spec.nodes) {
+    const p = S.pos[n.name]; if (!p) continue;
+    const g = el("g", {class: `node ${n.kind}${S.selected === n.name ? " selected" : ""}`, "data-node": n.name, transform: `translate(${p.x},${p.y})`}, gn);
+    if (n.kind === "switch") el("rect", {class: "shape", x: -34, y: -16, width: 68, height: 32, rx: 4}, g);
+    else if (n.kind === "router") el("circle", {class: "shape", r: 24}, g);
+    else if (n.kind === "server") el("rect", {class: "shape", x: -24, y: -22, width: 48, height: 44, rx: 3}, g);
+    else el("rect", {class: "shape", x: -28, y: -18, width: 56, height: 36, rx: 10}, g);
+    const name = el("text", {class: "name", y: n.kind === "router" ? 4 : 2}, g); name.textContent = n.name;
+    const sub = el("text", {class: "sub", y: n.kind === "router" ? 38 : 32}, g);
+    const ip = n.ifaces ? Object.values(n.ifaces)[0] : null;
+    sub.textContent = n.kind === "switch" ? (n.stp ? "switch · STP" : n.vlans ? "switch · VLANs" : "switch") : ip ? `${n.kind} · ${ip}` : n.kind;
+    g.addEventListener("pointerdown", e => startDrag(e, n.name));
+  }
+}
+
+function startDrag(e, name) {
+  const svg = $("#map"), pt = svg.createSVGPoint(), start = {x: e.clientX, y: e.clientY}; let moved = false;
+  const toSvg = ev => { pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); };
+  const move = ev => { if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 4) moved = true;
+    if (!moved) return; const q = toSvg(ev); S.pos[name] = {x: Math.round(q.x), y: Math.round(q.y)}; drawMap(); };
+  const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up);
+    if (moved) { try { localStorage.setItem(layoutKey(S.spec), JSON.stringify(S.pos)); } catch {} }
+    else select(name); };
+  window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
+}
+
+export function toggleCut(i) {
+  if (S.cut.has(i)) S.cut.delete(i); else S.cut.add(i);
+  rerun();
+}
+
+function drawLegend() {
+  $("#legend").innerHTML = KINDS.map(k => `<span><i style="background:var(--${k})"></i>${k.toUpperCase()}</span>`).join("") +
+    `<span><i style="background:#12b76a"></i>forwarding port</span><span><i style="background:#f04438"></i>blocked port</span><span><i style="background:#f79009"></i>listening / learning</span>`;
+}
+
+// ---------------------------------------------------------------- storm badge
+
+function drawStorm() {
+  const s = S.an && S.an.storm, b = $("#storm");
+  if (!s) { b.className = "storm"; b.textContent = ""; return; }
+  b.className = `storm ${s.regime}`;
+  const label = {TREE: "No loop", CIRCULATING: "Loop: broadcasts circulate", AMPLIFYING: "Broadcast storm", DECAYING: "Loop, decaying"}[s.regime] || s.regime;
+  const detail = s.regime === "AMPLIFYING" ? `ρ ${s.rho.toFixed(3)} · grows ×e every ${ms(1 / s.growthRate)} · doubles every ${ms(s.doublingTime)}`
+    : s.regime === "TREE" ? "ρ 0: every broadcast dies out" : `ρ ${s.rho.toFixed(3)} · growth rate 0`;
+  b.innerHTML = `${esc(label)}<small>${esc(detail)}</small>`;
+  b.dataset.regime = s.regime; b.dataset.rho = s.rho; b.dataset.growth = s.growthRate;
+}
+
+// ---------------------------------------------------------------- actions + playback
+
+function drawActions() {
+  const ol = $("#actions"); ol.innerHTML = "";
+  if (!S.sim.actions.length) { ol.innerHTML = `<li class="hint">No actions: open an actions file to run something.</li>`; return; }
+  S.sim.actions.forEach((a, k) => {
+    const li = document.createElement("li"); li.dataset.action = k;
+    const ok = a.result && (a.result.ok || a.result.reached || a.action.do === "udpBurst");
+    const n = a.last - a.first + 1;
+    li.innerHTML = `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}</small>`;
+    li.addEventListener("click", () => { stop(); goto(a.last >= a.first ? a.first : -1); });
+    ol.appendChild(li);
+  });
+  if (S.sim.truncated) ol.insertAdjacentHTML("beforeend", `<li class="hint">Recording stopped at ${S.sim.steps.length} frames (a loop that never ends).</li>`);
+}
+
+function currentState() {
+  if (!S.sim) return null;
+  if (S.step >= 0 && S.sim.steps[S.step]) return S.sim.steps[S.step].state;
+  return S.an ? S.an.devices : null;
+}
+
+export function goto(k) {
+  const n = S.sim.steps.length;
+  S.step = Math.max(-1, Math.min(n - 1, k));
+  showStep(); drawDevice(); refreshPorts();
+}
+
+function refreshPorts() {
+  for (const d of document.querySelectorAll(".port-dot")) {
+    const [sw, p] = d.dataset.port.split(":"); const st = portState(sw, p);
+    d.setAttribute("class", `port-dot ${st}`); d.querySelector("title").textContent = `${sw} ${p}: ${st}`;
+  }
+}
+
+function showStep() {
+  const n = S.sim.steps.length, st = S.sim.steps[S.step];
+  $("#counter").textContent = n ? `frame ${S.step + 1} / ${n}${S.sim.truncated ? "+" : ""}` : "no frames";
+  for (const li of document.querySelectorAll("#actions li[data-action]")) li.classList.toggle("current", !!st && +li.dataset.action === st.action);
+  for (const c of Object.values(S.cableEls || {})) c.classList.remove("active");
+  for (const g of document.querySelectorAll(".node.busy")) g.classList.remove("busy");
+  const r = $("#reason");
+  if (!st) {
+    S.pktLayer && (S.pktLayer.innerHTML = "");
+    r.innerHTML = n ? `<span class="where">Press ▶ to play the ${n} frames the actions put on the wire, or → to step through them.</span>`
+      : `<span class="where">Nothing to play.</span>`;
+    return;
+  }
+  const a = S.sim.actions[st.action];
+  const prev = S.sim.steps[S.step - 1];
+  const tail = (!S.sim.steps[S.step + 1] || S.sim.steps[S.step + 1].action !== st.action) ? a.tail : [];
+  const notes = st.notes.concat(tail);
+  r.innerHTML = `<div class="where">Action ${st.action + 1}: ${esc(a.summary)} · t = ${ms(st.t - (S.sim.steps[a.first]?.t ?? st.t))}</div>
+    <div class="frame"><span style="color:var(--${st.kind})">●</span> ${esc(st.from)}:${esc(st.fromIf)} → ${esc(st.to)}:${esc(st.toIf)} &nbsp; ${esc(st.desc)}</div>
+    ${notes.length ? `<ul>${notes.map(e => `<li class="${e.node === st.from ? "mine" : ""}"><span class="node">${esc(e.node)}</span> ${esc(e.detail)}</li>`).join("")}</ul>`
+      : prev && prev.t === st.t && prev.from === st.from ? `<ul><li>(same decision as the frame before)</li></ul>` : ""}`;
+  const cable = S.cableEls[st.link]; if (cable) cable.classList.add("active");
+  document.querySelector(`.node[data-node="${CSS.escape(st.to)}"]`)?.classList.add("busy");
+  animatePacket(st);
+}
+
+function animatePacket(st) {
+  cancelAnimationFrame(S.anim); S.pktLayer.innerHTML = "";
+  const p = S.pos[st.from], q = S.pos[st.to]; if (!p || !q) return;
+  const dot = el("circle", {class: "packet", r: 8, cx: p.x, cy: p.y, fill: `var(--${st.kind})`}, S.pktLayer);
+  const dur = Math.min(700, interval() * 0.85), t0 = performance.now();
+  const frame = now => { const f = Math.min(1, (now - t0) / dur), e = f < .5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+    dot.setAttribute("cx", p.x + (q.x - p.x) * e); dot.setAttribute("cy", p.y + (q.y - p.y) * e); if (f < 1) S.anim = requestAnimationFrame(frame); };
+  S.anim = requestAnimationFrame(frame);
+}
+
+const interval = () => 900 / S.speed;
+export function play() {
+  if (!S.sim.steps.length) return;
+  if (S.step >= S.sim.steps.length - 1) goto(-1);
+  S.playing = true; $("#play").textContent = "⏸";
+  const tick = () => { if (!S.playing) return; if (S.step >= S.sim.steps.length - 1) return stop(); goto(S.step + 1); S.timer = setTimeout(tick, interval()); };
+  tick();
+}
+export function stop() { S.playing = false; clearTimeout(S.timer); const b = $("#play"); if (b) b.textContent = "▶"; }
+
+// ---------------------------------------------------------------- device panel
+
+export function select(name) {
+  S.selected = S.selected === name ? null : name;
+  for (const g of document.querySelectorAll(".node")) g.classList.toggle("selected", g.dataset.node === S.selected);
+  drawDevice();
+}
+
+const table = (head, rows) => rows.length
+  ? `<table><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c ?? "")}</td>`).join("")}</tr>`).join("")}</table>`
+  : `<div class="empty">empty</div>`;
+
+function drawDevice() {
+  const box = $("#device");
+  const n = S.spec && S.spec.nodes.find(x => x.name === S.selected);
+  if (!n) { box.innerHTML = `<h2>Device</h2><p class="hint">Click a device to see its tables. Drag to move it. Click a cable to unplug it (or plug it back in).</p>`; return; }
+  const st = currentState(), d = (st && st[n.name]) || {};
+  const when = S.step >= 0 ? `As frame ${S.step + 1} leaves (each action starts with empty caches).` :
+    S.an && S.an.converged ? `At rest, after spanning tree settles (${S.an.converged} s).` : "At rest, before any action.";
+  let h = `<h2>Device</h2><h3>${esc(n.name)} <small>${esc(n.kind)}</small></h3><div class="when">${esc(when)}</div>`;
+  if (n.kind === "switch") {
+    h += `<h4>MAC address table</h4>` + table(n.vlans ? ["VLAN", "MAC", "port"] : ["MAC", "port"],
+      (d.mac || []).map(m => n.vlans ? [m.vlan, m.mac, m.port] : [m.mac, m.port]));
+    const ports = S.spec.links.flat().filter(r => typeof r === "string" && r.startsWith(n.name + ":")).map(r => r.split(":")[1]);
+    if (d.stp) {
+      h += `<h4>Spanning tree</h4><div class="when">Bridge ${esc(d.stp.bridgeId)} · root ${esc(d.stp.root)}${d.stp.isRoot ? " (this switch is the root)" : ` · root port ${esc(d.stp.rootPort)}, cost ${d.stp.rootCost}`}</div>`;
+      h += table(["port", "role", "state", "cost"], Object.entries(d.stp.ports).map(([p, x]) => [p, x.role, x.state, x.cost]));
+    } else {
+      h += `<h4>Ports</h4>` + table(n.vlans ? ["port", "state", "VLAN"] : ["port", "state"], ports.map(p => {
+        const c = n.vlans && (n.vlans[p] || {access: 1});
+        return n.vlans ? [p, portState(n.name, p), c.access !== undefined ? `access ${c.access}` : `trunk ${c.trunk.join(",")}${c.native !== undefined ? ` native ${c.native}` : ""}`] : [p, portState(n.name, p)];
+      }));
+    }
+  } else {
+    h += `<h4>Interfaces</h4>` + table(["iface", "address", "MAC"], (d.ifaces || []).map(i => [i.name, i.ip, i.mac]));
+    h += `<h4>Routing table</h4>` + table(["destination", "via", "iface"], (S.sim.routes[n.name] || []).map(r => [r.dst, r.via, r.iface]));
+    h += `<h4>ARP cache</h4>` + table(["IP", "MAC", "iface"], (d.arp || []).map(a => [a.ip, a.mac, a.iface]));
+    if (n.services && n.services.dhcp) h += `<h4>DHCP leases</h4>` + table(["MAC", "IP"], (d.leases || []).map(l => [l.mac, l.ip]));
+  }
+  box.innerHTML = h;
+}
+
+// ---------------------------------------------------------------- wiring
+
+function readFile(input) { return new Promise((res, rej) => { const f = input.files[0]; if (!f) return rej(new Error("no file"));
+  const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsText(f); }); }
+
+async function init() {
+  drawLegend();
+  const list = await exampleList(); S.examples = list;
+  const sel = $("#examples");
+  sel.innerHTML = list.map((e, i) => `<option value="${i}">${esc(e.title)}</option>`).join("") + `<option value="" disabled hidden>(your file)</option>`;
+  sel.addEventListener("change", () => { if (sel.value !== "") loadExample(list[+sel.value]).catch(e => showErrors([String(e)])); });
+  $("#specFile").addEventListener("change", async e => {
+    try { const spec = JSON.parse(await readFile(e.target)); sel.value = ""; load(spec, [], e.target.files[0].name); }
+    catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
+    e.target.value = "";
+  });
+  $("#actionsFile").addEventListener("change", async e => {
+    try { const a = JSON.parse(await readFile(e.target)); if (S.spec) { const vs = validateActions(a, S.spec);
+      if (!vs.ok) showErrors(vs.errors.map(x => `actions ${x.path}: ${x.message}`)); else { showErrors([]); S.actions = a; rerun(); } } }
+    catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
+    e.target.value = "";
+  });
+  $("#play").addEventListener("click", () => S.playing ? stop() : play());
+  $("#step").addEventListener("click", () => { stop(); goto(S.step + 1); });
+  $("#back").addEventListener("click", () => { stop(); goto(S.step - 1); });
+  $("#first").addEventListener("click", () => { stop(); goto(-1); });
+  const sp = $("#speed"); const setSpeed = () => { S.speed = 2 ** +sp.value; $("#speedOut").textContent = `${+S.speed.toFixed(2)}×`; };
+  sp.addEventListener("input", setSpeed); setSpeed();
+  document.addEventListener("keydown", e => {
+    if (e.target.closest && e.target.closest("input, select, textarea")) return;
+    if (e.key === " ") { e.preventDefault(); S.playing ? stop() : play(); }
+    else if (e.key === "ArrowRight") { stop(); goto(S.step + 1); }
+    else if (e.key === "ArrowLeft") { stop(); goto(S.step - 1); }
+    else if (e.key === "Home") { stop(); goto(-1); }
+  });
+  const want = new URLSearchParams(location.search).get("lab");
+  const i = Math.max(0, list.findIndex(e => e.id === want)); sel.value = String(i);
+  await loadExample(list[i]);
+  document.body.dataset.ready = "1";
+}
+
+window.studio = {S, load, rerun, goto, play, stop, select, toggleCut};
+init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });

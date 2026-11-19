@@ -6,7 +6,9 @@
     "build": "python3 tools/build_web.py",
     "check": "python3 tools/build_web.py --check",
     "serve": "node server/server.js",
-    "test:web": "node tests/web/smoke.mjs"
+    "test:web": "node tests/web/smoke.mjs",
+    "test:studio": "node tests/studio/smoke.mjs",
+    "studio": "python3 -m http.server 8640"
   },
   "devDependencies": {
     "playwright": "1.63.0"

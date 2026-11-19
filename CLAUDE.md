@@ -17,6 +17,8 @@ roadmap). Vision: docs/vision.md.
 - `poc/storm-math/` — Python proofs of concept: validated against an independent packet simulator and against real Linux kernel bridges (`sudo python3 run_kernel.py`).
 - `engine/` — the packet-level engine (switches, routers, hosts, servers). Any behavior change must keep
   `validate/l3/run_kernel_l3.py` frame-for-frame identical to Linux (needs root) and `npm test` in engine/ green.
+- `studio/` — the browser front end for the engine (plain ES modules, no build step): serve the repository root
+  (`npm run studio`) and open http://localhost:8640/studio/. Smoke test: `tests/studio/smoke.mjs`.
 - `server/` + `Dockerfile` + `compose.yaml` — class server (lab + shared scoreboard), no dependencies.
 
 ## Checks (all must pass before pushing)
@@ -25,6 +27,7 @@ python3 tools/build_web.py --check
 (cd poc/storm-math && python3 -m pytest -q)
 python3 -m pytest -q tests
 node tests/web/smoke.mjs
+node tests/studio/smoke.mjs
 (cd engine && npm test)
 sudo python3 validate/l3/run_kernel_l3.py   # needs root (Linux only)
 ```
