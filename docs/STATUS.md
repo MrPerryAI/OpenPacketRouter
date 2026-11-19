@@ -1,6 +1,6 @@
 # Project status and hand-off
 
-*Last updated 18 Nov 2026. Read this first in a new session. CLAUDE.md has the rules; this file has the state.*
+*Last updated 19 Nov 2026. Read this first in a new session. CLAUDE.md has the rules; this file has the state.*
 
 ## Direction
 
@@ -54,17 +54,36 @@ The last four commands need root, iproute2 and `unshare`, and the DHCP check als
 
 ## Not modeled yet (engine)
 
-RSTP, per-VLAN spanning tree, topology-change notices, TCP, dynamic routing (OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
+RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN routing, TCP (PR #22 open), DHCP relay, dynamic routing (RIP/OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
 
-## Roadmap (engine), suggested order
+## Roadmap (engine)
 
-1. **Spanning tree + VLANs in `engine/`: done** (PR #11). Real BPDUs, port roles and states checked against kernel bridges, VLAN trunks checked against VLAN-aware kernel bridges. Not yet: RSTP and per-VLAN spanning tree.
-2. **Storm math inside the engine: done** (`engine/src/storm.js`: ρ, regime, growth rate, reach, from the live topology; matches `poc/storm-math` exactly; steady per-cable rates added in PR #19). Not yet: feeding the score into a detail-level scheduler.
-3. **Link capacity, queues, drops: done** (PR #13): token-bucket shaping per interface, checked against Linux `tbf`. `netem` (delay and loss) is not modeled; the cloud kernel lacks it.
-4. **DHCP, then TCP.** DHCP done (PR #17): server and client checked against dnsmasq and udhcpc. Not yet: TCP (handshake, retransmission), which is validated against Linux sockets next.
-5. **OSPF.** Validate against FRRouting in namespaces.
-6. **Mixed detail levels:** swap one device between engine model and a real Linux namespace mid-traffic (the handoff experiment in `docs/vision.md`).
-7. **Spec format and CLI: done** (spec v1 in JSON, `openpacketrouter check|run|actions`, `--trace`). Still open: YAML input, and a version-2 spec when the new features need new fields.
+### Done
+
+- **Spanning tree + VLANs in `engine/`: done** (PR #11). Real BPDUs, port roles and states checked against kernel bridges, VLAN trunks checked against VLAN-aware kernel bridges. Not yet: RSTP and per-VLAN spanning tree (see step 9).
+- **Storm math inside the engine: done** (`engine/src/storm.js`: ρ, regime, growth rate, reach, from the live topology; matches `poc/storm-math` exactly; steady per-cable rates added in PR #19). Not yet: feeding the score into a detail-level scheduler.
+- **Link capacity, queues, drops: done** (PR #13): token-bucket shaping per interface, checked against Linux `tbf`. `netem` (delay and loss) is not modeled; the cloud kernel lacks it.
+- **DHCP: done** (PR #17): server and client checked against dnsmasq and udhcpc.
+- **Spec format and CLI: done** (spec v1 in JSON, `openpacketrouter check|run|actions|schema`, `--trace`, `--text`). Still open: YAML input, and a version-2 spec when the new features need new fields.
+
+### Next, in this order (approved 19 Nov 2026)
+
+Each step counts as done only when it matches real Linux (or real FRRouting) frame for frame.
+
+1. **TCP** (PR #22): handshake, data, close, retransmission, RST, validated against Linux sockets.
+2. **DHCP relay:** a router relays DHCP for a subnet without a server (busybox `dhcprelay` model), with server pools for relayed subnets.
+3. **Inter-VLAN routing:** router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs.
+4. **MAC address aging:** learned entries expire after the aging time, checked against the kernel bridge `ageing_time`.
+5. **Spanning-tree topology change notices:** TCN BPDUs, and switches flush (shorten aging on) their MAC tables after a topology change.
+6. **RIPv2**, validated against FRRouting `ripd` in namespaces.
+7. **OSPF**, validated against FRRouting `ospfd` in namespaces.
+8. **Example lab networks** in `examples/` that run with the CLI.
+9. **Later:** RSTP / PVST+, EtherChannel/LACP, port security, DHCP snooping, storm control, LLDP, SPAN, NAT, ACLs, IPv6. Also kept from the earlier roadmap: mixed detail levels (swap one device between engine model and a real Linux namespace mid-traffic, the handoff experiment in `docs/vision.md`).
+
+### Routing protocol decisions
+
+- **IGRP: not planned.** It is obsolete and there is no real implementation to validate against.
+- **EIGRP: low priority.** FRRouting's `eigrpd` support is partial, so frame-for-frame validation would be weak.
 
 ## Environment notes (cloud sessions)
 
