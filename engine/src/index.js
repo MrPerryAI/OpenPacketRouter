@@ -5,3 +5,4 @@ export {TokenBucket, shape, queueStats, frameBytes, parseRate} from "./link.js";
 export * from "./addr.js";
 export * from "./spec.js";
 export {dhcp, dhcpServer} from "./dhcp.js";
+export {tcpRequest, tcpAction} from "./tcp.js";
