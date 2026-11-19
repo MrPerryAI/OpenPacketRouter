@@ -100,13 +100,6 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in SPECS}))
 
 
-def gh_note(level, title, text):
-    """On GitHub Actions, also report as an annotation (readable through the API without the raw log)."""
-    if os.environ.get("GITHUB_ACTIONS"):
-        esc = str(text)[:9000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-        print(f"::{level} title={title}::{esc}")
-
-
 def main():
     need = ["unshare", "ip", "dnsmasq", "busybox"]
     if os.geteuid() != 0 or not all(shutil.which(x) for x in need):
@@ -116,7 +109,7 @@ def main():
     p = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=600)
     if p.stderr: print(p.stderr[-2000:])
     if p.returncode:
-        gh_note("error", "DHCP kernel side failed", f"busybox dhcp applets: {applets}\n{p.stderr[-3000:]}"); return 1
+        l3.gh_note("error", "DHCP kernel side failed", f"busybox dhcp applets: {applets}\n{p.stderr[-3000:]}"); return 1
     kern = json.loads(p.stdout)
     rows, detail = [], {}
     for name in SPECS:
@@ -137,7 +130,7 @@ def main():
     print("\n".join(md))
     if detail:
         print(json.dumps(detail, indent=1)[:4000])
-        gh_note("error", "DHCP engine vs Linux mismatch", f"busybox dhcp applets: {applets}\n{json.dumps(detail)}\n{p.stderr[-6000:]}")
+        l3.gh_note("error", "DHCP engine vs Linux mismatch", f"busybox dhcp applets: {applets}\n{json.dumps(detail)}\n{p.stderr[-6000:]}")
     return 0 if not detail else 1
 
 

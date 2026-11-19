@@ -68,7 +68,7 @@ def main():
         print("Needs root, `unshare` and iproute2. Skipping."); return 0
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=600)
     if proc.returncode:
-        print("kernel side failed:\n" + proc.stderr[-3000:]); return 1
+        print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "TCP kernel side failed", proc.stderr[-6000:]); return 1
     kern = json.loads(proc.stdout)
     rows, detail = [], {}
     for name in SPECS:
@@ -88,7 +88,7 @@ def main():
     (HERE / "results.md").write_text("\n".join(md) + "\n")
     (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
-    if detail: print(json.dumps(detail, indent=1)[:6000])
+    if detail: print(json.dumps(detail, indent=1)[:6000]); l3.gh_note("error", "TCP engine vs Linux mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
 

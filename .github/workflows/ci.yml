@@ -33,14 +33,14 @@ jobs:
         working-directory: engine
         run: npm test
       - name: Engine vs real Linux (frame for frame)
-        run: sudo env "PATH=$PATH" python3 validate/l3/run_kernel_l3.py
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l3/run_kernel_l3.py
       - name: Engine L2 (STP + VLANs) vs real Linux
-        run: sudo env "PATH=$PATH" python3 validate/l2/run_kernel_l2.py
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l2/run_kernel_l2.py
       - name: Link shaping vs real Linux tbf (frame for frame)
-        run: sudo env "PATH=$PATH" python3 validate/links/run_kernel_links.py
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)
         run: |
           sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null)
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: TCP vs real Linux (frame for frame)
-        run: sudo env "PATH=$PATH" python3 validate/tcp/run_kernel_tcp.py
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py

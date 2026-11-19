@@ -33,15 +33,29 @@ Put new kernel harnesses next to their feature (`validate/l2/`, `validate/links/
 make them skip politely without root like `run_kernel_l3.py` does, and add them to:
 
 - the `all`/`full` cases in `validate/docker/run.sh`, and
-- `.github/workflows/ci.yml` (`sudo env "PATH=$PATH" python3 …`), so GitHub CI runs them on every PR.
+- `.github/workflows/ci.yml` (`sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 …`), so GitHub CI runs them on every PR.
+
+On a mismatch, call `l3.gh_note("error", "<Feature> engine vs Linux mismatch", json.dumps(detail))` (from
+`validate/l3/run_kernel_l3.py`) so the detail shows up as a GitHub annotation. `sudo` drops environment variables,
+so the CI step passes `GITHUB_ACTIONS=true` itself.
 
 ## If Docker isn't reachable
 
 Agents running under a macOS sandbox may get `connect: operation not permitted` on
-`~/.docker/run/docker.sock`. That's the sandbox, not Docker. Two fallbacks:
+`~/.docker/run/docker.sock`, or a build that hangs because Docker Hub and package mirrors are blocked.
+That's the sandbox, not Docker. Two fallbacks:
 
 - **GitHub CI** runs every root validation with `sudo` on `ubuntu-latest` for each push and PR
   (`gh pr checks <n>` / `gh run view --log-failed`). This is the reference result for merging.
+  If the raw log can't be downloaded either (it lives on a separate blob host), read the failed step
+  and the mismatch annotations through the API:
+
+  ```bash
+  job=$(gh pr view <n> --json statusCheckRollup --jq '.statusCheckRollup[0].detailsUrl' | sed 's#.*/job/##')
+  gh api repos/MrPerryAI/OpenPacketRouter/actions/jobs/$job --jq '.steps[] | .name + ": " + .conclusion'
+  gh api repos/MrPerryAI/OpenPacketRouter/check-runs/$job/annotations --jq '.[] | .title + "\n" + .message'
+  ```
+  For the DHCP relay harness, `OPR_CAPTURE=1` adds a tcpdump of the relay router to that output.
 - Ask a human to run `validate/docker/run.sh` in a normal terminal and paste the output.
 
 ## Troubleshooting
