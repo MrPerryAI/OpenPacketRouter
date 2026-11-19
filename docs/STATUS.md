@@ -12,7 +12,7 @@
 
 | Path | What | Verified how |
 |---|---|---|
-| `engine/` | Packet-level simulator in plain JS (ES modules, no deps): learning switches; routers (longest-prefix match, TTL, ICMP time exceeded / net & host unreachable); hosts and servers (ARP, ICMP echo, UDP, DNS); actions `ping`, `traceroute`, `dns`, `udpRequest`; every decision logged in plain English (`net.trace`). | `engine/test/` (45 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, CLI report) and `validate/l3/run_kernel_l3.py`: **12/12 actions match real Linux frame for frame, cable by cable**, across a healthy routed network, a routing loop, and a missing return route. Runs in CI on GitHub (sudo). |
+| `engine/` | Packet-level simulator in plain JS (ES modules, no deps): learning switches; routers (longest-prefix match, TTL, ICMP time exceeded / net & host unreachable); hosts and servers (ARP, ICMP echo, UDP, DNS); actions `ping`, `traceroute`, `dns`, `udpRequest`; every decision logged in plain English (`net.trace`). | `engine/test/` (58 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, TCP, CLI report, example labs) and `validate/l3/run_kernel_l3.py`: **12/12 actions match real Linux frame for frame, cable by cable**, across a healthy routed network, a routing loop, and a missing return route. Runs in CI on GitHub (sudo). |
 | `validate/l3/` | Specs (`fti-routed.json`, `fti-loop.json`, `fti-noreturn.json`) + actions, the Linux harness, `probe.py`, `dns_server.py`, `results.md`. | — |
 | `poc/storm-math/` | Broadcast-storm math: ρ (spectral radius of the non-backtracking matrix) classifies loops as tree / circulating / amplifying; a renewal equation gives growth rate and hotspot links. | vs an independent packet simulator (16 tests), and vs **real Linux kernel bridges** (`run_kernel.py`: exact copy counts, circulating rates within 4%, storm growth matches the simulator before cables fill). The kernel test is opt-in and needs root. |
 | `web/` | The Storm Lab (frozen). Source in `web/src/`, built by `tools/build_web.py`. It has its own small switch-only engine (`web/src/20-engine.js`) kept in parity with `poc/storm-math` by `tests/test_parity.py`. | `tests/web/smoke.mjs` (Playwright, with and without HTML-in-Canvas, plus the class scoreboard) |
@@ -54,7 +54,7 @@ The last four commands need root, iproute2 and `unshare`, and the DHCP check als
 
 ## Not modeled yet (engine)
 
-RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN routing, TCP (PR #22 open), DHCP relay, dynamic routing (RIP/OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
+RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN routing, DHCP relay, dynamic routing (RIP/OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
 
 ## Roadmap (engine)
 
@@ -70,14 +70,14 @@ RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN rou
 
 Each step counts as done only when it matches real Linux (or real FRRouting) frame for frame.
 
-1. **TCP** (PR #22): handshake, data, close, retransmission, RST, validated against Linux sockets.
+1. **TCP: done** (PR #30): handshake, data echo, close, SYN retransmission, RST, validated against Linux sockets (`validate/tcp/`). Not yet: data retransmission, windows, congestion control.
 2. **DHCP relay:** a router relays DHCP for a subnet without a server (busybox `dhcprelay` model), with server pools for relayed subnets.
 3. **Inter-VLAN routing:** router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs.
 4. **MAC address aging:** learned entries expire after the aging time, checked against the kernel bridge `ageing_time`.
 5. **Spanning-tree topology change notices:** TCN BPDUs, and switches flush (shorten aging on) their MAC tables after a topology change.
 6. **RIPv2**, validated against FRRouting `ripd` in namespaces.
 7. **OSPF**, validated against FRRouting `ospfd` in namespaces.
-8. **Example lab networks** in `examples/` that run with the CLI.
+8. **Example lab networks** in `examples/` that run with the CLI: seven labs so far (loop with and without spanning tree, VLANs, DHCP, shaped bottleneck, routed ping/traceroute/DNS, TCP), each run by `engine/test/examples.test.js`; a lab is added as each feature above lands.
 9. **Later:** RSTP / PVST+, EtherChannel/LACP, port security, DHCP snooping, storm control, LLDP, SPAN, NAT, ACLs, IPv6. Also kept from the earlier roadmap: mixed detail levels (swap one device between engine model and a real Linux namespace mid-traffic, the handoff experiment in `docs/vision.md`).
 
 ### Routing protocol decisions

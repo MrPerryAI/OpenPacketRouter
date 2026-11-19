@@ -44,13 +44,17 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-TCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
+RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
 
 ## Tests
 
 ```bash
-npm test                                  # 54 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, CLI report, example labs
+npm test                                  # 58 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, TCP, CLI report, example labs
 ```
+
+## TCP
+
+A server with `services.tcp` (`{"7": "echo"}`) listens on a port; the `tcp` action opens a connection from a client, sends `size` bytes, reads them back and closes. The engine models the three-way handshake, data and ACKs, SYN retransmission (1 s, then doubling), RST for a closed port, and the FIN teardown, and matches real Linux sockets frame for frame: [validate/tcp/results.md](../validate/tcp/results.md). Not modeled: data retransmission, windows, congestion control, options.
 
 ## DHCP
 

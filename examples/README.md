@@ -19,6 +19,7 @@ add `--compact` for one line. Spec keys are in [docs/spec-format.md](../docs/spe
 | [vlans](vlans/) | VLANs and a trunk: same VLAN talks across switches, different VLANs cannot | Move a host to another `access` VLAN |
 | [dhcp-router](dhcp-router/) | A host with no address gets one by DHCP, then reaches a server through a router | Shrink the `range` |
 | [bottleneck](bottleneck/) | A 1 Mbit link with a small queue: a long burst is dropped | Raise `rate` or `limit` |
+| [tcp](tcp/) | TCP handshake, echo, close; a refused port; a SYN with no answer | Give BROKEN a gateway |
 | [routed-lan-dns](routed-lan-dns/) | Ping, traceroute and DNS across a router, plus a ping to an address nobody has | Remove `gw` from PC1 |
 
 Every lab is run by `engine/test/examples.test.js`, so the READMEs stay true.
