@@ -40,7 +40,7 @@ jobs:
         run: sudo env "PATH=$PATH" python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)
         run: |
-          sudo apt-get install -y --no-install-recommends dnsmasq-base busybox-static tcpdump >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox-static tcpdump >/dev/null)
-          sudo env "PATH=$PATH" GITHUB_ACTIONS=true OPR_CAPTURE=1 python3 validate/dhcp/run_kernel_dhcp.py
+          sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null)
+          sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: TCP vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" python3 validate/tcp/run_kernel_tcp.py
