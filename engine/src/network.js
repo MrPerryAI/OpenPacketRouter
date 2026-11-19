@@ -21,7 +21,7 @@
 // Every decision is written to `net.trace` with a plain-English reason.
 
 import {Stp} from "./stp.js";
-import {dhcpServer} from "./dhcp.js";
+import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 import {shape} from "./link.js";
@@ -155,7 +155,7 @@ export class IpNode extends Device {
       this.learn(a.spa, a.sha, ifname);
       this.log("arp-reply", `${a.spa} asked who has ${i.ip}: answering with ${i.mac}`);
       this.send(ifname, {src: i.mac, dst: a.sha, type: "arp", arp: {op: "reply", sha: i.mac, spa: i.ip, tha: a.sha, tpa: a.spa}});
-    } else if (a.op === "reply" && a.tpa === i.ip) this.learn(a.spa, a.sha, ifname);
+    } else if (a.op === "reply" && (a.tpa === i.ip || this.owns(a.tpa))) this.learn(a.spa, a.sha, ifname);
   }
   learn(ip, mac, ifname) {
     this.arp.set(ip, {mac, iface: ifname});
@@ -185,12 +185,13 @@ export class IpNode extends Device {
       const svc = this.udpService(p.udp.dport);
       if (!svc && p.dst === "255.255.255.255") return;                // no ICMP errors for broadcasts
       if (!svc) { this.log("port-closed", `nothing listens on UDP ${p.udp.dport}`); return this.icmpError(p, 3, 3, p.dst); }
-      const reply = svc(p.udp.payload, p);
+      const reply = svc(p.udp.payload, p, ifname);
       if (reply !== undefined) this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "udp", udp: {sport: p.udp.dport, dport: p.udp.sport, payload: reply}});
     }
   }
   udpService(port) {
     if (port === 67 && this.services.dhcp) return this._dhcpd ||= dhcpServer(this, this.services.dhcp);
+    if (port === 67 && this.services.dhcpRelay) return this._dhcpRelay ||= dhcpRelay(this, this.services.dhcpRelay);
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
     return this.services.udp && this.services.udp[port];
@@ -217,7 +218,10 @@ export class IpNode extends Device {
     if (e && e.iface === r.iface) return this.frameOut(r.iface, e.mac, p);
     let q = this.pending.get(r.nextHop);
     if (q) { q.frames.push(p); return; }
-    q = {iface: r.iface, frames: [p], tries: 0, forwarded};
+    // The ARP request names the packet's own source address when it is one of ours (Linux arp_announce 0), else the
+    // address of the outgoing interface: a relay sending from its client-side address asks "who-has X tell <that address>".
+    const spa = !forwarded && p.src && this.owns(p.src) ? p.src : this.ifaces[r.iface].ip;
+    q = {iface: r.iface, frames: [p], tries: 0, forwarded, spa};
     this.pending.set(r.nextHop, q);
     this.arpRequest(r.nextHop, q);
   }
@@ -231,7 +235,7 @@ export class IpNode extends Device {
     q.tries++;
     const i = this.ifaces[q.iface];
     this.log("arp-request", `who has ${ip}? (try ${q.tries})`);
-    this.send(q.iface, {src: i.mac, dst: BROADCAST_MAC, type: "arp", arp: {op: "request", sha: i.mac, spa: i.ip, tha: "00:00:00:00:00:00", tpa: ip}});
+    this.send(q.iface, {src: i.mac, dst: BROADCAST_MAC, type: "arp", arp: {op: "request", sha: i.mac, spa: q.spa ?? i.ip, tha: "00:00:00:00:00:00", tpa: ip}});
     this.net._after(1.0, () => this.arpRequest(ip, q));
   }
   frameOut(ifname, mac, p) { this.send(ifname, {src: this.ifaces[ifname].mac, dst: mac, type: "ipv4", ip: p}); }

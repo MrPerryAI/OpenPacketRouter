@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "name": "DHCP through a relay",
+  "about": "The DHCP server sits at the core; the router relays for the client LAN (giaddr), like a campus network. A bystander on each side sees the broadcasts.",
+  "nodes": [
+    {"name": "R", "kind": "router", "ifaces": {"lan": "10.1.0.1/24", "core": "10.0.0.254/24"}, "services": {"dhcpRelay": {"server": "10.0.0.1", "clients": ["lan"]}}},
+    {"name": "SWC", "kind": "switch"},
+    {"name": "SWL", "kind": "switch"},
+    {"name": "SRV", "kind": "server", "ifaces": {"eth0": "10.0.0.1/24"}, "gw": "10.0.0.254",
+     "services": {"dhcp": {"range": ["10.0.0.100", "10.0.0.100"], "lease": 3600, "pools": [{"range": ["10.1.0.100", "10.1.0.100"], "mask": "255.255.255.0", "router": "10.1.0.1"}]}}},
+    {"name": "CORE-B", "kind": "host", "ifaces": {"eth0": "10.0.0.9/24"}},
+    {"name": "PC1", "kind": "host", "ifaces": {"eth0": "dhcp"}},
+    {"name": "LAN-B", "kind": "host", "ifaces": {"eth0": "10.1.0.9/24"}}
+  ],
+  "links": [
+    ["R:core", "SWC:p1", 1], ["SRV:eth0", "SWC:p2", 1], ["CORE-B:eth0", "SWC:p3", 1],
+    ["R:lan", "SWL:p1", 1], ["PC1:eth0", "SWL:p2", 1], ["LAN-B:eth0", "SWL:p3", 1]
+  ]
+}

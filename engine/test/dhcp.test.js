@@ -23,3 +23,13 @@ test("a bound client can use its address", () => {
   const [, r] = runActions(spec, [{do: "dhcp", src: "PC1"}, {do: "ping", src: "PC1", dst: "10.0.0.9"}]);
   assert.equal(r.result.ok, true);
 });
+
+test("through a relay: unicast to the server from giaddr, answers unicast to the client (dnsmasq relay mode)", () => {
+  const relay = JSON.parse(fs.readFileSync(new URL("../../validate/dhcp/dhcp-relay.json", import.meta.url)));
+  assert.ok(validateSpec(relay).ok);
+  const [r] = runActions(relay, [{do: "dhcp", src: "PC1"}]);
+  assert.deepEqual(r.result, {ok: true, ip: "10.1.0.100", server: "10.0.0.1", lease: 3600});
+  assert.equal(r.frames["SWL:p3>LAN-B:eth0"], 2);       // only the client's DISCOVER and REQUEST are broadcast on the LAN
+  assert.equal(r.frames["SWC:p3>CORE-B:eth0"], 2);      // router ARPs "tell 10.1.0.1", so the server ARPs for its gateway too
+  assert.equal(r.frames["R:core>SWC:p1"], 4);           // ARP request, ARP reply, two relayed requests
+});
