@@ -22,4 +22,6 @@ add `--compact` for one line. Spec keys are in [docs/spec-format.md](../docs/spe
 | [tcp](tcp/) | TCP handshake, echo, close; a refused port; a SYN with no answer | Give BROKEN a gateway |
 | [routed-lan-dns](routed-lan-dns/) | Ping, traceroute and DNS across a router, plus a ping to an address nobody has | Remove `gw` from PC1 |
 
+`index.json` lists the labs for tools (the browser studio reads it); add new labs there too.
+
 Every lab is run by `engine/test/examples.test.js`, so the READMEs stay true.
