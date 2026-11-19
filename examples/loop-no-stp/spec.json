@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "name": "Switch triangle, no spanning tree",
+  "about": "Three switches cabled in a ring, with no spanning tree. One broadcast (the ARP request inside a ping) goes round and round. Watch the frame counts.",
+  "nodes": [
+    {"name": "SW1", "kind": "switch"}, {"name": "SW2", "kind": "switch"}, {"name": "SW3", "kind": "switch"},
+    {"name": "PC1", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "PC2", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+  ],
+  "links": [["SW1:p1", "SW2:p1"], ["SW2:p2", "SW3:p1"], ["SW3:p2", "SW1:p2"], ["PC1:eth0", "SW1:p3"], ["PC2:eth0", "SW3:p3"]]
+}

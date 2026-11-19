@@ -1,0 +1,4 @@
+[
+  {"do": "ping", "src": "PC1", "dst": "10.0.0.2", "timeout": 0.1, "settle": 12},
+  {"do": "ping", "src": "PC1", "dst": "10.0.0.2"}
+]

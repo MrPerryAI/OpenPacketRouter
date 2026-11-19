@@ -1,0 +1,6 @@
+[
+  {"do": "ping", "src": "PC1", "dst": "10.1.0.53"},
+  {"do": "traceroute", "src": "PC1", "dst": "10.1.0.53"},
+  {"do": "dns", "src": "PC1", "server": "10.1.0.53", "name": "dns.school.lan"},
+  {"do": "ping", "src": "PC1", "dst": "10.1.0.99"}
+]

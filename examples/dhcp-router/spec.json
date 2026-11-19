@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "DHCP, then a router to the server network",
+  "about": "PC1 has no address. A DHCP server on the same LAN hands it one (and names the router as the default gateway). After that, PC1 can reach a web server network on the far side of router R1. DHCP broadcasts do not cross a router, so each LAN needs its own DHCP server (or a relay).",
+  "nodes": [
+    {"name": "SW1", "kind": "switch"},
+    {"name": "DHCP", "kind": "server", "ifaces": {"eth0": "10.0.0.2/24"}, "gw": "10.0.0.1",
+     "services": {"dhcp": {"range": ["10.0.0.100", "10.0.0.110"], "lease": 3600, "router": "10.0.0.1", "dns": "10.1.0.53"}}},
+    {"name": "PC1", "kind": "host", "ifaces": {"eth0": "dhcp"}},
+    {"name": "R1", "kind": "router", "ifaces": {"eth0": "10.0.0.1/24", "eth1": "10.1.0.1/24"}},
+    {"name": "WEB", "kind": "server", "ifaces": {"eth0": "10.1.0.53/24"}, "gw": "10.1.0.1", "services": {"dns": {"www.school.lan": "10.1.0.53"}}}
+  ],
+  "links": [["DHCP:eth0", "SW1:p1"], ["PC1:eth0", "SW1:p2"], ["R1:eth0", "SW1:p3"], ["R1:eth1", "WEB:eth0", 2]]
+}
