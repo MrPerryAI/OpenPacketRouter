@@ -38,6 +38,7 @@ def act(k, a):
 def kernel_run(name):
     spec = json.loads((HERE / f"{name}.json").read_text()); acts = json.loads((HERE / f"{name}.actions.json").read_text())
     k = Net(spec); out = []
+    time.sleep(1)   # let the new vlan devices and bridge ports settle: the first ARP sent sooner can be lost, and A retries
     try:
         for a in acts:
             k.flush(); before = k.counters(); r = act(k, a); time.sleep(a.get("settle", 1)); after = k.counters()
