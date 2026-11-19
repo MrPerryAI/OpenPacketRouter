@@ -83,7 +83,8 @@ class Net:
             sh("ip", "-n", ns, "link", "add", "link", parent, "name", ifn, "type", "vlan", "id", vid)
         else: return
         no_ipv6(ns, ifn); sh("ip", "-n", ns, "link", "set", ifn, "up")
-        sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
+        for k in ("send_redirects", "rp_filter"):   # not sysctl(): the dot in "eth0.10" is part of the path, not a separator
+            nsx(ns, "sh", "-c", f"echo 0 > /proc/sys/net/ipv4/conf/{ifn}/{k}")
 
     def vlan(self, ns, node, ifn):
         vl = self.node[node].get("vlans")
