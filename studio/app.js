@@ -332,6 +332,14 @@ async function init() {
   });
   $("#consoleInput").addEventListener("keydown", consoleKey);
   $("#consoleClose").addEventListener("click", closeConsole);
+  $(".console-head").addEventListener("pointerdown", e => {         // drag the console by its title bar
+    if (e.target.closest("button")) return;
+    const box = $("#console"), r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const move = ev => { box.style.left = `${Math.max(0, Math.min(innerWidth - 80, ev.clientX - dx))}px`; box.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
+      box.style.right = "auto"; box.style.bottom = "auto"; };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+  });
   $("#play").addEventListener("click", () => S.playing ? stop() : play());
   $("#step").addEventListener("click", () => { stop(); goto(S.step + 1); });
   $("#back").addEventListener("click", () => { stop(); goto(S.step - 1); });
@@ -372,7 +380,7 @@ const env = {
 export function openConsole(name) {
   const box = $("#console"); box.hidden = false;
   S.selected = name; for (const g of document.querySelectorAll(".node")) g.classList.toggle("selected", g.dataset.node === name); drawDevice();
-  if (!S.sessions.has(name)) S.sessions.set(name, {cli: createSession(env, name), log: `${name} console (a stand-in for the project's CLI). Type ? for help, Tab to complete.\n\n`, hist: [], at: 0});
+  if (!S.sessions.has(name)) S.sessions.set(name, {cli: createSession(env, name), log: `${name} console (a stand-in for the project's CLI). Type ? for help, Tab to complete. Drag the title bar to move this window.\n\n`, hist: [], at: 0});
   S.console = name; showConsole(); $("#consoleInput").focus();
 }
 function closeConsole() { const b = $("#console"); if (b) b.hidden = true; S.console = null; }
