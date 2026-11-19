@@ -1,0 +1,141 @@
+{
+ "version": 1,
+ "name": "Layer 3 switch",
+ "about": "SW1 is a Layer 3 switch: SVIs vlan10, vlan20 and vlan30 route between its VLANs, and a static route sends 10.9.0.0/24 to router R on VLAN 30. SW2 is a plain VLAN switch on a trunk.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "vlans": {
+    "p1": {
+     "access": 10
+    },
+    "p2": {
+     "access": 20
+    },
+    "up0": {
+     "access": 30
+    },
+    "tr0": {
+     "trunk": [
+      10,
+      20
+     ]
+    }
+   },
+   "ifaces": {
+    "vlan10": "10.0.10.1/24",
+    "vlan20": "10.0.20.1/24",
+    "vlan30": "10.0.30.1/24"
+   },
+   "routes": [
+    [
+     "10.9.0.0/24",
+     "10.0.30.2"
+    ]
+   ]
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "vlans": {
+    "tr0": {
+     "trunk": [
+      10,
+      20
+     ]
+    },
+    "p1": {
+     "access": 10
+    },
+    "p2": {
+     "access": 20
+    }
+   }
+  },
+  {
+   "name": "R",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.30.2/24",
+    "eth1": "10.9.0.1/24"
+   },
+   "routes": [
+    [
+     "10.0.0.0/16",
+     "10.0.30.1"
+    ]
+   ]
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.10.11/24"
+   },
+   "gw": "10.0.10.1"
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.20.12/24"
+   },
+   "gw": "10.0.20.1"
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.10.21/24"
+   },
+   "gw": "10.0.10.1"
+  },
+  {
+   "name": "D",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.20.22/24"
+   },
+   "gw": "10.0.20.1"
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.9.0.10/24"
+   },
+   "gw": "10.9.0.1"
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW1:p1"
+  ],
+  [
+   "B:eth0",
+   "SW1:p2"
+  ],
+  [
+   "SW1:up0",
+   "R:eth0"
+  ],
+  [
+   "SW1:tr0",
+   "SW2:tr0"
+  ],
+  [
+   "C:eth0",
+   "SW2:p1"
+  ],
+  [
+   "D:eth0",
+   "SW2:p2"
+  ],
+  [
+   "R:eth1",
+   "S:eth0"
+  ]
+ ]
+}

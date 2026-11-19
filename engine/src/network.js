@@ -5,7 +5,9 @@
 //             port, floods broadcasts and unknown unicast. (No spanning tree here
 //             yet; ports can be configured `blocked`.)
 //   Router  - IPv4 forwarding: longest-prefix match over connected and static
-//             routes, TTL decrement, ICMP time exceeded / unreachable.
+//             routes, TTL decrement, ICMP time exceeded / unreachable. An interface
+//             named "eth0.10" is an 802.1Q subinterface of eth0 in VLAN 10
+//             (router-on-a-stick), like Linux `ip link add link eth0 name eth0.10 type vlan id 10`.
 //   Host    - a client or server: one or more IPv4 interfaces, a default gateway,
 //             ARP, ICMP echo, UDP services (e.g. DNS).
 //
@@ -49,7 +51,7 @@ const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded",
 
 class Device {
   constructor(net, name, kind) { this.net = net; this.name = name; this.kind = kind; this.ifaces = {}; }
-  addIface(name, extra = {}) { const i = {name, node: this, mac: this.net._mac(), link: null, ...extra}; this.ifaces[name] = i; return i; }
+  addIface(name, extra = {}) { const i = {name, node: this, link: null, ...extra, mac: extra.mac ?? this.net._mac()}; this.ifaces[name] = i; return i; }
   send(ifname, frame) { this.net._transmit(this, ifname, frame); }
   log(event, detail) { this.net.log(this.name, event, detail); }
   flush() {}
@@ -60,12 +62,24 @@ class Device {
 export class Switch extends Device {
   /** opts: blocked: [ports]; stp: {priority, mac, hello, maxAge, forwardDelay, cost, portPriority} (spanning tree on);
    *  vlans: {port: {access: 10} | {trunk: [10, 20], native: 1}} (makes the switch VLAN-aware, like a kernel
-   *  bridge with vlan_filtering; ports not listed are access ports in VLAN 1). */
-  constructor(net, name, {blocked = [], stp = null, vlans = null} = {}) {
+   *  bridge with vlan_filtering; ports not listed are access ports in VLAN 1).
+   *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
+   *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
+   *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null} = {}) {
     super(net, name, "switch"); this.table = new Map(); this.blocked = new Set(blocked);
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
+    this.l3 = null;
+    if (ifaces && Object.keys(ifaces).length) {
+      const mac = net._mac();                       // every SVI uses the bridge's own MAC, as Linux vlan devices on br0 do
+      this.l3 = new IpNode(net, name, "router", {routes, gw});
+      for (const [n, cidr] of Object.entries(ifaces)) this.l3.addAddr(n, cidr, {svi: this, vid: +n.slice(4), mac});
+      this.l3mac = mac;
+    }
   }
+  /** The SVI for a VLAN, if this is a Layer 3 switch with one. */
+  svi(vid) { return this.l3 ? Object.values(this.l3.ifaces).find(i => i.vid === vid) : null; }
   /** {pvid, member: Set, untagged: Set} for a port of a VLAN-aware switch. */
   vcfg(port) {
     const c = (this.vlans && this.vlans[port]) || {access: 1};
@@ -75,6 +89,21 @@ export class Switch extends Device {
   }
   _fwd(p) { return !this.blocked.has(p) && (!this.stp || !this.stp.ports.get(p) || this.stp.ports.get(p).state === "forwarding"); }
   flushPort(p) { for (const [k, v] of this.table) if (v === p) this.table.delete(k); }
+  /** Send `f` out port p in VLAN vid, tagged or untagged as the port is configured. False if p isn't in vid. */
+  _emit(p, f, vid) {
+    if (!this.vlans) { this.send(p, f); return true; }
+    const c = this.vcfg(p); if (!c.member.has(vid)) return false;
+    const g = {...f}; if (c.untagged.has(vid)) delete g.vlan; else g.vlan = vid;
+    this.send(p, g); return true;
+  }
+  /** A frame the switch's own IP stack sends from an SVI (Linux br_dev_xmit): known unicast goes out the
+   *  learned port, anything else floods every forwarding port in the VLAN. */
+  fromStack(vid, f) {
+    const out = f.dst === BROADCAST_MAC ? null : this.table.get(vid + "|" + f.dst);
+    if (out) { if (this._fwd(out)) this._emit(out, f, vid); return; }
+    const ports = Object.keys(this.ifaces).filter(p => this._fwd(p) && this.ifaces[p].link && this.vcfg(p).member.has(vid));
+    for (const p of ports) this._emit(p, f, vid);
+  }
   linkChange(ifname, up) { if (this.stp) this.stp.linkChange(ifname, up); }
   start() { if (this.stp) this.stp.start(); }
 
@@ -93,30 +122,26 @@ export class Switch extends Device {
     const key = m => vid + "|" + m;
     if (f.src !== BROADCAST_MAC && this.table.get(key(f.src)) !== ifname) { this.table.set(key(f.src), ifname); }
     if (st === "learning") return;
+    const svi = this.vlans && this.l3 ? this.svi(vid) : null;
+    if (svi && f.dst === this.l3mac) { const g = {...f}; delete g.vlan; return this.l3.receive(svi.name, g); }   // for the switch itself
     const out = f.dst === BROADCAST_MAC ? null : this.table.get(key(f.dst));
     if (out === ifname) { this.log("filter", `drop: ${f.dst} lives on the port it came in on (${ifname})`); return; }
-    const emit = p => {
-      if (!this.vlans) { this.send(p, f); return true; }
-      const c = this.vcfg(p); if (!c.member.has(vid)) return false;
-      const g = {...f}; if (c.untagged.has(vid)) delete g.vlan; else g.vlan = vid;
-      this.send(p, g); return true;
-    };
+    const emit = p => this._emit(p, f, vid);
     const vtag = this.vlans ? ` [VLAN ${vid}]` : "";
     if (out && this._fwd(out)) { if (emit(out)) this.log("forward", `${describe(f)}${vtag}: ${f.dst} learned on ${out}`); else this.log("vlan-drop", `${describe(f)}: VLAN ${vid} not allowed out ${out}`); return; }
     const ports = Object.keys(this.ifaces).filter(p => p !== ifname && this._fwd(p) && this.ifaces[p].link && (!this.vlans || this.vcfg(p).member.has(vid)));
     this.log("flood", `${describe(f)}${vtag}: ${f.dst === BROADCAST_MAC ? "broadcast" : "unknown destination " + f.dst} → ${ports.join(", ") || "nowhere"}`);
     for (const p of ports) emit(p);
+    if (svi && f.dst === BROADCAST_MAC) { const g = {...f}; delete g.vlan; this.l3.receive(svi.name, g); }   // and up to the SVI
   }
-  flush() { this.table.clear(); }
+  flush() { this.table.clear(); if (this.l3) this.l3.flush(); }
 }
 
 export class IpNode extends Device {
   constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
-    for (const [n, cidr] of Object.entries(ifaces)) {
-      if (cidr === "dhcp") { this.addIface(n, {dhcp: true}); continue; }                 // address comes from DHCP (dhcp.js)
-      const c = parseCidr(cidr); this.addIface(n, {ip: c.ip, prefix: c.prefix, net: c.net, mask: c.mask}); }
+    for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
     this.routes = routes.map(([dst, via]) => ({...parseCidr(dst), via}));
     if (gw) this.routes.push({...parseCidr("0.0.0.0/0"), via: gw});
     this.services = services;          // {dns: {"name": "ip"}, udp: {port: fn(payload) -> reply}}
@@ -124,6 +149,22 @@ export class IpNode extends Device {
     this.pending = new Map();          // next-hop ip -> {iface, frames: [ip packets], tries}
     this.nextPort = 33000;
     this.sockets = new Set();         // UDP ports a client app has open (no "port unreachable" for these)
+  }
+  /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
+   *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
+  addAddr(n, cidr, extra = {}) {
+    const addr = cidr === "dhcp" ? {dhcp: true} : (c => ({ip: c.ip, prefix: c.prefix, net: c.net, mask: c.mask}))(parseCidr(cidr));
+    const m = !extra.svi && n.match(/^([^.]+)\.(\d+)$/);
+    if (m) { const parent = this.ifaces[m[1]] || this.addIface(m[1]); extra = {...extra, parent: m[1], vid: +m[2], mac: parent.mac}; }
+    else if (this.ifaces[n]) return Object.assign(this.ifaces[n], addr);   // a parent created earlier for its subinterface
+    return this.addIface(n, {...extra, ...addr});
+  }
+  /** Out a logical interface: subinterfaces tag onto their parent's cable; SVIs go into their switch. */
+  send(ifname, f) {
+    const i = this.ifaces[ifname];
+    if (i.svi) return i.svi.fromStack(i.vid, f);
+    if (i.parent) return super.send(i.parent, {...f, vlan: i.vid});
+    super.send(ifname, f);
   }
   owns(ip) { return Object.values(this.ifaces).some(i => i.ip === ip); }
   flush() { this.arp.clear(); this.pending.clear(); }
@@ -141,6 +182,11 @@ export class IpNode extends Device {
   }
 
   receive(ifname, f) {
+    if (f.vlan !== undefined) {                       // 802.1Q tagged: only a subinterface for that VLAN takes it
+      const sub = Object.values(this.ifaces).find(s => s.parent === ifname && s.vid === f.vlan);
+      if (!sub) { this.log("vlan-drop", `${describe(f)}: tagged VLAN ${f.vlan}, no subinterface ${ifname}.${f.vlan}`); return; }
+      f = {...f}; delete f.vlan; ifname = sub.name;
+    }
     const i = this.ifaces[ifname];
     if (f.dst !== i.mac && f.dst !== BROADCAST_MAC) return;            // NIC filter
     if (this.rawHook && this.rawHook(ifname, f)) return;              // a raw-socket client (DHCP, dhcp.js)
