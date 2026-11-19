@@ -95,6 +95,34 @@ try {
   await page.click('#map .node[data-node="DHCP"]');
   check(/DHCP leases/.test(await page.textContent("#device")) && /10\.0\.0\.100/.test(await page.textContent("#device")), "DHCP server panel lists the lease");
 
+  // console: a Cisco-style prompt per device; config changes re-run the network
+  await page.goto(BASE + "?lab=routed-lan-dns"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  await page.dblclick('#map .node[data-node="R1"]');
+  check(await page.isVisible("#console") && await page.textContent("#consolePrompt") === "R1>", "double-click opens the console at R1>");
+  const type = async line => { await page.fill("#consoleInput", line); await page.press("#consoleInput", "Enter"); };
+  await type("en"); await type("conf t");
+  await page.fill("#consoleInput", "int eth"); await page.press("#consoleInput", "?");
+  check(/eth0/.test(await page.textContent("#consoleOut")) && /eth1/.test(await page.textContent("#consoleOut")), "? lists the interfaces");
+  await page.fill("#consoleInput", "interface eth1"); await page.press("#consoleInput", "Enter");
+  check(await page.textContent("#consolePrompt") === "R1(config-if)#", "prompt follows the mode", await page.textContent("#consolePrompt"));
+  await page.fill("#consoleInput", "shut"); await page.press("#consoleInput", "Tab");
+  check(await page.inputValue("#consoleInput") === "shutdown ", "Tab completes a word");
+  await page.press("#consoleInput", "Enter");
+  const failed = await page.evaluate(() => window.studio.S.sim.actions.map(a => !!a.result.ok));
+  check(await page.$$eval("line.cable.cut", l => l.length) === 1 && failed[0] === false, "shutdown unplugs the cable and the ping fails", failed.join(","));
+  await type("no shutdown"); await type("end"); await type("ping 10.1.0.53");
+  check(/Success rate is 100 percent/.test(await page.textContent("#consoleOut")) && await page.evaluate(() => window.studio.S.actions.length) === 5,
+    "ping from the console succeeds and joins the playback");
+  await page.press("#consoleInput", "ArrowUp");
+  check(await page.inputValue("#consoleInput") === "ping 10.1.0.53", "↑ recalls history");
+  await page.fill("#consoleInput", ""); await type("conf t"); await type("hostname CORE");
+  check(await page.textContent("#consolePrompt") === "CORE(config)#" && await page.$$eval('#map .node[data-node="CORE"]', n => n.length) === 1, "hostname renames the device on the map");
+  await type("ip route 10.9.0.0 255.255.255.0 10.1.0.99"); await type("do show ip route");
+  check(/S    10\.9\.0\.0\/24 \[1\/0\] via 10\.1\.0\.99/.test(await page.textContent("#consoleOut")), "static route added and shown");
+  await type("ip route 10.9.0.0 255.255.255.0 10.7.7.7");
+  check(/not on any of its subnets/.test(await page.textContent("#consoleOut")), "an invalid change is refused with the engine's reason");
+  await page.click("#consoleClose");
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });

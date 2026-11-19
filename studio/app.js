@@ -3,6 +3,7 @@ import {validateSpec, validateActions} from "../engine/src/spec.js";
 import {simulate, analyse} from "./sim.js";
 import {autoLayout} from "./layout.js";
 import {EXAMPLES} from "./examples.js";
+import {createSession} from "./cli-stub.js";
 
 const $ = s => document.querySelector(s);
 const SVG = "http://www.w3.org/2000/svg";
@@ -15,7 +16,7 @@ const vlanColor = v => v === 1 ? "#98a2b3" : VLAN_COLORS[(v * 7) % VLAN_COLORS.l
 const HALF = {switch: [34, 16], router: [24, 24], server: [24, 22], host: [28, 18]};   // half width/height of each device shape
 const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 3 : 1)} ms`;
 
-export const S = {spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
+export const S = {sessions: new Map(), console: null, spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
   playing: false, speed: 1, selected: null, timer: null, anim: null, error: null};
 
 // ---------------------------------------------------------------- loading
@@ -47,6 +48,7 @@ export function load(spec, actions = [], name = "") {
   showErrors(errs.concat(v.warnings.map(w => `warning: spec ${w.path}: ${w.message}`)));
   if (!v.ok) return false;
   S.spec = spec; S.actions = errs.length ? [] : actions; S.name = name; S.cut = new Set(); S.selected = null;
+  S.sessions = new Map(); closeConsole();
   S.pos = savedLayout(spec) || autoLayout(spec);
   $("#title").innerHTML = `${esc(spec.name || name || "Untitled network")}${spec.about ? `<small>${esc(spec.about)}</small>` : ""}`;
   rerun();
@@ -143,6 +145,7 @@ function drawMap() {
     const ip = n.ifaces ? Object.values(n.ifaces)[0] : null;
     sub.textContent = n.kind === "switch" ? (n.stp ? "switch · STP" : n.vlans ? "switch · VLANs" : "switch") : ip ? `${n.kind} · ${ip}` : n.kind;
     g.addEventListener("pointerdown", e => startDrag(e, n.name));
+    g.addEventListener("dblclick", () => openConsole(n.name));
   }
 }
 
@@ -276,7 +279,7 @@ const table = (head, rows) => rows.length
 function drawDevice() {
   const box = $("#device");
   const n = S.spec && S.spec.nodes.find(x => x.name === S.selected);
-  if (!n) { box.innerHTML = `<h2>Device</h2><p class="hint">Click a device to see its tables. Drag to move it. Click a cable to unplug it (or plug it back in).</p>`; return; }
+  if (!n) { box.innerHTML = `<h2>Device</h2><p class="hint">Click a device to see its tables, double-click it for its console. Drag to move it. Click a cable to unplug it (or plug it back in).</p>`; return; }
   const st = currentState(), d = (st && st[n.name]) || {};
   const when = S.step >= 0 ? `As frame ${S.step + 1} leaves (each action starts with empty caches).` :
     S.an && S.an.converged ? `At rest, after spanning tree settles (${S.an.converged} s).` : "At rest, before any action.";
@@ -300,7 +303,9 @@ function drawDevice() {
     h += `<h4>ARP cache</h4>` + table(["IP", "MAC", "iface"], (d.arp || []).map(a => [a.ip, a.mac, a.iface]));
     if (n.services && n.services.dhcp) h += `<h4>DHCP leases</h4>` + table(["MAC", "IP"], (d.leases || []).map(l => [l.mac, l.ip]));
   }
+  h += `<button class="open-console" data-console="${esc(n.name)}">Open console on ${esc(n.name)}</button>`;
   box.innerHTML = h;
+  box.querySelector(".open-console").addEventListener("click", () => openConsole(n.name));
 }
 
 // ---------------------------------------------------------------- wiring
@@ -325,6 +330,16 @@ async function init() {
     catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
     e.target.value = "";
   });
+  $("#consoleInput").addEventListener("keydown", consoleKey);
+  $("#consoleClose").addEventListener("click", closeConsole);
+  $(".console-head").addEventListener("pointerdown", e => {         // drag the console by its title bar
+    if (e.target.closest("button")) return;
+    const box = $("#console"), r = box.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const move = ev => { box.style.left = `${Math.max(0, Math.min(innerWidth - 80, ev.clientX - dx))}px`; box.style.top = `${Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy))}px`;
+      box.style.right = "auto"; box.style.bottom = "auto"; };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+  });
   $("#play").addEventListener("click", () => S.playing ? stop() : play());
   $("#step").addEventListener("click", () => { stop(); goto(S.step + 1); });
   $("#back").addEventListener("click", () => { stop(); goto(S.step - 1); });
@@ -344,5 +359,60 @@ async function init() {
   document.body.dataset.ready = "1";
 }
 
-window.studio = {S, load, rerun, goto, play, stop, select, toggleCut};
+// ---------------------------------------------------------------- console (Cisco-style CLI, cli-stub.js until cli/ exists)
+
+const env = {
+  spec: () => S.spec,
+  /** Keep a changed spec if it is still valid; returns the problems otherwise. Devices keep their place (also when renamed). */
+  setSpec(spec) {
+    const v = validateSpec(spec); if (!v.ok) return v.errors.map(e => `${e.path}: ${e.message}`);
+    const pos = {}; spec.nodes.forEach((n, i) => { pos[n.name] = S.pos[S.spec.nodes[i]?.name] || S.pos[n.name] || {x: 450, y: 280}; });
+    if (S.selected) { const i = S.spec.nodes.findIndex(n => n.name === S.selected); if (i >= 0) S.selected = spec.nodes[i].name; }
+    S.pos = pos; S.spec = spec; return [];
+  },
+  actions: () => S.actions, setActions(a) { S.actions = a; },
+  get cut() { return S.cut; }, setCut(c) { S.cut = c; },
+  state: dev => (currentState() || {})[dev], routes: dev => (S.sim.routes || {})[dev],
+  run(action) { S.actions = [...S.actions, action]; rerun(); const a = S.sim.actions[S.sim.actions.length - 1];
+    if (a.last >= a.first) goto(a.first); return a.result; },
+};
+
+export function openConsole(name) {
+  const box = $("#console"); box.hidden = false;
+  S.selected = name; for (const g of document.querySelectorAll(".node")) g.classList.toggle("selected", g.dataset.node === name); drawDevice();
+  if (!S.sessions.has(name)) S.sessions.set(name, {cli: createSession(env, name), log: `${name} console (a stand-in for the project's CLI). Type ? for help, Tab to complete. Drag the title bar to move this window.\n\n`, hist: [], at: 0});
+  S.console = name; showConsole(); $("#consoleInput").focus();
+}
+function closeConsole() { const b = $("#console"); if (b) b.hidden = true; S.console = null; }
+function showConsole() {
+  const c = S.sessions.get(S.console); if (!c) return;
+  $("#consoleTitle").textContent = `Console: ${c.cli.device}`; $("#consolePrompt").textContent = c.cli.prompt();
+  const out = $("#consoleOut"); out.textContent = c.log; out.scrollTop = out.scrollHeight;
+}
+function consoleKey(e) {
+  const c = S.sessions.get(S.console); if (!c) return;
+  const inp = e.target;
+  if (e.key === "Enter") {
+    const line = inp.value; inp.value = ""; c.log += `${c.cli.prompt()}${line}\n`;
+    if (line.trim()) { c.hist.push(line); c.at = c.hist.length; }
+    const before = c.cli.device, r = c.cli.exec(line);
+    if (r.output) c.log += r.output + "\n";
+    if (r.changed === "spec" || r.changed === "cut") rerun();
+    if (before !== c.cli.device) { S.sessions.delete(before); S.sessions.set(c.cli.device, c); S.console = c.cli.device; }
+    if (c.cli.closed) { S.sessions.delete(S.console); c.log += "\n"; closeConsole(); return; }
+    showConsole();
+  } else if (e.key === "Tab") {
+    e.preventDefault(); const r = c.cli.complete(inp.value);
+    if (r.options.length > 1 && r.line === inp.value) { c.log += `${c.cli.prompt()}${inp.value}\n${r.options.join("  ")}\n`; showConsole(); }
+    inp.value = r.line;
+  } else if (e.key === "?") {
+    e.preventDefault(); c.log += `${c.cli.prompt()}${inp.value}?\n${c.cli.help(inp.value + "?")}\n`; showConsole();
+  } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    e.preventDefault(); c.at = Math.max(0, Math.min(c.hist.length, c.at + (e.key === "ArrowUp" ? -1 : 1))); inp.value = c.hist[c.at] ?? "";
+  } else if (e.key === "z" && e.ctrlKey) {
+    e.preventDefault(); inp.value = "end"; consoleKey({key: "Enter", target: inp, preventDefault() {}});
+  }
+}
+
+window.studio = {S, load, rerun, goto, play, stop, select, toggleCut, openConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });
