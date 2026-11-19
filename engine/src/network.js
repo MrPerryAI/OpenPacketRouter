@@ -155,7 +155,7 @@ export class IpNode extends Device {
       this.learn(a.spa, a.sha, ifname);
       this.log("arp-reply", `${a.spa} asked who has ${i.ip}: answering with ${i.mac}`);
       this.send(ifname, {src: i.mac, dst: a.sha, type: "arp", arp: {op: "reply", sha: i.mac, spa: i.ip, tha: a.sha, tpa: a.spa}});
-    } else if (a.op === "reply" && a.tpa === i.ip) this.learn(a.spa, a.sha, ifname);
+    } else if (a.op === "reply" && (a.tpa === i.ip || this.owns(a.tpa))) this.learn(a.spa, a.sha, ifname);
   }
   learn(ip, mac, ifname) {
     this.arp.set(ip, {mac, iface: ifname});
@@ -218,7 +218,10 @@ export class IpNode extends Device {
     if (e && e.iface === r.iface) return this.frameOut(r.iface, e.mac, p);
     let q = this.pending.get(r.nextHop);
     if (q) { q.frames.push(p); return; }
-    q = {iface: r.iface, frames: [p], tries: 0, forwarded};
+    // The ARP request names the packet's own source address when it is one of ours (Linux arp_announce 0), else the
+    // address of the outgoing interface: a relay sending from its client-side address asks "who-has X tell <that address>".
+    const spa = !forwarded && p.src && this.owns(p.src) ? p.src : this.ifaces[r.iface].ip;
+    q = {iface: r.iface, frames: [p], tries: 0, forwarded, spa};
     this.pending.set(r.nextHop, q);
     this.arpRequest(r.nextHop, q);
   }
@@ -232,7 +235,7 @@ export class IpNode extends Device {
     q.tries++;
     const i = this.ifaces[q.iface];
     this.log("arp-request", `who has ${ip}? (try ${q.tries})`);
-    this.send(q.iface, {src: i.mac, dst: BROADCAST_MAC, type: "arp", arp: {op: "request", sha: i.mac, spa: i.ip, tha: "00:00:00:00:00:00", tpa: ip}});
+    this.send(q.iface, {src: i.mac, dst: BROADCAST_MAC, type: "arp", arp: {op: "request", sha: i.mac, spa: q.spa ?? i.ip, tha: "00:00:00:00:00:00", tpa: ip}});
     this.net._after(1.0, () => this.arpRequest(ip, q));
   }
   frameOut(ifname, mac, p) { this.send(ifname, {src: this.ifaces[ifname].mac, dst: mac, type: "ipv4", ip: p}); }

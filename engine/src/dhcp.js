@@ -56,10 +56,13 @@ export function dhcpServer(node, cfg) {
 }
 
 /**
- * A DHCP relay on a router, like busybox `dhcprelay CLIENT_IFACES SERVER_IFACE SERVER_IP`:
- * services.dhcpRelay = {server: "a.b.c.d", clients?: ["lan", ...]} (default: every interface but the one toward the server).
- * Requests from clients go to the server by unicast, from port 67, with giaddr = the client-side address;
- * answers come back to giaddr:67 and are broadcast on the client's interface (the client has no address yet).
+ * A DHCP relay on a router, modeled on dnsmasq's relay mode (`--dhcp-relay=CLIENT_SIDE_ADDR,SERVER`; Debian and
+ * Ubuntu busybox builds leave out `dhcprelay`): services.dhcpRelay = {server: "a.b.c.d", clients?: ["lan", ...]}
+ * (default: every interface but the one toward the server).
+ *   - requests from clients go to the server by unicast, 67 → 67, from the client-side address, which is also giaddr;
+ *     so the router's ARP request on the server side says "tell <client-side address>", and the server, which can't
+ *     learn its gateway from that, ARPs for it before answering;
+ *   - answers come back to giaddr:67 and go to the client by unicast: its MAC, the offered address, from 67 to 68.
  */
 export function dhcpRelay(node, cfg) {
   const pending = new Map();                                // xid -> client interface
@@ -71,11 +74,12 @@ export function dhcpRelay(node, cfg) {
       const giaddr = payload.giaddr || node.ifaces[ifname].ip;
       pending.set(payload.xid, ifname);
       node.log("dhcp-relay", `${payload.dhcp.toUpperCase()} from ${payload.chaddr} on ${ifname} → server ${cfg.server} (giaddr ${giaddr})`);
-      node.sendIp({dst: cfg.server, ttl: 64, proto: "udp", udp: {sport: 67, dport: 67, payload: {...payload, giaddr}}});
+      node.sendIp({src: giaddr, dst: cfg.server, ttl: 64, proto: "udp", udp: {sport: 67, dport: 67, payload: {...payload, giaddr}}});
     } else if (["offer", "ack"].includes(payload.dhcp) && pending.has(payload.xid)) {
-      const out = node.ifaces[pending.get(payload.xid)]; pending.delete(payload.xid);
-      node.log("dhcp-relay", `${payload.dhcp.toUpperCase()} for ${payload.chaddr} → broadcast on ${out.name}`);
-      node.send(out.name, {src: out.mac, dst: BROADCAST_MAC, type: "ipv4", ip: {src: out.ip, dst: BCAST_IP, ttl: 64, proto: "udp",
+      const out = node.ifaces[pending.get(payload.xid)];
+      if (payload.dhcp === "ack") pending.delete(payload.xid);
+      node.log("dhcp-relay", `${payload.dhcp.toUpperCase()} ${payload.yiaddr} for ${payload.chaddr} → unicast on ${out.name}`);
+      node.send(out.name, {src: out.mac, dst: payload.chaddr, type: "ipv4", ip: {src: out.ip, dst: payload.yiaddr, ttl: 64, proto: "udp",
         udp: {sport: 67, dport: 68, payload}}});
     }
     return undefined;

@@ -71,7 +71,7 @@ RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN rou
 Each step counts as done only when it matches real Linux (or real FRRouting) frame for frame.
 
 1. **TCP** (PR #22): handshake, data, close, retransmission, RST, validated against Linux sockets.
-2. **DHCP relay:** a router relays DHCP for a subnet without a server (busybox `dhcprelay` model), with server pools for relayed subnets.
+2. **DHCP relay:** a router relays DHCP for a subnet without a server (modeled on and validated against dnsmasq relay mode), with server pools for relayed subnets.
 3. **Inter-VLAN routing:** router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs.
 4. **MAC address aging:** learned entries expire after the aging time, checked against the kernel bridge `ageing_time`.
 5. **Spanning-tree topology change notices:** TCN BPDUs, and switches flush (shorten aging on) their MAC tables after a topology change.

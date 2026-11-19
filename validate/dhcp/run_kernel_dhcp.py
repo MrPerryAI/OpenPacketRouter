@@ -5,7 +5,9 @@
 
 Builds each spec from network namespaces like validate/l3 (it reuses that harness). Interfaces marked
 "dhcp" get no address; a node with services.dhcp runs dnsmasq (no DNS, no ping check) on its subnet, plus
-`pools` for subnets behind a relay; a router with services.dhcpRelay runs busybox `dhcprelay CLIENTS SERVER_IF SERVER`.
+`pools` for subnets behind a relay; a router with services.dhcpRelay runs dnsmasq in relay mode
+(`--dhcp-relay=CLIENT_SIDE_ADDR,SERVER`; Debian/Ubuntu busybox has no `dhcprelay`). Set OPR_CAPTURE=1 to print a tcpdump of
+the relay router's interfaces (needs tcpdump).
 The `dhcp` action runs `udhcpc -n -q -t TRIES -T INTERVAL` (no script: the client only reports its lease).
 Compared: the result (address, server, lease time) and the frames sent on every cable direction.
 """
@@ -18,10 +20,6 @@ sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
 SPECS = ["dhcp-lan", "dhcp-relay"]
-
-
-def has_applet(name):
-    return name in subprocess.run(["busybox", "--list"], capture_output=True, text=True).stdout.split()
 
 
 class DhcpNet(l3.KernelNet):
@@ -51,12 +49,10 @@ class DhcpNet(l3.KernelNet):
             dev = re.search(r"dev (\S+)", l3.sh("ip", "-n", ns, "route", "get", r["server"]))[1]
             clients = r.get("clients") or [i for i in n["ifaces"] if i != dev]
             log = open(f"{self.tmp}/{n['name']}.relay.log", "w")
-            if has_applet("dhcprelay"):
-                cmd = ["busybox", "dhcprelay", ",".join(clients), dev, r["server"]]
-            else:   # Debian/Ubuntu busybox builds leave dhcprelay out: fall back to dnsmasq's relay mode
-                cmd = ["dnsmasq", "--keep-in-foreground", "--port=0", "--no-resolv", "--no-hosts", "--user=root", "--log-dhcp",
-                       f"--pid-file={self.tmp}/{n['name']}.relay.pid", *[f"--interface={c}" for c in clients],
-                       *[f"--dhcp-relay={n['ifaces'][c].split('/')[0]},{r['server']}" for c in clients]]
+            # dnsmasq's relay mode (Debian/Ubuntu busybox builds leave out `dhcprelay`); the engine models it.
+            cmd = ["dnsmasq", "--keep-in-foreground", "--port=0", "--no-resolv", "--no-hosts", "--user=root", "--log-dhcp",
+                   f"--pid-file={self.tmp}/{n['name']}.relay.pid", *[f"--interface={c}" for c in clients],
+                   *[f"--dhcp-relay={n['ifaces'][c].split('/')[0]},{r['server']}" for c in clients]]
             print(f"relay on {n['name']}: {' '.join(cmd)}", file=sys.stderr)
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", ns, *cmd], stderr=log, stdout=log))
             self.relay_logs = getattr(self, "relay_logs", []) + [f"{self.tmp}/{n['name']}.relay.log"]
