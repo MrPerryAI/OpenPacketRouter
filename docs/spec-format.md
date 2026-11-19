@@ -44,7 +44,7 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `version` | Format version. Optional; missing means `1`. Any other number is rejected. |
 | `name`, `about` | Free text. `name` is echoed in CLI results. |
 | `nodes[]` | Devices. `name` is unique and has no `:`. `kind` is `switch`, `router`, `host` or `server`. |
-| `ifaces` | Routers/hosts/servers: interface name → `"a.b.c.d/len"`, or `"dhcp"` for an interface that gets its address from a DHCP server. Switch ports are created by `links`. |
+| `ifaces` | Routers/hosts/servers: interface name → `"a.b.c.d/len"`, or `"dhcp"` for an interface that gets its address from a DHCP server. Switch ports are created by `links`. A name like `eth0.10` is an 802.1Q **subinterface** of `eth0` in VLAN 10 (router on a stick): it shares `eth0`'s MAC and cable and sends and receives frames tagged 10; untagged frames stay with `eth0`. Cable the parent (`R:eth0`), never the subinterface; `eth0` needs no address of its own. **Layer 3 switch:** on a VLAN-aware switch, `ifaces` holds SVIs named `vlanN` (`{"vlan10": "10.0.10.1/24"}`): the switch routes between its VLANs, like Linux vlan devices on a `vlan_filtering` bridge. A switch with SVIs may also have `gw` and `routes`, and can be the `src` of an action. |
 | `gw` | Default gateway. Must be on one of the node's subnets. |
 | `routes` | Static routes: `[["10.2.0.0/24", "10.0.0.2"], …]`. The next hop must be on one of the node's subnets. |
 | `services.dns` | A DNS server on UDP 53: name → IPv4 address. |

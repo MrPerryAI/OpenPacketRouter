@@ -34,6 +34,8 @@ jobs:
         run: sudo env "PATH=$PATH" python3 validate/l3/run_kernel_l3.py
       - name: Engine L2 (STP + VLANs) vs real Linux
         run: sudo env "PATH=$PATH" python3 validate/l2/run_kernel_l2.py
+      - name: Inter-VLAN routing (subinterfaces + SVIs) vs real Linux
+        run: sudo env "PATH=$PATH" python3 validate/intervlan/run_kernel_intervlan.py
       - name: Link shaping vs real Linux tbf (frame for frame)
         run: sudo env "PATH=$PATH" python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)

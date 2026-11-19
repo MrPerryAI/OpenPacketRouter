@@ -33,8 +33,9 @@ class Net:
         self.kind = {n["name"]: n["kind"] for n in spec["nodes"]}; self.node = {n["name"]: n for n in spec["nodes"]}
         for n in spec["nodes"]:
             ns = self.ns[n["name"]]; sh("ip", "netns", "add", ns); no_ipv6(ns); sh("ip", "-n", ns, "link", "set", "lo", "up")
-            for k, v in [("net.ipv4.conf.all.send_redirects", 0), ("net.ipv4.icmp_ratelimit", 0), ("net.ipv4.conf.all.rp_filter", 0),
-                         ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.ip_forward", 1 if n["kind"] == "router" else 0)]:
+            routes = n["kind"] == "router" or (n["kind"] == "switch" and n.get("ifaces"))   # a switch with SVIs is a Layer 3 switch
+            for k, v in [("net.ipv4.conf.all.send_redirects", 0), ("net.ipv4.conf.default.send_redirects", 0), ("net.ipv4.icmp_ratelimit", 0),
+                         ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.ip_forward", 1 if routes else 0)]:
                 sysctl(ns, k, v)
             if n["kind"] == "switch":
                 cmd = ["ip", "-n", ns, "link", "add", "br0", "type", "bridge", "stp_state", "0"]
@@ -60,9 +61,29 @@ class Net:
                 sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
             self.ifmap[tuple(a.split(":"))] = b; self.ifmap[tuple(b.split(":"))] = a
         for n in spec["nodes"]:
-            for ifn, cidr in (n.get("ifaces") or {}).items(): sh("ip", "-n", self.ns[n["name"]], "addr", "add", cidr, "dev", ifn)
-            if n.get("gw"): sh("ip", "-n", self.ns[n["name"]], "route", "add", "default", "via", n["gw"])
+            ns = self.ns[n["name"]]
+            for ifn in (n.get("ifaces") or {}): self.virtual(ns, n, ifn)
+            for ifn, cidr in (n.get("ifaces") or {}).items(): sh("ip", "-n", ns, "addr", "add", cidr, "dev", ifn)
+            for dst, via in n.get("routes", []): sh("ip", "-n", ns, "route", "add", dst, "via", via)
+            if n.get("gw"): sh("ip", "-n", ns, "route", "add", "default", "via", n["gw"])
         time.sleep(0.5)
+
+    def virtual(self, ns, n, ifn):
+        """VLAN interfaces: a router's "eth0.10" is an 802.1Q subinterface of eth0; a switch's "vlan10" is an
+        SVI, a vlan device on the bridge itself (br0 carries VLAN 10 tagged to its own stack)."""
+        if n["kind"] == "switch":
+            vid = ifn[4:]
+            if not getattr(self, "_br_self", {}).get(ns):
+                sh("ip", "netns", "exec", ns, "bridge", "vlan", "del", "dev", "br0", "vid", "1", "self")   # br0 is untagged VLAN 1 by default
+                self._br_self = {**getattr(self, "_br_self", {}), ns: True}
+            sh("ip", "netns", "exec", ns, "bridge", "vlan", "add", "dev", "br0", "vid", vid, "self")
+            sh("ip", "-n", ns, "link", "add", "link", "br0", "name", ifn, "type", "vlan", "id", vid)
+        elif "." in ifn:
+            parent, vid = ifn.split(".")
+            sh("ip", "-n", ns, "link", "add", "link", parent, "name", ifn, "type", "vlan", "id", vid)
+        else: return
+        no_ipv6(ns, ifn); sh("ip", "-n", ns, "link", "set", ifn, "up")
+        sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)
 
     def vlan(self, ns, node, ifn):
         vl = self.node[node].get("vlans")
@@ -78,7 +99,7 @@ class Net:
         for n in self.spec["nodes"]:
             ns = self.ns[n["name"]]
             if n["kind"] == "switch": sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "fdb_flush")
-            else: sh("ip", "-n", ns, "neigh", "flush", "all")
+            if n["kind"] != "switch" or n.get("ifaces"): sh("ip", "-n", ns, "neigh", "flush", "all")
 
     def counters(self):
         c = {}

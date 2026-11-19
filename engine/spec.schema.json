@@ -34,7 +34,7 @@
     },
     "ipNode": {
       "properties": {
-        "ifaces": {"type": "object", "additionalProperties": {"oneOf": [{"$ref": "#/$defs/cidr"}, {"const": "dhcp"}]}},
+        "ifaces": {"type": "object", "description": "name → address; \"eth0.10\" is an 802.1Q subinterface of eth0 in VLAN 10", "propertyNames": {"pattern": "^[^.:]+(\\.[0-9]{1,4})?$"}, "additionalProperties": {"oneOf": [{"$ref": "#/$defs/cidr"}, {"const": "dhcp"}]}},
         "gw": {"$ref": "#/$defs/ipv4"},
         "routes": {"type": "array", "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/cidr"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2}},
         "services": {
@@ -67,7 +67,10 @@
             "hello": {"type": "number"}, "maxAge": {"type": "number"}, "forwardDelay": {"type": "number"},
             "cost": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
             "portPriority": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 255}}}},
-          "vlans": {"type": "object", "additionalProperties": {"$ref": "#/$defs/vlanPort"}}
+          "vlans": {"type": "object", "additionalProperties": {"$ref": "#/$defs/vlanPort"}},
+          "ifaces": {"type": "object", "description": "SVIs: makes a VLAN-aware switch a Layer 3 switch", "propertyNames": {"pattern": "^vlan[0-9]{1,4}$"}, "additionalProperties": {"$ref": "#/$defs/cidr"}},
+          "gw": {"$ref": "#/$defs/ipv4"},
+          "routes": {"$ref": "#/$defs/ipNode/properties/routes"}
         }}},
         {"if": {"properties": {"kind": {"enum": ["router", "host", "server"]}}}, "then": {"$ref": "#/$defs/ipNode"}}
       ]
