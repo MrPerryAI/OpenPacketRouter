@@ -1,0 +1,62 @@
+{
+ "version": 1,
+ "about": "Machine-readable list of the example labs. Paths are relative to this file.",
+ "labs": [
+  {
+   "id": "bottleneck",
+   "name": "A 1 Mbit bottleneck",
+   "about": "A fast school LAN reaches a server through one slow cable (1 Mbit/s, with a small queue, like a cheap uplink). A short burst fits; a long one overflows the queue and frames are dropped. Look at the drops field in the result.",
+   "spec": "bottleneck/spec.json",
+   "actions": "bottleneck/actions.json",
+   "readme": "bottleneck/README.md"
+  },
+  {
+   "id": "dhcp-router",
+   "name": "DHCP, then a router to the server network",
+   "about": "PC1 has no address. A DHCP server on the same LAN hands it one (and names the router as the default gateway). After that, PC1 can reach a web server network on the far side of router R1. DHCP broadcasts do not cross a router, so each LAN needs its own DHCP server (or a relay).",
+   "spec": "dhcp-router/spec.json",
+   "actions": "dhcp-router/actions.json",
+   "readme": "dhcp-router/README.md"
+  },
+  {
+   "id": "loop-no-stp",
+   "name": "Switch triangle, no spanning tree",
+   "about": "Three switches cabled in a ring, with no spanning tree. One broadcast (the ARP request inside a ping) goes round and round. Watch the frame counts.",
+   "spec": "loop-no-stp/spec.json",
+   "actions": "loop-no-stp/actions.json",
+   "readme": "loop-no-stp/README.md"
+  },
+  {
+   "id": "loop-with-stp",
+   "name": "Switch triangle, with spanning tree",
+   "about": "The same ring of three switches, but spanning tree is on. SW1 has the lowest bridge ID and becomes the root; one port on SW3 blocks, so the ring is cut into a line. Pings wait for the ports to finish listening and learning (about 8 seconds with these shortened timers).",
+   "spec": "loop-with-stp/spec.json",
+   "actions": "loop-with-stp/actions.json",
+   "readme": "loop-with-stp/README.md"
+  },
+  {
+   "id": "routed-lan-dns",
+   "name": "Two LANs and a router: ping, traceroute, DNS",
+   "about": "Students on 10.0.0.0/24, servers on 10.1.0.0/24, one router between them. Ping crosses the router, traceroute shows it as the first hop, and DNS turns a name into an address.",
+   "spec": "routed-lan-dns/spec.json",
+   "actions": "routed-lan-dns/actions.json",
+   "readme": "routed-lan-dns/README.md"
+  },
+  {
+   "id": "tcp",
+   "name": "TCP across a router",
+   "about": "A client, a router and two echo servers (TCP port 7). SERVER has a default route back to the client; BROKEN has no gateway, so it never answers and the client's SYN is retransmitted.",
+   "spec": "tcp/spec.json",
+   "actions": "tcp/actions.json",
+   "readme": "tcp/README.md"
+  },
+  {
+   "id": "vlans",
+   "name": "Two VLANs across a trunk",
+   "about": "Two switches joined by one trunk cable that carries VLAN 10 (Sales) and VLAN 20 (Labs). Hosts in the same VLAN can talk even on different switches; hosts in different VLANs cannot, even though they share an IP subnet and a cable. (Crossing between VLANs needs a router; that is a later example.)",
+   "spec": "vlans/spec.json",
+   "actions": "vlans/actions.json",
+   "readme": "vlans/README.md"
+  }
+ ]
+}

@@ -68,3 +68,12 @@ test("tcp: handshake and echo, refused, and a SYN that gets no answer", () => {
   assert.equal(refused.result.error, "refused");
   assert.deepEqual(timeout.result.wire, ["out S", "out S", "out S"]);
 });
+
+test("index.json lists exactly the lab folders, with files that exist", () => {
+  const idx = JSON.parse(fs.readFileSync(`${dir}index.json`));
+  assert.deepEqual(idx.labs.map(l => l.id).sort(), [...labs].sort());
+  for (const l of idx.labs) {
+    for (const f of [l.spec, l.actions, l.readme]) assert.ok(fs.existsSync(`${dir}${f}`), `${l.id}: ${f}`);
+    assert.equal(JSON.parse(fs.readFileSync(`${dir}${l.spec}`)).name, l.name);
+  }
+});
