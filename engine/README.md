@@ -49,7 +49,7 @@ TCP, RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routin
 ## Tests
 
 ```bash
-npm test                                  # 45 unit tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, CLI report
+npm test                                  # 54 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, CLI report, example labs
 ```
 
 ## DHCP
@@ -73,3 +73,7 @@ On a Mac, never run the `sudo` line on the host. From the **repo root** run `val
 ```bash
 sudo python3 ../validate/l2/run_kernel_l2.py   # spanning tree roles + VLAN trunks vs Linux kernel bridges (on a Mac: validate/docker/run.sh l2)
 ```
+
+## Examples
+
+[examples/](../examples/) has ready-to-run lab networks (spec plus actions plus a README each) for teachers: a loop with and without spanning tree, VLANs, DHCP across a router, a shaped bottleneck, and routed ping/traceroute/DNS. `test/examples.test.js` runs each through the CLI.

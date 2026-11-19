@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Two VLANs across a trunk",
+  "about": "Two switches joined by one trunk cable that carries VLAN 10 (Sales) and VLAN 20 (Labs). Hosts in the same VLAN can talk even on different switches; hosts in different VLANs cannot, even though they share an IP subnet and a cable. (Crossing between VLANs needs a router; that is a later example.)",
+  "nodes": [
+    {"name": "SW1", "kind": "switch", "vlans": {"p1": {"access": 10}, "p2": {"access": 20}, "trunk": {"trunk": [10, 20]}}},
+    {"name": "SW2", "kind": "switch", "vlans": {"p1": {"access": 10}, "p2": {"access": 20}, "trunk": {"trunk": [10, 20]}}},
+    {"name": "SALES1", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "LABS1", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}},
+    {"name": "SALES2", "kind": "host", "ifaces": {"eth0": "10.0.0.3/24"}},
+    {"name": "LABS2", "kind": "host", "ifaces": {"eth0": "10.0.0.4/24"}}
+  ],
+  "links": [["SALES1:eth0", "SW1:p1"], ["LABS1:eth0", "SW1:p2"], ["SALES2:eth0", "SW2:p1"], ["LABS2:eth0", "SW2:p2"], ["SW1:trunk", "SW2:trunk"]]
+}

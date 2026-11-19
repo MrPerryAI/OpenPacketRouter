@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "A 1 Mbit bottleneck",
+  "about": "A fast school LAN reaches a server through one slow cable (1 Mbit/s, with a small queue, like a cheap uplink). A short burst fits; a long one overflows the queue and frames are dropped. Look at the drops field in the result.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "PC", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "SERVER", "kind": "server", "ifaces": {"eth0": "10.0.0.2/24"}}
+  ],
+  "links": [
+    ["PC:eth0", "SW:p1", 1, {"shape": {"rate": "1mbit", "burst": 3000, "limit": 4000}}],
+    ["SERVER:eth0", "SW:p2", 1]
+  ]
+}

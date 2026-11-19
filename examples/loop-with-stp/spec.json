@@ -1,0 +1,73 @@
+{
+ "version": 1,
+ "name": "Switch triangle, with spanning tree",
+ "about": "The same ring of three switches, but spanning tree is on. SW1 has the lowest bridge ID and becomes the root; one port on SW3 blocks, so the ring is cut into a line. Pings wait for the ports to finish listening and learning (about 8 seconds with these shortened timers).",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:01",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:02",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "PC1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "PC2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:p1",
+   "SW2:p1"
+  ],
+  [
+   "SW2:p2",
+   "SW3:p1"
+  ],
+  [
+   "SW3:p2",
+   "SW1:p2"
+  ],
+  [
+   "PC1:eth0",
+   "SW1:p3"
+  ],
+  [
+   "PC2:eth0",
+   "SW3:p3"
+  ]
+ ]
+}

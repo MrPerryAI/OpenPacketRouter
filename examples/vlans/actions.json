@@ -1,0 +1,6 @@
+[
+  {"do": "ping", "src": "SALES1", "dst": "10.0.0.3"},
+  {"do": "ping", "src": "LABS1", "dst": "10.0.0.4"},
+  {"do": "ping", "src": "SALES1", "dst": "10.0.0.2"},
+  {"do": "ping", "src": "SALES1", "dst": "10.0.0.4"}
+]

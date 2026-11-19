@@ -16,6 +16,7 @@ node engine/bin/openpacketrouter.mjs run   validate/l3/fti-routed.json          
 node engine/bin/openpacketrouter.mjs run   spec.json actions.json --trace         # add every engine decision
 node engine/bin/openpacketrouter.mjs run   spec.json actions.json --text          # readable report instead of JSON
 node engine/bin/openpacketrouter.mjs actions                                      # list action types
+node engine/bin/openpacketrouter.mjs run   examples/vlans/spec.json examples/vlans/actions.json --text   # ready-made labs: see examples/
 ```
 
 (`npm link` in `engine/` installs it as `openpacketrouter`.) Exit codes: `0` ok, `1` the spec or actions
