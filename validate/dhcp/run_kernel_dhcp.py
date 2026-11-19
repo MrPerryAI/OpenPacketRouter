@@ -20,6 +20,10 @@ import run_kernel_l3 as l3  # noqa: E402
 SPECS = ["dhcp-lan", "dhcp-relay"]
 
 
+def has_applet(name):
+    return name in subprocess.run(["busybox", "--list"], capture_output=True, text=True).stdout.split()
+
+
 class DhcpNet(l3.KernelNet):
     def __init__(self, spec):
         bare = copy.deepcopy(spec)
@@ -47,8 +51,14 @@ class DhcpNet(l3.KernelNet):
             dev = re.search(r"dev (\S+)", l3.sh("ip", "-n", ns, "route", "get", r["server"]))[1]
             clients = r.get("clients") or [i for i in n["ifaces"] if i != dev]
             log = open(f"{self.tmp}/{n['name']}.relay.log", "w")
-            self.procs.append(subprocess.Popen(["ip", "netns", "exec", ns, "busybox", "dhcprelay", ",".join(clients), dev, r["server"]],
-                                               stderr=log, stdout=log))
+            if has_applet("dhcprelay"):
+                cmd = ["busybox", "dhcprelay", ",".join(clients), dev, r["server"]]
+            else:   # Debian/Ubuntu busybox builds leave dhcprelay out: fall back to dnsmasq's relay mode
+                cmd = ["dnsmasq", "--keep-in-foreground", "--port=0", "--no-resolv", "--no-hosts", "--user=root", "--log-dhcp",
+                       f"--pid-file={self.tmp}/{n['name']}.relay.pid", *[f"--interface={c}" for c in clients],
+                       *[f"--dhcp-relay={n['ifaces'][c].split('/')[0]},{r['server']}" for c in clients]]
+            print(f"relay on {n['name']}: {' '.join(cmd)}", file=sys.stderr)
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", ns, *cmd], stderr=log, stdout=log))
             self.relay_logs = getattr(self, "relay_logs", []) + [f"{self.tmp}/{n['name']}.relay.log"]
         time.sleep(1)
 
