@@ -79,7 +79,18 @@ def kernel_run(name):
     k = DhcpNet(spec); out = []
     try:
         for a in actions:
-            k.flush(); before = k.counters(); r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
+            k.flush(); before = k.counters()
+            caps = []
+            if os.environ.get("OPR_CAPTURE") and shutil.which("tcpdump"):   # debugging aid: every frame seen by the relay router
+                for n in spec["nodes"]:
+                    if (n.get("services") or {}).get("dhcpRelay"):
+                        for ifn in n["ifaces"]:
+                            caps.append((f"{n['name']}:{ifn}", subprocess.Popen(["ip", "netns", "exec", k.ns[n["name"]], "tcpdump", "-l", "-n", "-e", "-i", ifn],
+                                                                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)))
+                time.sleep(0.5)
+            r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
+            for where, c in caps:
+                c.terminate(); print(f"capture {where}:\n" + c.communicate()[0], file=sys.stderr)
             out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}})
     finally:
         for f in getattr(k, "relay_logs", []):
@@ -96,7 +107,7 @@ def inner():
 def gh_note(level, title, text):
     """On GitHub Actions, also report as an annotation (readable through the API without the raw log)."""
     if os.environ.get("GITHUB_ACTIONS"):
-        esc = str(text)[:3500].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        esc = str(text)[:9000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
         print(f"::{level} title={title}::{esc}")
 
 
@@ -130,7 +141,7 @@ def main():
     print("\n".join(md))
     if detail:
         print(json.dumps(detail, indent=1)[:4000])
-        gh_note("error", "DHCP engine vs Linux mismatch", f"busybox dhcp applets: {applets}\n{json.dumps(detail)}\n{p.stderr[-1500:]}")
+        gh_note("error", "DHCP engine vs Linux mismatch", f"busybox dhcp applets: {applets}\n{json.dumps(detail)}\n{p.stderr[-6000:]}")
     return 0 if not detail else 1
 
 
