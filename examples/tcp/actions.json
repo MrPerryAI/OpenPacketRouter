@@ -1,0 +1,5 @@
+[
+  {"do": "tcp", "src": "CLIENT", "dst": "10.2.0.10", "port": 7, "size": 100},
+  {"do": "tcp", "src": "CLIENT", "dst": "10.2.0.10", "port": 8},
+  {"do": "tcp", "src": "CLIENT", "dst": "10.2.0.20", "port": 7, "timeout": 4}
+]

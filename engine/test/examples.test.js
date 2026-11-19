@@ -60,3 +60,11 @@ test("routed-lan-dns: ping, traceroute via R1, dns answer, unknown address fails
   assert.equal(d.result.answer, "10.1.0.53");
   assert.equal(bad.result.ok, false);
 });
+
+test("tcp: handshake and echo, refused, and a SYN that gets no answer", () => {
+  const [ok, refused, timeout] = run("tcp");
+  assert.equal(ok.result.ok, true);
+  assert.equal(ok.result.bytes, 100);
+  assert.equal(refused.result.error, "refused");
+  assert.deepEqual(timeout.result.wire, ["out S", "out S", "out S"]);
+});
