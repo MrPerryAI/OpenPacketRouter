@@ -280,6 +280,11 @@ function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
+  // OSPF: adjacencies need a few dead intervals (broadcast networks wait one for the DR election), then SPF runs
+  for (const n of spec.nodes || []) if (n.ospf) {
+    const dead = Math.max(1, ...Object.keys(n.ifaces || {}).map(p => { const c = n.ospf.interfaces?.[p] || {}; return c.dead ?? 4 * (c.hello ?? 10); }));
+    t = Math.max(t, Math.ceil(1.5 * dead) + 10);
+  }
   return t;
 }
 function freshNet(spec, cut) {

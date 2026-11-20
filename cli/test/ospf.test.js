@@ -44,10 +44,9 @@ test("ospf commands are for routers, and need router ospf first", () => {
 test("show ip ospf ... | json equal the engine's own OSPF state once converged (p2p and LAN)", () => {
   for (const name of ["ospf-p2p", "ospf-lan"]) {
     const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf", name + ".net"), "utf8"));
-    const truth = loadSpec(sp); truth._start(); truth.run(30);
+    const truth = loadSpec(sp); truth._start(); truth.run(100);   // converged and stable; the CLI backend settles by itself, no wait needed
     const b = engineBackend(sp);
     for (const dev of b.devices().filter(d => b.kind(d) === "router")) {
-      b.run(dev, {do: "wait", seconds: 30});
       const s = createSession(b, dev); s.exec("enable");
       const o = truth.node(dev).ospf;
       assert.deepEqual(s.exec("show ip ospf neighbor | json").json, o.neighbors(), `${name} ${dev} neighbor`);
