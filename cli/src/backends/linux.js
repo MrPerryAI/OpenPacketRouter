@@ -2,7 +2,11 @@
 // the kernel bridge, tc and dnsmasq. These are the same commands the validators in validate/ use, so a device
 // rendered here behaves like the network those validators check against the engine.
 //
-//   linuxCommands(model, {kind, ports}) -> ["ip link add br0 type bridge stp_state 1 ...", ...]
+//   linuxCommands(model, {kind, ports, labParity}) -> ["ip link add br0 type bridge stp_state 1 ...", ...]
+//
+// labParity: true adds what the validators set so the kernel sends exactly the frames the engine models: IPv6 off
+// (no neighbour discovery or router solicitations), ICMP redirects off, ICMP rate limiting off, reverse-path
+// filtering off. Without it the device is configured the same, but its frame counts can differ from the engine's.
 //
 // Assumes the interfaces already exist (cabled: veth pairs, or real ports) under the names in the model. A switch
 // becomes one bridge, br0. Reading a configuration back from Linux is not done yet (see docs/cli-design.md).
@@ -11,9 +15,15 @@ import * as M from "../model.js";
 
 const centis = s => String(Math.round(s * 100));
 
-export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(model))} = {}) {
+export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(model)), labParity = false} = {}) {
   const out = [];
   const ifs = M.interfaces(model);
+  if (labParity) {
+    out.push("sysctl -w net.ipv6.conf.all.disable_ipv6=1", "sysctl -w net.ipv6.conf.default.disable_ipv6=1",
+      "sysctl -w net.ipv4.conf.all.send_redirects=0", "sysctl -w net.ipv4.conf.default.send_redirects=0", "sysctl -w net.ipv4.icmp_ratelimit=0",
+      "sysctl -w net.ipv4.conf.all.rp_filter=0", "sysctl -w net.ipv4.conf.default.rp_filter=0");
+    for (const p of ports) out.push(`sysctl -w net.ipv6.conf.${p}.disable_ipv6=1`, `sysctl -w net.ipv4.conf.${p}.send_redirects=0`, `sysctl -w net.ipv4.conf.${p}.rp_filter=0`);
+  }
   if (kind === "switch") {
     const g = M.stpGlobal(model), stp = M.stpEnabled(model);
     const vlanAware = ports.some(p => ifs[p] && M.switchedVlan(ifs[p], false)?.["interface-mode"]);
@@ -28,9 +38,9 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       const ifc = ifs[p];
       out.push(`ip link set ${p} master br0`);
       const sp = M.stpPort(model, p, false);
-      if (stp && (sp?.cost !== undefined || sp?.["port-priority"] !== undefined))
-        out.push(`ip link set ${p} type bridge_slave${sp.cost !== undefined ? ` cost ${sp.cost}` : ""}${sp["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
-      // (the kernel's port priority is 6 bits shifted by 10 in the port ID, the model's is 8 bits shifted by 8: 128 -> 32)
+      // Always set the cost: the engine's default is 19 (802.1D, 100 Mbit/s), the kernel's depends on the link speed.
+      // The kernel's port priority is 6 bits shifted by 10 in the port ID, the model's 8 bits shifted by 8: 128 -> 32.
+      if (stp) out.push(`ip link set ${p} type bridge_slave cost ${sp?.cost ?? 19}${sp?.["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
       const sv = ifc && M.switchedVlan(ifc, false);
       if (vlanAware) {
         const mode = sv?.["interface-mode"] || "ACCESS";

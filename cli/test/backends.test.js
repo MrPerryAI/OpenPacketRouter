@@ -61,3 +61,18 @@ test("OpenConfig export uses lists with their key leaves", () => {
   assert.equal(ni.name, "default");
   assert.ok(Array.isArray(ni.protocols.protocol[0]["static-routes"].static));
 });
+
+test("linux: every spanning-tree port gets the engine's cost (19 unless set)", () => {
+  const s = spec("validate/l2/stp-tiebreak.json"), sw = s.nodes.find(n => n.kind === "switch" && n.stp);
+  const b = engineBackend(s), out = linuxCommands(b.getConfig(sw.name), {kind: "switch", ports: b.ports(sw.name)});
+  for (const p of b.ports(sw.name)) assert.ok(out.includes(`ip link set ${p} type bridge_slave cost ${(sw.stp.cost || {})[p] ?? 19}`), `${p}\n${out.join("\n")}`);
+});
+
+test("linux: --lab-parity adds the validators' settings (no IPv6, no redirects, no ICMP rate limit, no rp_filter)", () => {
+  const b = engineBackend(spec("validate/l3/fti-routed.json"));
+  const plain = linuxCommands(b.getConfig("R-NOC"), {kind: "router", ports: b.ports("R-NOC")});
+  const lab = linuxCommands(b.getConfig("R-NOC"), {kind: "router", ports: b.ports("R-NOC"), labParity: true}).join("\n");
+  assert.ok(!plain.some(l => l.includes("disable_ipv6")));
+  for (const k of ["net.ipv6.conf.all.disable_ipv6=1", "net.ipv4.conf.all.send_redirects=0", "net.ipv4.icmp_ratelimit=0", "net.ipv4.conf.all.rp_filter=0",
+    "net.ipv6.conf.lan.disable_ipv6=1", "net.ipv4.conf.lan.rp_filter=0"]) assert.ok(lab.includes(k), k);
+});

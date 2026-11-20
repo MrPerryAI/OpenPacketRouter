@@ -6,6 +6,8 @@
 //   printf 'enable\nconf t\nhostname CORE\nend\nwrite\n' | opr-cli SPEC DEVICE                   commands from stdin
 //   opr-cli SPEC DEVICE --json -c ...           one JSON array: [{command, output, json?}], for scripts
 //   opr-cli SPEC DEVICE --render linux|frr|openwrt   what the device's configuration looks like on that system
+//                                               (--lab-parity with linux: also the settings that make the kernel's
+//                                               frames match the engine's, as the validators use)
 //
 // `write` saves the changed spec back to SPEC. Exit code: 0 ok, 1 a command was refused, 2 usage or file error.
 import fs from "node:fs";
@@ -16,14 +18,15 @@ import {linuxCommands} from "../src/backends/linux.js";
 import {frrConfig} from "../src/backends/frr.js";
 import {uciCommands} from "../src/backends/openwrt.js";
 
-const USAGE = "usage: opr-cli SPEC DEVICE [-c COMMAND]... [--json] [--render linux|frr|openwrt]";
+const USAGE = "usage: opr-cli SPEC DEVICE [-c COMMAND]... [--json] [--render linux|frr|openwrt [--lab-parity]]";
 const argv = process.argv.slice(2), cmds = [], pos = [];
-let json = false, render = null;
+let json = false, render = null, labParity = false;
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === "-c") cmds.push(argv[++i] ?? "");
   else if (a === "--json") json = true;
   else if (a === "--render") render = argv[++i];
+  else if (a === "--lab-parity") labParity = true;
   else if (a === "-h" || a === "--help") { console.log(USAGE); process.exit(0); }
   else pos.push(a);
 }
@@ -35,7 +38,7 @@ const backend = engineBackend(spec, {save: s => { fs.writeFileSync(file, JSON.st
 if (!backend.kind(device)) { console.error(`opr-cli: no device named ${device} in ${file} (devices: ${backend.devices().join(", ")})`); process.exit(2); }
 
 if (render) {
-  const model = backend.getConfig(device), opts = {kind: backend.kind(device), ports: backend.ports(device)};
+  const model = backend.getConfig(device), opts = {kind: backend.kind(device), ports: backend.ports(device), labParity};
   const out = {linux: () => linuxCommands(model, opts).join("\n"), frr: () => frrConfig(model, opts), openwrt: () => uciCommands(model, opts).join("\n")}[render];
   if (!out) { console.error(USAGE); process.exit(2); }
   console.log(out()); process.exit(0);

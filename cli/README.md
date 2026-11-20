@@ -18,7 +18,7 @@ node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1          # a conso
 ```text
 R1>enable
 R1#show ip route
-Codes: C = connected network, S = static route
+Legend: C = connected network, S = static route
 
 C  10.0.0.0/24 on eth0 (directly connected)
 C  10.1.0.0/24 on eth1 (directly connected)
@@ -38,6 +38,7 @@ node cli/bin/opr-cli.mjs lab.json SW1 -c enable -c "show vlan brief | json"     
 node cli/bin/opr-cli.mjs lab.json SW1 --json -c enable -c "show spanning-tree"     # one JSON array
 printf 'enable\nconf t\ninterface p3\nswitchport access vlan 20\nend\nwrite\n' | node cli/bin/opr-cli.mjs lab.json SW1
 node cli/bin/opr-cli.mjs lab.json R1 --render linux                                # the same config as iproute2 commands
+node cli/bin/opr-cli.mjs lab.json R1 --render linux --lab-parity                   # plus what makes Linux's frames match the engine's
 ```
 
 `write` saves the changed spec back to the file. Exit code 1 means a command was refused (the reason starts with `%`).

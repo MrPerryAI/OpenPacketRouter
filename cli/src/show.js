@@ -36,7 +36,7 @@ export const SHOWS = {
   "show.ip-route": ctx => {
     const rows = ctx.state().routes || [];
     const code = r => r.protocol === "connected" ? "C" : "S";
-    const lines = ["Codes: C = connected network, S = static route", ""];
+    const lines = ["Legend: C = connected network, S = static route", ""];
     for (const r of rows) lines.push(r.protocol === "connected"
       ? `C  ${r.prefix} on ${r.interface} (directly connected)`
       : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
