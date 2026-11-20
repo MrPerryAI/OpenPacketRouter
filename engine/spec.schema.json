@@ -59,6 +59,18 @@
       {"type": "object", "required": ["access"], "properties": {"access": {"type": "integer", "minimum": 1, "maximum": 4094}}},
       {"type": "object", "required": ["trunk"], "properties": {"trunk": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 4094}}, "native": {"type": "integer", "minimum": 1, "maximum": 4094}}}
     ]},
+    "rip": {
+      "type": "object", "required": ["networks"], "description": "RIPv2 on a router (engine/src/rip.js)",
+      "properties": {
+        "networks": {"type": "array", "minItems": 1, "items": {"type": "string"}, "description": "interface names, or prefixes that hold interface addresses"},
+        "passive": {"type": "array", "items": {"type": "string"}},
+        "splitHorizon": {"enum": ["simple", "poisoned", "off"]},
+        "timers": {"type": "object", "additionalProperties": false, "properties": {
+          "update": {"type": "number", "exclusiveMinimum": 0}, "timeout": {"type": "number", "exclusiveMinimum": 0},
+          "garbage": {"type": "number", "exclusiveMinimum": 0}, "holdoff": {"type": "number", "minimum": 0}}},
+        "triggered": {"type": "boolean"}
+      }
+    },
     "node": {
       "type": "object", "required": ["name", "kind"],
       "properties": {
@@ -79,7 +91,8 @@
           "gw": {"$ref": "#/$defs/ipv4"},
           "routes": {"$ref": "#/$defs/ipNode/properties/routes"}
         }}},
-        {"if": {"properties": {"kind": {"enum": ["router", "host", "server"]}}}, "then": {"$ref": "#/$defs/ipNode"}}
+        {"if": {"properties": {"kind": {"enum": ["router", "host", "server"]}}}, "then": {"$ref": "#/$defs/ipNode"}},
+        {"if": {"properties": {"kind": {"const": "router"}}}, "then": {"properties": {"rip": {"$ref": "#/$defs/rip"}}}}
       ]
     }
   }

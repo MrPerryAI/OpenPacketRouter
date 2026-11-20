@@ -162,3 +162,12 @@ test("interfaces are the device's own; removing a cabled interface's address say
   assert.match(s.exec("no ip address").output, /^% eth0 has a cable, and the engine needs an address/);
   assert.equal(b.spec().nodes.find(n => n.name === "R1").ifaces.eth0, "10.0.0.1/24");
 });
+
+test("router rip: networks, passive interfaces, timers and split horizon reach the spec", () => {
+  const b = routed(), s = createSession(b, "R1", {mode: "config"});
+  ok(s, "router rip"); assert.equal(s.prompt(), "R1(config-router)#");
+  ok(s, "version 2"); ok(s, "network 10.0.0.0/8"); ok(s, "passive-interface eth1"); ok(s, "timers basic 5 15 10"); ok(s, "no split-horizon");
+  assert.deepEqual(b.spec().nodes.find(n => n.name === "R1").rip,
+    {networks: ["10.0.0.0/8"], passive: ["eth1"], timers: {update: 5, timeout: 15, garbage: 10}, splitHorizon: "off"});
+  ok(s, "end"); assert.match(s.exec("show running-config").output, /router rip\n version 2\n network 10.0.0.0\/8\n passive-interface eth1\n timers basic 5 15 10\n no split-horizon/);
+});

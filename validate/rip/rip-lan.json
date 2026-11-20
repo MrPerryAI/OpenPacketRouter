@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "name": "RIP on a shared LAN (route timeout)",
+  "about": "Three routers on one switched LAN, each with a host LAN behind it. RIPv2 with plain split horizon (FRR's default), short timers (update 5 s, timeout 15 s, garbage 10 s). R2's host LAN is passive. R3's cable to the switch is cut: R1 and R2 keep their carrier, so they only notice when R3's routes time out.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "R1", "kind": "router", "ifaces": {"eth0": "10.0.0.1/24", "eth1": "10.1.0.1/24"},
+     "rip": {"networks": ["10.0.0.0/8"], "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R2", "kind": "router", "ifaces": {"eth0": "10.0.0.2/24", "eth1": "10.2.0.1/24"},
+     "rip": {"networks": ["10.0.0.0/8"], "passive": ["eth1"], "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R3", "kind": "router", "ifaces": {"eth0": "10.0.0.3/24", "eth1": "10.3.0.1/24"},
+     "rip": {"networks": ["10.0.0.0/8"], "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "H1", "kind": "host", "ifaces": {"eth0": "10.1.0.10/24"}, "gw": "10.1.0.1"},
+    {"name": "H2", "kind": "host", "ifaces": {"eth0": "10.2.0.10/24"}, "gw": "10.2.0.1"},
+    {"name": "H3", "kind": "host", "ifaces": {"eth0": "10.3.0.10/24"}, "gw": "10.3.0.1"}
+  ],
+  "links": [["R1:eth0", "SW:p1", 1], ["R2:eth0", "SW:p2", 1], ["R3:eth0", "SW:p3", 1],
+            ["H1:eth0", "R1:eth1", 1], ["H2:eth0", "R2:eth1", 1], ["H3:eth0", "R3:eth1", 1]]
+}

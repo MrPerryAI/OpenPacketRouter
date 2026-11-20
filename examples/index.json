@@ -11,6 +11,14 @@
    "readme": "bottleneck/README.md"
   },
   {
+   "id": "count-to-infinity",
+   "name": "Count to infinity (teaching scenario, engine only)",
+   "about": "A triangle of routers with triggered updates off: after a LAN cut, the false route circulates and its metric climbs from 3 to 16.",
+   "spec": "count-to-infinity/spec.json",
+   "actions": "count-to-infinity/actions.json",
+   "readme": "count-to-infinity/README.md"
+  },
+  {
    "id": "dhcp-relay",
    "name": "DHCP through a relay",
    "about": "The only DHCP server sits in the server room. Student PCs are on another network, behind router R1. DHCP broadcasts cannot cross a router, so R1 relays them to the server, which picks an address from the pool for the PC's network.",
@@ -57,6 +65,14 @@
    "spec": "loop-with-stp/spec.json",
    "actions": "loop-with-stp/actions.json",
    "readme": "loop-with-stp/README.md"
+  },
+  {
+   "id": "rip-chain",
+   "name": "RIP on a chain of three routers (poisoned reverse)",
+   "about": "Three routers learn each other's networks with RIPv2. Cut a cable: the route is poisoned (metric 16), then garbage collected, and returns when the cable is restored.",
+   "spec": "rip-chain/spec.json",
+   "actions": "rip-chain/actions.json",
+   "readme": "rip-chain/README.md"
   },
   {
    "id": "routed-lan-dns",

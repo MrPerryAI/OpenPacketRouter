@@ -84,3 +84,15 @@ test("dhcp-relay: the router relays, each PC gets an address from the relayed po
   assert.equal(b.result.ip, "10.1.0.101");
   assert.equal(p.result.ok, true);
 });
+
+test("rip-chain: route poisoned on the cut, gone after garbage collection, back after repair", () => {
+  const r = run("rip-chain");
+  const m = n => r.filter(a => a.action.do === "ripRoute")[n].result.routers.R1;
+  assert.equal(m(0).metric, 3); assert.equal(m(1).metric, 16); assert.equal(m(2), null); assert.equal(m(3).metric, 3);
+  assert.deepEqual(r.filter(a => a.action.do === "ping").map(a => a.result.ok), [true, false, true]);
+});
+
+test("count-to-infinity: the false route outlives the cut and climbs to 16", () => {
+  const ms = run("count-to-infinity").filter(a => a.action.do === "ripRoute").map(a => a.result.routers.R1?.metric);
+  assert.equal(ms[0], 2); assert.ok(ms.slice(1).includes(16)); assert.ok(ms.slice(1, 4).every(m => m < 16));
+});
