@@ -59,10 +59,42 @@ export const SHOWS = {
   "show.spanning-tree": ctx => {
     const d = ctx.state().stp;
     if (!d) return {json: null, text: "Spanning tree is off on this switch"};
+    const g = M.stpGlobal(ctx.model);
+    const timers = {helloTime: g["hello-time"] ?? 2, maxAge: g["max-age"] ?? 20, forwardDelay: g["forwarding-delay"] ?? 15, priority: g["bridge-priority"] ?? 32768};
     const lines = [`Bridge ${d.bridgeId}${d.isRoot ? "  (this switch is the root)" : ""}`, `Root   ${d.root}`];
     if (!d.isRoot) lines.push(`Path cost to root ${d.rootCost}, through port ${d.rootPort}`);
+    lines.push(`Priority ${timers.priority}, hello ${timers.helloTime} s, max age ${timers.maxAge} s, forward delay ${timers.forwardDelay} s`);
     lines.push("", table(["Port", "Role", "State", "Cost", "Port ID"], Object.entries(d.ports).map(([p, x]) => [p, x.role, x.state, x.cost, `${x.id >> 8}.${x.no}`])));
-    return {json: d, text: lines.join("\n")};
+    return {json: {...d, timers}, text: lines.join("\n")};
+  },
+
+  "show.spanning-tree-interface": (ctx, [name]) => {
+    const d = ctx.state().stp;
+    if (!d) return {json: null, text: "Spanning tree is off on this switch"};
+    const x = d.ports[name];
+    if (!x) return {json: null, text: `% ${name} is not a spanning-tree port on ${ctx.device} (it has ${Object.keys(d.ports).join(", ")})`};
+    const text = [`Port ${name}: ${x.role}, ${x.state}`, `  Port ID ${x.id >> 8}.${x.no}, path cost ${x.cost}`,
+      `  Designated root ${x.designatedRoot}, cost ${x.designatedCost}`, `  Designated bridge ${x.designatedBridge}, port ${x.designatedPort >> 8}.${x.designatedPort & 255}`].join("\n");
+    return {json: {name, ...x}, text};
+  },
+
+  // One VLAN: its access ports, the trunks that carry it, and its SVI if the switch routes.
+  "show.vlan-id": (ctx, [vid]) => {
+    const access = [], trunks = [];
+    for (const p of ctx.ports()) {
+      if (/^vlan\d+$/.test(p)) continue;
+      const ifc = M.iface(ctx.model, p, false), sv = ifc && M.switchedVlan(ifc, false);
+      if (sv && sv["interface-mode"] === "TRUNK") { if (sv["trunk-vlans"].includes(vid)) trunks.push({port: p, native: (sv["native-vlan"] ?? 1) === vid}); }
+      else if ((sv && sv["access-vlan"] || 1) === vid) access.push(p);
+    }
+    const svi = (ctx.state().interfaces || []).find(i => i.name === `vlan${vid}`);
+    const name = M.vlans(ctx.model)[vid]?.config?.name || (vid === 1 ? "default" : `VLAN${String(vid).padStart(4, "0")}`);
+    const json = {vlan: vid, name, accessPorts: access, trunkPorts: trunks, ...(svi ? {svi: svi.name, address: svi.address ?? null, link: svi.status} : {})};
+    if (!access.length && !trunks.length && !svi) return {json, text: `VLAN ${vid} has no ports on ${ctx.device}`};
+    const text = [`VLAN ${vid} (${name})`, `  Access ports: ${access.join(", ") || "none"}`,
+      `  Trunk ports:  ${trunks.map(x => x.port + (x.native ? " (native)" : "")).join(", ") || "none"}`,
+      ...(svi ? [`  SVI ${svi.name}: ${svi.address || "no address"}, ${svi.status}`] : [])].join("\n");
+    return {json, text};
   },
 
   "show.vlan-brief": ctx => {
