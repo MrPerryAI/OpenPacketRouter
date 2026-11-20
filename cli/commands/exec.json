@@ -1,0 +1,10 @@
+{
+  "feature": "exec",
+  "about": "Commands that run something on the device now (ping, traceroute) instead of reading or changing configuration. Each takes | json like a show command.",
+  "commands": [
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "ping ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.ping",
+     "help": {"ping": "Send one echo request from this device and wait for the reply", "ADDRESS": "Address to ping"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "traceroute ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.traceroute",
+     "help": {"traceroute": "List the routers on the way to an address, one probe per hop", "ADDRESS": "Destination address"}}
+  ]
+}

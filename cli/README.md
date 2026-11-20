@@ -48,7 +48,7 @@ node cli/bin/opr-cli.mjs lab.json R1 --render linux --lab-parity                
 | Mode | Prompt | Commands |
 |---|---|---|
 | user | `R1>` | `enable`, `show …` (not the configuration), `ping`, `traceroute`, `exit` |
-| privileged | `R1#` | every `show` (`running-config`, `running-config openconfig`, `version`, `ip interface brief`, `ip route`, `arp`, `ip dhcp binding`, `mac address-table`, `spanning-tree`, `vlan brief`), `configure terminal`, `write`, `ping`, `traceroute`, `disable` |
+| privileged | `R1#` | every `show` (`running-config`, `running-config openconfig`, `version`, `interfaces [IFNAME]`, `ip interface brief`, `ip route`, `arp`, `ip dhcp binding`, `mac address-table`, `spanning-tree`, `vlan brief`), `configure terminal`, `write`, `ping`, `traceroute` (both take `| json`; a switch needs SVIs), `disable` |
 | config | `R1(config)#` | `hostname`, `interface IFNAME`, `ip route PREFIX NEXTHOP` (or `NETWORK MASK NEXTHOP`), `ip default-gateway`, `spanning-tree` and its `priority / hello-time / max-age / forward-time / bridge-address`, `ip dns server`, `ip host NAME ADDRESS`, `ip dhcp pool NAME`, `service tcp-echo PORT` |
 | interface | `R1(config-if)#` | `ip address A.B.C.D/M` (or `A.B.C.D MASK`, or `dhcp`), `shutdown`, `description`, `ip helper-address`, `shape rate R burst B limit L`, `switchport mode access/trunk`, `switchport access vlan N`, `switchport trunk allowed vlan LIST`, `switchport trunk native vlan N`, `spanning-tree cost / port-priority` |
 | DHCP pool | `R1(config-dhcp)#` | `range FIRST LAST`, `default-router`, `dns-server`, `lease SECONDS`, `netmask` (for a relayed network's pool) |
