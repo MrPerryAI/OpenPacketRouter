@@ -114,3 +114,14 @@ test("--text report has no 'undefined' for any example lab", () => {
     assert.ok(!/undefined/.test(r.stdout), `${lab}: ${r.stdout.split("\n").find(l => /undefined/.test(l))}`);
   }
 });
+
+test("stp-topology-change: the flag appears after a cable is cut, MAC entries go stale fast, then it clears", () => {
+  const r = run("stp-topology-change");
+  const [, before, , tableBefore, , , during, tableDuring, , after, tableAfter] = r.map(a => a.result);
+  assert.equal(before.topologyChange, false);
+  assert.ok(tableBefore.entries.every(e => !e.stale));
+  assert.equal(during.topologyChange, true);
+  assert.ok(tableDuring.entries.some(e => e.stale), "an entry older than one forward delay is expired while the flag is set");
+  assert.equal(after.topologyChange, false);
+  assert.ok(tableAfter.entries.every(e => !e.stale), "back to the 60 s aging time");
+});

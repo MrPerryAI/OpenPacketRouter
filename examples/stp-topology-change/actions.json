@@ -1,0 +1,59 @@
+[
+ {
+  "do": "wait",
+  "seconds": 25
+ },
+ {
+  "do": "stp",
+  "switch": "SW3",
+  "keepCaches": true
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "10.0.0.2",
+  "keepCaches": true
+ },
+ {
+  "do": "macTable",
+  "switch": "SW3",
+  "keepCaches": true
+ },
+ {
+  "do": "link",
+  "keepCaches": true,
+  "end": "SW1:p1",
+  "up": false,
+  "settle": 0
+ },
+ {
+  "do": "wait",
+  "seconds": 12,
+  "keepCaches": true
+ },
+ {
+  "do": "stp",
+  "switch": "SW3",
+  "keepCaches": true
+ },
+ {
+  "do": "macTable",
+  "switch": "SW3",
+  "keepCaches": true
+ },
+ {
+  "do": "wait",
+  "seconds": 20,
+  "keepCaches": true
+ },
+ {
+  "do": "stp",
+  "switch": "SW3",
+  "keepCaches": true
+ },
+ {
+  "do": "macTable",
+  "switch": "SW3",
+  "keepCaches": true
+ }
+]

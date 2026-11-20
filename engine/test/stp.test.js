@@ -60,8 +60,13 @@ test("STP: BPDUs that stop arriving (silent failure) age out after max-age and t
   net.link("S1:p1", "HUB:a"); net.link("HUB:b", "S2:p1"); net.run(20);
   assert.equal(net.node("S2").stp.isRoot(), false);
   net.node("S1").stp._cancel("hello");   // S1 goes quiet but its link stays up
-  const t0 = net.time; net.run(t0 + T.maxAge + 0.005);   // S2's stored root information expires; it declares itself root
-  assert.ok(net.trace.some(e => e.node === "S2" && e.t > t0 && /information expired/.test(e.detail)));
+  const t0 = net.time;
+  // S2's stored root information expires about max-age after the last BPDU (one held back by the 1 s hold timer
+  // may still arrive after S1 goes quiet); the moment it does, S2 declares itself root.
+  const expired = () => net.trace.some(e => e.node === "S2" && e.t > t0 && /information expired/.test(e.detail));
+  for (let t = t0; !expired() && t < t0 + T.maxAge + 2; ) net.run(t += 0.001);
+  assert.ok(expired());
+  assert.ok(net.time - t0 > T.maxAge - 1 && net.time - t0 < T.maxAge + 2);
   assert.equal(net.node("S2").stp.isRoot(), true);
 });
 

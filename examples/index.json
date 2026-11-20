@@ -91,6 +91,14 @@
    "readme": "routed-lan-dns/README.md"
   },
   {
+   "id": "stp-topology-change",
+   "name": "STP topology change",
+   "about": "Cut a cable in a spanning-tree triangle: TCN BPDUs and the topology-change flag make every switch age out MAC entries after one forward delay instead of the normal aging time.",
+   "spec": "stp-topology-change/spec.json",
+   "actions": "stp-topology-change/actions.json",
+   "readme": "stp-topology-change/README.md"
+  },
+  {
    "id": "tcp",
    "name": "TCP across a router",
    "about": "A client, a router and two echo servers (TCP port 7). SERVER has a default route back to the client; BROKEN has no gateway, so it never answers and the client's SYN is retransmitted.",

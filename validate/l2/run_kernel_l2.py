@@ -28,6 +28,8 @@ STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
 
 
 class Net:
+    DEFER_UP = False   # validators that compare timers (aging, topology change) bring the bridges up themselves, all at once, at step 0
+
     def __init__(self, spec):
         self.spec = spec; self.ifmap = {}; self.ns = {n["name"]: "n-" + n["name"] for n in spec["nodes"]}
         os.makedirs("/run/netns", exist_ok=True); no_ipv6()
@@ -48,7 +50,8 @@ class Net:
                 sh(*cmd)
                 if n.get("stp"): sh("ip", "-n", ns, "link", "set", "br0", "address", n["stp"]["mac"])
                 if n.get("vlans"): sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "vlan_filtering", "1")
-                no_ipv6(ns, "br0"); sh("ip", "-n", ns, "link", "set", "br0", "up")
+                no_ipv6(ns, "br0")
+                if not self.DEFER_UP: sh("ip", "-n", ns, "link", "set", "br0", "up")
         for k, (a, b, *_r) in enumerate(spec["links"]):
             ta, tb = f"va{k}", f"vb{k}"; sh("ip", "link", "add", ta, "type", "veth", "peer", "name", tb)
             for tmp, ref in ((ta, a), (tb, b)):
