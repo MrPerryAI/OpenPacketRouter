@@ -23,7 +23,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services", "ospf"],      // ospf: engine/src/ospf.js
+  router: ["ifaces", "routes", "gw", "services", "ospf", "rip"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
 };
@@ -62,6 +62,25 @@ function checkOspf(n, p, err) {
       if (c.hello !== undefined && c.dead !== undefined && c.dead <= c.hello) err(`${p}.ospf.interfaces.${ifn}.dead`, `node "${n.name}": ${ifn}: dead (${c.dead}) must be longer than hello (${c.hello})`);
     }
   }
+}
+
+function checkRip(n, p, err) {
+  const r = n.rip, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+  if (!isObj(r)) return err(`${p}.rip`, `node "${n.name}": rip must be an object like {"networks": ["10.0.0.0/8"]}`);
+  if (!Array.isArray(r.networks) || !r.networks.length) err(`${p}.rip.networks`, `node "${n.name}": rip needs networks: interface names or prefixes like 10.0.0.0/8`);
+  else r.networks.forEach((x, j) => { if (!(isCidr(x) || names.includes(x))) err(`${p}.rip.networks[${j}]`, `node "${n.name}": "${x}" is neither one of its interfaces nor a prefix like 10.0.0.0/8`); });
+  if (r.passive !== undefined && !(Array.isArray(r.passive) && r.passive.every(x => names.includes(x))))
+    err(`${p}.rip.passive`, `node "${n.name}": passive must list some of its interfaces (${names.join(", ")})`);
+  if (r.splitHorizon !== undefined && !["simple", "poisoned", "off"].includes(r.splitHorizon))
+    err(`${p}.rip.splitHorizon`, `node "${n.name}": splitHorizon is "simple", "poisoned" or "off"`);
+  if (r.timers !== undefined) {
+    if (!isObj(r.timers)) err(`${p}.rip.timers`, `node "${n.name}": timers is {update, timeout, garbage, holdoff} in seconds`);
+    else for (const [k, v] of Object.entries(r.timers)) {
+      if (!["update", "timeout", "garbage", "holdoff"].includes(k)) err(`${p}.rip.timers.${k}`, `node "${n.name}": unknown RIP timer "${k}" (update, timeout, garbage, holdoff)`);
+      else if (!(typeof v === "number" && (k === "holdoff" ? v >= 0 : v > 0))) err(`${p}.rip.timers.${k}`, `node "${n.name}": ${k} must be a number of seconds`);
+    }
+  }
+  if (r.triggered !== undefined && typeof r.triggered !== "boolean") err(`${p}.rip.triggered`, `node "${n.name}": triggered is true or false`);
 }
 
 /** Check a spec. Returns {ok, errors: [{path, message}], warnings: [...]}; never throws. */
@@ -146,6 +165,7 @@ export function validateSpec(spec) {
       });
     }
     if (n.ospf !== undefined) checkOspf(n, p, err);
+    if (n.rip !== undefined) checkRip(n, p, err);
     if (n.services !== undefined) {
       if (!isObj(n.services)) err(`${p}.services`, `node "${n.name}": services must be an object`);
       else if (n.services.dns !== undefined && !(isObj(n.services.dns) && Object.values(n.services.dns).every(isIp)))
@@ -200,7 +220,7 @@ export const ACTIONS = {
   dhcp: {required: ["src"], run: (net, a) => dhcp(net, a.src, {iface: a.iface, tries: a.tries ?? 3, interval: a.interval ?? 1})},
   tcp: {required: ["src", "dst", "port"], run: (net, a) => tcpAction(net, a)},
   // Pause `seconds` of simulated time (MAC entries age; use "keepCaches": true on the actions around it).
-  wait: {required: ["seconds"], run: (net, a) => { net.run(net.time + a.seconds); return {waited: a.seconds, time: net.time}; }},
+  wait: {required: ["seconds"], run: (net, a) => { const until = net.time + a.seconds; net.run(until); if (net.time < until) net.time = until; return {waited: a.seconds, time: net.time}; }},   // the clock advances even when no event is due (RIP timers)
   // The MAC address table of a switch right now: [{vlan, mac, port, age}]
   macTable: {required: ["switch"], run: (net, a) => {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
@@ -214,6 +234,16 @@ export const ACTIONS = {
     return {sent};
   }},
 };
+// Time and cables, for protocols that need them (RIP): advance the clock; cut or restore a cable (both ends lose
+// carrier); read a router's RIP table.
+ACTIONS.link = {required: ["end", "up"], run: (net, a) => { net.setLink(a.end, !!a.up); return {end: a.end, up: !!a.up}; }};
+ACTIONS.ripTable = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, routes: n.rip ? n.rip.describe() : []}; }};
+// One network across every RIP router: {t, routers: {R1: {metric, nextHop, type} | null}}
+ACTIONS.ripRoute = {required: ["network"], run: (net, a) => {
+  const routers = {};
+  for (const n of net.nodes.values()) if (n.rip) { const r = n.rip.describe().find(x => x.network === a.network); routers[n.name] = r ? {metric: r.metric, nextHop: r.nextHop, type: r.type} : null; }
+  return {t: net.time, routers};
+}};
 export function registerAction(name, def) { ACTIONS[name] = def; }
 
 export function validateActions(actions, spec = null) {
@@ -262,7 +292,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
-    net.settle(a.settle ?? (a.do === "wait" || a.do === "macTable" ? 0 : 1));
+    net.settle(a.settle ?? (["wait", "macTable"].includes(a.do) ? 0 : 1));
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
