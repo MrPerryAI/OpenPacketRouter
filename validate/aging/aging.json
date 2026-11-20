@@ -1,0 +1,15 @@
+{
+ "version": 1,
+ "name": "MAC aging: two switches with different aging times",
+ "about": "A and B on SW1, C on SW2, one trunk-less cable between the switches. SW1 forgets a MAC after 5 s, SW2 after 12 s, so after a pause one switch floods and the other forwards.",
+ "nodes": [
+  {"name": "SW1", "kind": "switch", "agingTime": 5},
+  {"name": "SW2", "kind": "switch", "agingTime": 12},
+  {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+  {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}},
+  {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.3/24"}}
+ ],
+ "links": [
+  ["A:eth0", "SW1:p1"], ["B:eth0", "SW1:p2"], ["SW1:p3", "SW2:p1"], ["C:eth0", "SW2:p2"]
+ ]
+}

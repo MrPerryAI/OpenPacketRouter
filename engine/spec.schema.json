@@ -62,6 +62,7 @@
       "allOf": [
         {"if": {"properties": {"kind": {"const": "switch"}}}, "then": {"properties": {
           "blocked": {"type": "array", "items": {"type": "string"}},
+          "agingTime": {"type": "number", "exclusiveMinimum": 0, "description": "MAC table aging time in seconds (default 300). Like a Linux bridge's ageing_time."},
           "stp": {"type": "object", "properties": {
             "priority": {"type": "integer", "minimum": 0, "maximum": 65535}, "mac": {"type": "string"},
             "hello": {"type": "number"}, "maxAge": {"type": "number"}, "forwardDelay": {"type": "number"},

@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "ifaces", "routes", "gw"],   // stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "ifaces", "routes", "gw", "agingTime"],   // stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services"],
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
@@ -81,6 +81,8 @@ export function validateSpec(spec) {
     if (n.kind === "switch") {
       if (n.blocked !== undefined && !(Array.isArray(n.blocked) && n.blocked.every(x => typeof x === "string")))
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
+      if (n.agingTime !== undefined && !(typeof n.agingTime === "number" && Number.isFinite(n.agingTime) && n.agingTime > 0))
+        err(`${p}.agingTime`, `node "${n.name}": agingTime must be a number of seconds above 0 (default 300; Linux bridges treat 0 as "expire at once", which is not modeled)`);
       if (n.ifaces === undefined) {
         for (const k of ["routes", "gw"]) if (n[k] !== undefined) err(`${p}.${k}`, `node "${n.name}": a switch needs SVIs ("ifaces": {"vlan10": ...}) before it can have ${k}`);
         return;
@@ -173,6 +175,13 @@ export const ACTIONS = {
   dns: {required: ["src", "server", "name"], run: (net, a) => dns(net, a.src, a.server, a.name)},
   dhcp: {required: ["src"], run: (net, a) => dhcp(net, a.src, {iface: a.iface, tries: a.tries ?? 3, interval: a.interval ?? 1})},
   tcp: {required: ["src", "dst", "port"], run: (net, a) => tcpAction(net, a)},
+  // Pause `seconds` of simulated time (MAC entries age; use "keepCaches": true on the actions around it).
+  wait: {required: ["seconds"], run: (net, a) => { net.run(net.time + a.seconds); return {waited: a.seconds, time: net.time}; }},
+  // The MAC address table of a switch right now: [{vlan, mac, port, age}]
+  macTable: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
+    return {switch: a.switch, entries: n.macTable()};
+  }},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
   udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {
@@ -196,6 +205,9 @@ export function validateActions(actions, spec = null) {
     if (spec && a.src !== undefined && !names.has(a.src)) errors.push({path: `${p}.src`, message: `no node named "${a.src}"`});
     const sn = spec && Array.isArray(spec.nodes) && spec.nodes.find(n => n && n.name === a.src);
     if (sn && sn.kind === "switch" && !isObj(sn.ifaces)) errors.push({path: `${p}.src`, message: `${a.src} is a switch with no IP interfaces (give it SVIs: "ifaces": {"vlan10": ...})`});
+    if (a.do === "wait" && !(typeof a.seconds === "number" && a.seconds >= 0)) errors.push({path: `${p}.seconds`, message: "seconds must be a number ≥ 0"});
+    if (a.do === "macTable" && !(spec && Array.isArray(spec.nodes) ? spec.nodes.some(n => n && n.name === a.switch && n.kind === "switch") : typeof a.switch === "string")) errors.push({path: `${p}.switch`, message: `no switch named "${a.switch}"`});
+    if (a.keepCaches !== undefined && typeof a.keepCaches !== "boolean") errors.push({path: `${p}.keepCaches`, message: "keepCaches must be true or false"});
     if (a.settle !== undefined && !(typeof a.settle === "number" && a.settle >= 0)) errors.push({path: `${p}.settle`, message: "settle must be seconds ≥ 0"});
   });
   return {ok: !errors.length, errors, warnings: []};
@@ -213,7 +225,7 @@ export function loadSpec(spec) {
 }
 
 /**
- * Run actions on a spec. Caches (ARP, MAC tables) are flushed before every action, so each starts cold
+ * Run actions on a spec. Caches (ARP, MAC tables) are flushed before every action unless it says "keepCaches": true, so each starts cold
  * and its frame counts don't depend on the order. Returns one entry per action:
  * {action, result, frames: {"A:if>B:if": n}, trace?: [{t, node, event, detail}]}.
  */
@@ -223,10 +235,10 @@ export function runActions(spec, actions, {trace = false} = {}) {
   if (!va.ok) throw new SpecError("actions", va.errors);
   const out = [];
   for (const a of actions) {
-    net.flushCaches();
+    if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
-    net.settle(a.settle ?? 1);
+    net.settle(a.settle ?? (a.do === "wait" || a.do === "macTable" ? 0 : 1));
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }

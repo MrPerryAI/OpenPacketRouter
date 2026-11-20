@@ -84,3 +84,13 @@ test("dhcp-relay: the router relays, each PC gets an address from the relayed po
   assert.equal(b.result.ip, "10.1.0.101");
   assert.equal(p.result.ok, true);
 });
+
+test("mac-aging: SW1 forgets after 5 s and floods; SW2 (12 s) still forwards", () => {
+  const [first, t1, , t2, t3, second] = run("mac-aging");
+  assert.equal(first.result.ok, true);
+  assert.equal(t1.result.entries.length, 2);
+  assert.equal(t2.result.entries.length, 0);        // SW1: aged out
+  assert.equal(t3.result.entries.length, 2);        // SW2: still known
+  assert.equal(second.frames["SW1:p2>B:eth0"], 1);  // flooded to B
+  assert.equal(second.frames["SW2:p1>SW1:p3"], 1);
+});

@@ -45,6 +45,8 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l2/run_kernel_l2.py
       - name: Inter-VLAN routing (subinterfaces + SVIs) vs real Linux
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/intervlan/run_kernel_intervlan.py
+      - name: MAC address aging vs real Linux bridges (ageing_time, frame for frame)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/aging/run_kernel_aging.py
       - name: Link shaping vs real Linux tbf (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)

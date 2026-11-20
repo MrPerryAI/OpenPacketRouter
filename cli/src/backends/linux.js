@@ -30,6 +30,7 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     const br = ["ip link add br0 type bridge", `stp_state ${stp ? 1 : 0}`];
     if (stp) br.push(`priority ${g["bridge-priority"] ?? 32768}`, `hello_time ${centis(g["hello-time"] ?? 2)}`,
       `max_age ${centis(g["max-age"] ?? 20)}`, `forward_delay ${centis(g["forwarding-delay"] ?? 15)}`);
+    if (M.fdb(model)["mac-aging-time"] !== undefined) br.push(`ageing_time ${centis(M.fdb(model)["mac-aging-time"])}`);
     if (vlanAware) br.push("vlan_filtering 1");
     out.push(br.join(" "));
     if (stp && g["openpacketrouter:bridge-address"]) out.push(`ip link set br0 address ${g["openpacketrouter:bridge-address"]}`);

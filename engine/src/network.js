@@ -66,8 +66,8 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null} = {}) {
-    super(net, name, "switch"); this.table = new Map(); this.blocked = new Set(blocked);
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300} = {}) {
+    super(net, name, "switch"); this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.blocked = new Set(blocked);
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -88,7 +88,21 @@ export class Switch extends Device {
     return {pvid: native, member, untagged: new Set(native !== null ? [native] : [])};
   }
   _fwd(p) { return !this.blocked.has(p) && (!this.stp || !this.stp.ports.get(p) || this.stp.ports.get(p).state === "forwarding"); }
-  flushPort(p) { for (const [k, v] of this.table) if (v === p) this.table.delete(k); }
+  flushPort(p) { for (const [k, v] of this.table) if (v === p) { this.table.delete(k); this.seen.delete(k); } }
+  /** Learned port for a table key ("vid|mac"), or undefined. An entry not refreshed for `agingTime` seconds is gone
+   *  (a kernel bridge's ageing_time). */
+  _lookup(key) {
+    const out = this.table.get(key); if (out === undefined) return undefined;
+    if (this.net.time - this.seen.get(key) >= this.agingTime) {
+      this.table.delete(key); this.seen.delete(key); this.log("age-out", `${key.split("|")[1]} aged out of the MAC table (not heard from for ${this.agingTime}s)`); return undefined;
+    }
+    return out;
+  }
+  /** The live MAC address table: [{vlan, mac, port, age}] with age in seconds since the entry was last refreshed. */
+  macTable() {
+    for (const k of [...this.table.keys()]) this._lookup(k);
+    return [...this.table].map(([k, port]) => { const [vid, mac] = k.split("|"); return {vlan: +vid, mac, port, age: Math.round((this.net.time - this.seen.get(k)) * 1000) / 1000}; });
+  }
   /** Send `f` out port p in VLAN vid, tagged or untagged as the port is configured. False if p isn't in vid. */
   _emit(p, f, vid) {
     if (!this.vlans) { this.send(p, f); return true; }
@@ -99,7 +113,7 @@ export class Switch extends Device {
   /** A frame the switch's own IP stack sends from an SVI (Linux br_dev_xmit): known unicast goes out the
    *  learned port, anything else floods every forwarding port in the VLAN. */
   fromStack(vid, f) {
-    const out = f.dst === BROADCAST_MAC ? null : this.table.get(vid + "|" + f.dst);
+    const out = f.dst === BROADCAST_MAC ? null : this._lookup(vid + "|" + f.dst);
     if (out) { if (this._fwd(out)) this._emit(out, f, vid); return; }
     const ports = Object.keys(this.ifaces).filter(p => this._fwd(p) && this.ifaces[p].link && this.vcfg(p).member.has(vid));
     for (const p of ports) this._emit(p, f, vid);
@@ -120,11 +134,11 @@ export class Switch extends Device {
       if (vid === null || !c.member.has(vid)) { this.log("vlan-drop", `${describe(f)}: VLAN ${f.vlan ?? "untagged"} not allowed in on ${ifname}`); return; }
     }
     const key = m => vid + "|" + m;
-    if (f.src !== BROADCAST_MAC && this.table.get(key(f.src)) !== ifname) { this.table.set(key(f.src), ifname); }
+    if (f.src !== BROADCAST_MAC) { this._lookup(key(f.src)); this.table.set(key(f.src), ifname); this.seen.set(key(f.src), this.net.time); }
     if (st === "learning") return;
     const svi = this.vlans && this.l3 ? this.svi(vid) : null;
     if (svi && f.dst === this.l3mac) { const g = {...f}; delete g.vlan; return this.l3.receive(svi.name, g); }   // for the switch itself
-    const out = f.dst === BROADCAST_MAC ? null : this.table.get(key(f.dst));
+    const out = f.dst === BROADCAST_MAC ? null : this._lookup(key(f.dst));
     if (out === ifname) { this.log("filter", `drop: ${f.dst} lives on the port it came in on (${ifname})`); return; }
     const emit = p => this._emit(p, f, vid);
     const vtag = this.vlans ? ` [VLAN ${vid}]` : "";
@@ -134,7 +148,7 @@ export class Switch extends Device {
     for (const p of ports) emit(p);
     if (svi && f.dst === BROADCAST_MAC) { const g = {...f}; delete g.vlan; this.l3.receive(svi.name, g); }   // and up to the SVI
   }
-  flush() { this.table.clear(); if (this.l3) this.l3.flush(); }
+  flush() { this.table.clear(); this.seen.clear(); if (this.l3) this.l3.flush(); }
 }
 
 export class IpNode extends Device {
@@ -356,7 +370,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, blocked: n.blocked, stp: n.stp, vlans: n.vlans};
+      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

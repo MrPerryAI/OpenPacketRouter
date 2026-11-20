@@ -12,6 +12,7 @@ export function configLines(model, {kind, ports}) {
   const out = [`hostname ${M.hostname(model)}`, "!"];
   const sw = kind === "switch";
 
+  if (sw && M.fdb(model)["mac-aging-time"] !== undefined) out.push(`mac address-table aging-time ${M.fdb(model)["mac-aging-time"]}`, "!");
   if (sw && M.stpEnabled(model)) {
     out.push("spanning-tree");
     const g = M.stpGlobal(model);
