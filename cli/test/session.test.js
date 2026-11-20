@@ -114,7 +114,7 @@ test("every show command answers | json with JSON", () => {
     const s = createSession(b, device, {mode: "priv"});
     const kind = b.kind(device);
     for (const c of table.commands.filter(c => c.handler.startsWith("show.") && c.modes.includes("priv") && (!c.kinds || c.kinds.includes(kind)))) {
-      const r = s.exec(`${c.syntax.replace("IFNAME", b.ports(device)[0])} | json`);
+      const r = s.exec(`${c.syntax.replace("IFNAME", b.ports(device)[0]).replace(/ VLAN$/, " 1")} | json`);
       assert.doesNotThrow(() => JSON.parse(r.output), `${device}: ${c.syntax} | json -> ${r.output}`);
     }
   }

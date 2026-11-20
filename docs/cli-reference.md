@@ -217,6 +217,8 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
+| `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
+| `show vlan id VLAN` | user, privileged | switches | VLAN number, 1-4094 |
 | `show vlan brief` | user, privileged | switches | VLANs with their access ports, and the trunks |
 | `show vlan` | user, privileged | switches | VLANs |
 
@@ -373,6 +375,7 @@ SW1>enable
 SW1#show spanning-tree
 Bridge 8000.02aa00000001  (this switch is the root)
 Root   8000.02aa00000001
+Priority 32768, hello 1 s, max age 6 s, forward delay 4 s
 
 Port  Role        State       Cost  Port ID
 p1    designated  forwarding  19    128.1
