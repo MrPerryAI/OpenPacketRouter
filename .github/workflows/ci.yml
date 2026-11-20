@@ -56,3 +56,5 @@ jobs:
           sudo apt-get install -y --no-install-recommends frr >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends frr >/dev/null)
           sudo systemctl stop frr || true
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/rip/run_kernel_rip.py
+      - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
