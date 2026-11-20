@@ -21,6 +21,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 from run_kernel_l3 import sh, nsx, sysctl, no_ipv6, comparable  # noqa: E402
+import run_kernel_l3 as l3  # noqa: E402
 
 VLAN = ["vlan-trunk", "vlan-native"]
 STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
@@ -156,7 +157,7 @@ def main():
         print("Needs root, `unshare`, iproute2 (ip, bridge). Skipping."); return 0
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=900)
     if proc.returncode:
-        print("kernel side failed:\n" + proc.stderr[-3000:]); return 1
+        print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "L2 kernel side failed", proc.stderr[-6000:]); return 1
     kern = json.loads(proc.stdout)
     md = ["| Network | Check | Result | Match |", "|---|---|---|---|"]; ok_all = True; detail = {}
     for name in VLAN:
@@ -176,7 +177,7 @@ def main():
             if not ok: detail[f"{name}: {label}"] = {"engine": e, "kernel": k}
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
-    if detail: print(json.dumps(detail, indent=1)[:6000])
+    if detail: print(json.dumps(detail, indent=1)[:6000]); l3.gh_note("error", "L2 engine vs Linux mismatch", json.dumps(detail))
     return 0 if ok_all else 1
 
 

@@ -93,7 +93,7 @@ def main():
     (HERE / "results.md").write_text("\n".join(md) + "\n")
     (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
-    if detail: print(json.dumps(detail, indent=1)[:4000])
+    if detail: print(json.dumps(detail, indent=1)[:4000]); l3.gh_note("error", "Links engine vs Linux mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
 

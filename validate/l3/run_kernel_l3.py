@@ -128,6 +128,14 @@ def comparable(r):
     return r
 
 
+
+def gh_note(level, title, text):
+    """On GitHub Actions, also report as an annotation: readable with
+    `gh api repos/OWNER/REPO/check-runs/JOB_ID/annotations` when the raw log can't be fetched."""
+    if os.environ.get("GITHUB_ACTIONS"):
+        esc = str(text)[:9000].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::{level} title={title}::{esc}", flush=True)
+
 def main():
     if os.geteuid() != 0 or not shutil.which("unshare") or not shutil.which("ip"):
         print("Needs root, `unshare` and iproute2. Skipping."); return 0
@@ -151,7 +159,7 @@ def main():
     (ROOT / "validate" / "l3" / "results.md").write_text("\n".join(md) + "\n")
     (ROOT / "validate" / "l3" / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
-    if detail: print(json.dumps(detail, indent=1)[:4000])
+    if detail: print(json.dumps(detail, indent=1)[:4000]); gh_note("error", "L3 engine vs Linux mismatch", json.dumps(detail))
     return 0 if ok_all else 1
 
 
