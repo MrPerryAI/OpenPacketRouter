@@ -1,17 +1,17 @@
 {
  "version": 1,
  "name": "MAC aging: two switches with different aging times",
- "about": "A and B on SW1, C on SW2, one cable between the switches. SW1 forgets a MAC after 1.5 s, SW2 after 3.5 s, so after a pause one switch floods and the other forwards. Short times keep the whole run under the 5 s a Linux host waits before re-probing an ARP entry, which the engine does not model.",
+ "about": "A and B on SW1, C on SW2, one cable between the switches. SW1 forgets a MAC after 5 s, SW2 after 12 s, so after a pause one switch floods and the other forwards.",
  "nodes": [
   {
    "name": "SW1",
    "kind": "switch",
-   "agingTime": 1.5
+   "agingTime": 5
   },
   {
    "name": "SW2",
    "kind": "switch",
-   "agingTime": 3.5
+   "agingTime": 12
   },
   {
    "name": "A",

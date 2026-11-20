@@ -8,7 +8,8 @@ run on the engine and on kernel bridges in network namespaces: pings (flooding v
 per-cable frame counts), real waits, and snapshots of every switch's learned MAC table. All of it must
 match exactly. The waits are chosen away from an expiry instant, because the kernel removes expired
 entries from a garbage-collection timer, not at the exact instant. The whole run stays under 5 s because
-a Linux host re-probes an ARP entry 5 s after first using it (a unicast ARP pair the engine does not model).
+a Linux host re-probes an ARP entry 5 s after first using it (a unicast ARP pair the engine does not model), so the
+harness pins delay_first_probe_time high on every interface, like the other pinned settings.
 """
 import json, os, shutil, subprocess, sys, time
 from pathlib import Path
@@ -47,7 +48,11 @@ def kernel(name, steps_name):
     spec = json.loads((HERE / f"{name}.json").read_text()); steps = json.loads((HERE / f"{steps_name}.json").read_text())
     k = Net(spec); out = []; sniffers = []
     try:
-        owner = macs(k); time.sleep(1.0)
+        owner = macs(k)
+        for n in spec["nodes"]:
+            for l in json.loads(sh("ip", "-n", k.ns[n["name"]], "-j", "link", "show")):
+                if l["ifname"] != "lo": nsx(k.ns[n["name"]], "sh", "-c", f"echo 100000 > /proc/sys/net/ipv4/neigh/{l['ifname']}/delay_first_probe_time")
+        time.sleep(1.0)
         for sw, port in WATCH:   # diagnostic only: what the kernel really sent on these cables (shown if a step mismatches)
             f = f"/tmp/aging-{sw}-{port}.txt"; open(f, "w").close()
             sniffers.append(subprocess.Popen(["ip", "netns", "exec", k.ns[sw], sys.executable, str(HERE / "sniff.py"), port, f]))
