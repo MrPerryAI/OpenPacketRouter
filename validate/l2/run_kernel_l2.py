@@ -36,7 +36,7 @@ class Net:
             ns = self.ns[n["name"]]; sh("ip", "netns", "add", ns); no_ipv6(ns); sh("ip", "-n", ns, "link", "set", "lo", "up")
             routes = n["kind"] == "router" or (n["kind"] == "switch" and n.get("ifaces"))   # a switch with SVIs is a Layer 3 switch
             for k, v in [("net.ipv4.conf.all.send_redirects", 0), ("net.ipv4.conf.default.send_redirects", 0), ("net.ipv4.icmp_ratelimit", 0),
-                         ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.ip_forward", 1 if routes else 0)]:
+                         ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.igmp_link_local_mcast_reports", 0), ("net.ipv4.ip_forward", 1 if routes else 0)]:
                 sysctl(ns, k, v)
             if n["kind"] == "switch":
                 cmd = ["ip", "-n", ns, "link", "add", "br0", "type", "bridge", "stp_state", "0"]
