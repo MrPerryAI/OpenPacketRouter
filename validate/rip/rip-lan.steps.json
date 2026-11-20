@@ -1,0 +1,4 @@
+[{"wait": 14}, {"snapshot": "converged"}, {"ping": ["H1", "10.3.0.10"]},
+ {"linkDown": "SW:p3"}, {"wait": 17}, {"snapshot": "R3 silent: its routes timed out (metric 16)", "lastUpdate": false}, {"ping": ["H1", "10.3.0.10"]},
+ {"wait": 16}, {"snapshot": "garbage collected"},
+ {"linkUp": "SW:p3"}, {"wait": 14}, {"snapshot": "cable restored"}, {"ping": ["H1", "10.3.0.10"]}]

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "RIP on a chain of three routers (poisoned reverse)",
+  "about": "R1 — R2 — R3, a host LAN at each end. RIPv2 with split horizon and poisoned reverse, short timers (update 5 s, timeout 15 s, garbage 10 s). R1's host LAN is passive (no RIP sent to H1); R3 sends updates to H3, who ignores them. The R2–R3 cable is cut (both ends lose carrier) and restored.",
+  "nodes": [
+    {"name": "H1", "kind": "host", "ifaces": {"eth0": "10.1.0.10/24"}, "gw": "10.1.0.1"},
+    {"name": "R1", "kind": "router", "ifaces": {"eth0": "10.1.0.1/24", "eth1": "10.0.12.1/30"},
+     "rip": {"networks": ["10.0.0.0/8"], "passive": ["eth0"], "splitHorizon": "poisoned", "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R2", "kind": "router", "ifaces": {"eth0": "10.0.12.2/30", "eth1": "10.0.23.1/30"},
+     "rip": {"networks": ["10.0.0.0/8"], "splitHorizon": "poisoned", "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R3", "kind": "router", "ifaces": {"eth0": "10.0.23.2/30", "eth1": "10.3.0.1/24"},
+     "rip": {"networks": ["eth0", "eth1"], "splitHorizon": "poisoned", "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "H3", "kind": "host", "ifaces": {"eth0": "10.3.0.10/24"}, "gw": "10.3.0.1"}
+  ],
+  "links": [["H1:eth0", "R1:eth0", 1], ["R1:eth1", "R2:eth0", 1], ["R2:eth1", "R3:eth0", 1], ["R3:eth1", "H3:eth0", 1]]
+}

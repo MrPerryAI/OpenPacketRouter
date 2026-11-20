@@ -28,6 +28,7 @@ import {tcpInput} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 import {shape} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
+import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
 
 class Heap {
   constructor() { this.a = []; }
@@ -45,7 +46,7 @@ class Heap {
 }
 
 const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
-const describe = f => f.type === "bpdu" ? `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
+const describe = f => f.type === "bpdu" ? `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}` : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
   : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : f.ip.proto === "tcp" ? `TCP ${f.ip.tcp.sport}→${f.ip.tcp.dport} ${tcpName(f.ip.tcp)}${f.ip.tcp.len ? ` ${f.ip.tcp.len}B` : ""}` : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"][i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
@@ -153,7 +154,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -165,9 +166,10 @@ export class IpNode extends Device {
     this.nextPort = 33000;
     this.sockets = new Set();         // UDP ports a client app has open (no "port unreachable" for these)
     this.ospf = ospf ? new Ospf(this, ospf) : null;   // OSPFv2 (ospf.js)
+    this.rip = rip ? new Rip(this, rip) : null;   // RIPv2 (rip.js)
   }
-  start() { if (this.ospf) this.ospf.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); }
+  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); }
+  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
@@ -198,6 +200,8 @@ export class IpNode extends Device {
     }
     if (this.ospf) for (const r of this.ospf.fib()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // connected and static win a tie
       best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `OSPF route ${r.cidr} via ${r.gw} (cost ${r.metric})`};
+    if (this.rip) for (const r of this.rip.fib()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // static beats RIP on a tie
+      best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `RIP route ${r.cidr} via ${r.gw} (metric ${r.metric})`};
     return best;
   }
 
@@ -208,7 +212,7 @@ export class IpNode extends Device {
       f = {...f}; delete f.vlan; ifname = sub.name;
     }
     const i = this.ifaces[ifname];
-    if (f.dst !== i.mac && f.dst !== BROADCAST_MAC && !(this.ospf && ((f.dst === OSPF_ALL_SPF_MAC && this.ospf.joined(ifname, OSPF_ALL_SPF)) || (f.dst === OSPF_ALL_DR_MAC && this.ospf.joined(ifname, OSPF_ALL_DR))))) return;   // NIC filter
+    if (f.dst !== i.mac && f.dst !== BROADCAST_MAC && !(f.dst === RIP_MAC && this.rip && this.rip.joined(ifname)) && !(this.ospf && ((f.dst === OSPF_ALL_SPF_MAC && this.ospf.joined(ifname, OSPF_ALL_SPF)) || (f.dst === OSPF_ALL_DR_MAC && this.ospf.joined(ifname, OSPF_ALL_DR))))) return;   // NIC filter
     if (this.rawHook && this.rawHook(ifname, f)) return;              // a raw-socket client (DHCP, dhcp.js)
     if (f.type === "arp") return this.onArp(ifname, f.arp);
     if (f.type === "ipv4") return this.onIp(ifname, f.ip);
@@ -232,6 +236,7 @@ export class IpNode extends Device {
   onIp(ifname, p) {
     if (this.owns(p.dst) || p.dst === "255.255.255.255") return this.deliver(ifname, p);
     if (p.dst === OSPF_ALL_SPF || p.dst === OSPF_ALL_DR) { if (this.ospf && this.ospf.joined(ifname, p.dst)) this.ospf.receive(ifname, p); return; }   // link-local multicast: never routed
+    if (p.dst === RIP_GROUP) { if (this.rip && this.rip.joined(ifname)) this.deliver(ifname, p); return; }   // link-local multicast: never routed
     if (!this.forwarding) { this.log("drop", `${describe({type: "ipv4", ip: p})}: not for me and I don't route`); return; }
     if (p.ttl <= 1) { this.log("ttl-expired", `${describe({type: "ipv4", ip: p})}: TTL ran out here`); return this.icmpError(p, 11, 0); }
     const r = this.route(p.dst);
@@ -250,6 +255,7 @@ export class IpNode extends Device {
     if (p.proto === "tcp") return tcpInput(this, p);
     if (p.proto === "udp") {
       if (this.sockets.has(p.udp.dport)) return;   // an app is waiting on this port
+      if (p.udp.dport === RIP_PORT && this.rip) return this.rip.receive(ifname, p);
       const svc = this.udpService(p.udp.dport);
       if (!svc && p.dst === "255.255.255.255") return;                // no ICMP errors for broadcasts
       if (!svc) { this.log("port-closed", `nothing listens on UDP ${p.udp.dport}`); return this.icmpError(p, 3, 3, p.dst); }
@@ -378,7 +384,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

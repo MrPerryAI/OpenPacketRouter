@@ -12,6 +12,7 @@ const cidrOf = (args) => {   // [prefix] or [ip, mask]
   return {ip: args[0], p: maskToPrefix(args[1]), rest: args.slice(2)};
 };
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
+const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
 const pool = ctx => { need(ctx.s.pool, "No DHCP pool selected"); return M.services(ctx.model)["dhcp-server"].pools[ctx.s.pool]; };
 const STP_LEAVES = {"bridge-priority": 1, "hello-time": 1, "max-age": 1, "forwarding-delay": 1, "openpacketrouter:bridge-address": 1};
 
@@ -132,6 +133,19 @@ export const HANDLERS = {
   "dhcp.range": (ctx, [a, b]) => { pool(ctx).range = [a, b]; },
   "dhcp.set": (ctx, [v], leaf) => { pool(ctx)[leaf] = leaf === "netmask" ? prefixToMask(maskToPrefix(v)) : v; },
   "dhcp.unset": (ctx, args, leaf) => { delete pool(ctx)[leaf]; },
+
+  // ---- RIPv2 (kept under services.rip, shaped like the spec's rip block)
+  "rip.enter": ctx => { const s = M.services(ctx.model); s.rip ||= {networks: []}; ctx.s.router = "rip"; },
+  "rip.remove": ctx => { const s = M.services(ctx.model); need(s.rip, "RIP is not running"); delete s.rip; },
+  "rip.version": () => {},
+  "rip.network": (ctx, [n]) => { const r = rip(ctx); if (!r.networks.includes(n)) r.networks.push(n); },
+  "rip.no-network": (ctx, [n]) => { const r = rip(ctx); need(r.networks.includes(n), `RIP does not run on ${n}`); r.networks = r.networks.filter(x => x !== n); },
+  "rip.passive": (ctx, [i]) => { const r = rip(ctx); r.passive ||= []; if (!r.passive.includes(i)) r.passive.push(i); },
+  "rip.no-passive": (ctx, [i]) => { const r = rip(ctx); need(r.passive?.includes(i), `${i} is not passive`); r.passive = r.passive.filter(x => x !== i); if (!r.passive.length) delete r.passive; },
+  "rip.timers": (ctx, [update, timeout, garbage]) => { rip(ctx).timers = {update: +update, timeout: +timeout, garbage: +garbage}; },
+  "rip.no-timers": ctx => { delete rip(ctx).timers; },
+  "rip.split": (ctx, args, v) => { const r = rip(ctx); if (v === "simple") delete r.splitHorizon; else r.splitHorizon = v; },
+  "rip.triggered": (ctx, args, v) => { const r = rip(ctx); if (v === "true") delete r.triggered; else r.triggered = false; },
 
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },

@@ -1,0 +1,3 @@
+[{"wait": 14}, {"snapshot": "converged"},
+ {"linkDown": "H2:eth0"}, {"wait": 4}, {"snapshot": "LAN cut: metric 16 everywhere", "lastUpdate": false},
+ {"wait": 14}, {"snapshot": "garbage collected"}]
