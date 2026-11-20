@@ -1,0 +1,129 @@
+[
+ {
+  "gcReset": true
+ },
+ {
+  "wait": 14
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "wait": 12
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": false
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "link": {
+   "end": "SW1:p1",
+   "up": false
+  }
+ },
+ {
+  "wait": 3
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "wait": 6
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": false
+ },
+ {
+  "wait": 1
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "wait": 4
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "wait": 14
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": false
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ }
+]

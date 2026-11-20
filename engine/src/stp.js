@@ -10,8 +10,13 @@
 // forward-delay apart. A port that stops hearing BPDUs times out after max-age.
 //
 // The structure follows the kernel's net/bridge/br_stp*.c, so port roles come out
-// the same. Not modeled: topology-change notifications (a state change just flushes
-// the local MAC table), RSTP, per-VLAN trees.
+// the same.
+//
+// Topology changes follow the kernel too: a bridge that sees a port start or stop carrying traffic sends a
+// TCN BPDU up its root port, repeating every hello until the designated bridge acknowledges it in a config
+// BPDU. The root then sets the topology-change flag in its config BPDUs for forward-delay + max-age seconds.
+// While a bridge has the flag, its MAC entries expire after one forward delay instead of the aging time (it
+// does not flush its table; Linux ages entries faster). Config BPDUs leave a port at most once a second (the kernel's hold timer). Not modeled: RSTP, per-VLAN trees.
 
 export const STP_MAC = "01:80:c2:00:00:00";
 export const BLOCKING = "blocking", LISTENING = "listening", LEARNING = "learning", FORWARDING = "forwarding", DISABLED = "disabled";
@@ -29,6 +34,7 @@ export class Stp {
     this.hello = opts.hello ?? 2; this.maxAge = opts.maxAge ?? 20; this.forwardDelay = opts.forwardDelay ?? 15;
     this.costOf = opts.cost || {}; this.prioOf = opts.portPriority || {};
     this.started = false; this.ports = new Map(); this.gen = {};
+    this.tc = false; this.tcd = false;       // topology_change flag (in force) and topology_change_detected (our TCN not yet acknowledged)
   }
   get bid() { return [this.priority, this.mac]; }
   isRoot() { return cmpId(this.rootId, this.bid) === 0; }
@@ -69,12 +75,13 @@ export class Stp {
   _disable(p) {
     const wasRoot = this.isRoot();
     this._becomeDesignated(p); this._setState(p, DISABLED); p.role = "disabled";
-    this._cancel("fd:" + p.name); this._cancel("age:" + p.name);
+    this._cancel("fd:" + p.name); this._cancel("age:" + p.name); this._cancel("hold:" + p.name); p.hold = false; p.configPending = false; p.tcAck = false;
     this._configUpdate(); this._portStateSelection();
     if (!wasRoot && this.isRoot()) this._becomeRoot();
   }
   _becomeRoot() {
     this.curMaxAge = this.maxAge; this.curHello = this.hello; this.curFwd = this.forwardDelay;
+    this._topologyChange(); this._cancel("tcn");
     this._configGeneration(); this._startHello();
   }
   _maybeRootHello() { if (this.isRoot()) this._configGeneration(); }
@@ -83,8 +90,33 @@ export class Stp {
     if (p.state === state) return;
     this.sw.log("stp", `port ${p.name}: ${p.state} → ${state}`);
     p.state = state;
-    if (state === BLOCKING || state === DISABLED) this.sw.flushPort(p.name);
+    if (state === DISABLED) this.sw.flushPort(p.name);    // Linux deletes a port's learned entries only when the port goes down
   }
+
+  // ----- topology changes (802.1D 8.6.14, the kernel's br_topology_change_detection) -----
+  /** The topology_change flag. While set, Linux reports its ageing_time as 2 x forward delay (`agingOverride`, what
+   *  sysfs shows) and its MAC collector expires entries after one forward delay (Switch._gc). */
+  _setTc(v) {
+    if (this.tc === v) return;
+    this.tc = v; this.sw.agingOverride = v ? 2 * this.curFwd : null;
+    this.sw.log("stp", v ? `topology change: MAC entries now last ${this.curFwd}s` : "topology change over: MAC aging time back to normal");
+  }
+  _topologyChange() {
+    if (this.isRoot()) {
+      this._setTc(true);
+      this._timer("tc", this.forwardDelay + this.maxAge, () => { this.tcd = false; this._setTc(false); });
+      this.sw.log("stp", "topology change detected: I am the root, so the flag goes into my BPDUs");
+    } else if (!this.tcd) {
+      this._sendTcn(); this._timer("tcn", this.hello, () => this._tcnTimer());
+    }
+    this.tcd = true;
+  }
+  _sendTcn() {
+    const p = this.ports.get(this.rootPort); if (!p) return;
+    this.sw.log("stp", `topology change detected: sending a TCN up root port ${p.name}`);
+    this.sw.send(p.name, {src: this.sw.ifaces[p.name].mac, dst: STP_MAC, type: "bpdu", bpdu: {tcn: true}});
+  }
+  _tcnTimer() { if (!this.isRoot()) { this._sendTcn(); this._timer("tcn", this.hello, () => this._tcnTimer()); } }
 
   // ----- the algorithm (802.1D 8.6) -----
   _becomeDesignated(p) { p.desRoot = this.rootId; p.desCost = this.rootCost; p.desBridge = this.bid; p.desPort = p.id; }
@@ -113,9 +145,13 @@ export class Stp {
   _portStateSelection() {
     for (const p of this.ports.values()) {
       if (p.state === DISABLED) continue;
-      if (p.name === this.rootPort) { p.role = "root"; this._makeForwarding(p); }
+      if (p.name === this.rootPort) { p.role = "root"; p.tcAck = false; p.configPending = false; this._makeForwarding(p); }
       else if (this._isDesignated(p)) { p.role = "designated"; this._cancel("age:" + p.name); this._makeForwarding(p); }
-      else { p.role = "blocked"; this._setState(p, BLOCKING); this._cancel("fd:" + p.name); }
+      else {
+        p.role = "blocked"; p.tcAck = false; p.configPending = false;
+        if (p.state === FORWARDING || p.state === LEARNING) this._topologyChange();   // a port that carried traffic stops
+        this._setState(p, BLOCKING); this._cancel("fd:" + p.name);
+      }
     }
   }
   _makeForwarding(p) {
@@ -125,18 +161,27 @@ export class Stp {
   }
   _fdExpired(p) {
     if (p.state === LISTENING) { this._setState(p, LEARNING); this._timer("fd:" + p.name, this.curFwd, () => this._fdExpired(p)); }
-    else if (p.state === LEARNING) this._setState(p, FORWARDING);
+    else if (p.state === LEARNING) {
+      this._setState(p, FORWARDING);
+      if ([...this.ports.values()].some(q => q.state !== DISABLED && this._isDesignated(q))) this._topologyChange();
+    }
   }
 
   // ----- BPDUs -----
+  /** Send a config BPDU out p. At most one per second per port (the kernel's 1 s hold timer): an earlier request is
+   *  remembered and sent when the timer runs out. */
   _transmit(p) {
     if (p.state === DISABLED) return;
+    if (p.hold) { p.configPending = true; return; }
     const root = this.isRoot();
     const age = root ? 0 : (this.ports.get(this.rootPort).recAge ?? 0) + 1;
     if (age >= this.curMaxAge) return;
     const iface = this.sw.ifaces[p.name];
     this.sw.send(p.name, {src: iface.mac, dst: STP_MAC, type: "bpdu",
-      bpdu: {root: this.rootId, cost: this.rootCost, bridge: this.bid, port: p.id, age, maxAge: this.curMaxAge, hello: this.curHello, fwd: this.curFwd}});
+      bpdu: {root: this.rootId, cost: this.rootCost, bridge: this.bid, port: p.id, age, maxAge: this.curMaxAge, hello: this.curHello, fwd: this.curFwd,
+        tc: this.tc, tca: !!p.tcAck}});
+    p.tcAck = false; p.configPending = false; p.hold = true;
+    this._timer("hold:" + p.name, 1, () => { p.hold = false; if (p.state !== DISABLED && p.configPending) this._transmit(p); });
   }
   _configGeneration() {
     for (const p of this.ports.values()) if (this._isDesignated(p) && p.state !== DISABLED) this._transmit(p);
@@ -151,6 +196,10 @@ export class Stp {
   receive(ifname, f) {
     const p = this.ports.get(ifname); if (!p || p.state === DISABLED) return;
     const b = f.bpdu;
+    if (b.tcn) {
+      if (this._isDesignated(p)) { this.sw.log("stp", `TCN on ${ifname}: acknowledging it`); this._topologyChange(); p.tcAck = true; this._transmit(p); }
+      return;
+    }
     if (cmpId(b.bridge, this.bid) === 0) { this.sw.log("stp", `BPDU from myself on ${ifname}: loop or reflection, ignored`); return; }
     if (this._supersedes(p, b)) {
       const wasRoot = this.isRoot();
@@ -158,9 +207,16 @@ export class Stp {
       p.recAge = b.age; p.recMaxAge = b.maxAge; p.recHello = b.hello; p.recFwd = b.fwd;
       this._timer("age:" + p.name, Math.max(b.maxAge - b.age, 0.001), () => this._ageExpired(p));
       this._configUpdate(); this._portStateSelection();
-      if (!this.isRoot() && wasRoot) this._cancel("hello");
+      if (!this.isRoot() && wasRoot) {
+        this._cancel("hello");
+        if (this.tcd) { this._cancel("tc"); this._sendTcn(); this._timer("tcn", this.hello, () => this._tcnTimer()); }
+      }
       this.sw.log("stp", `BPDU on ${ifname}: root ${idStr(b.root)} cost ${b.cost}; I am ${this.isRoot() ? "root" : "not root"}, root port ${this.rootPort ?? "-"}`);
-      if (p.name === this.rootPort) this._configGeneration();
+      if (p.name === this.rootPort) {
+        this._setTc(!!b.tc);
+        this._configGeneration();
+        if (b.tca) { this.tcd = false; this._cancel("tcn"); }
+      }
     } else if (this._isDesignated(p)) this._transmit(p);          // answer an inferior BPDU with ours
   }
   _ageExpired(p) {
@@ -173,7 +229,7 @@ export class Stp {
 
   /** What an engineer would read off `show spanning-tree`. */
   describe() {
-    return {bridgeId: idStr(this.bid), root: idStr(this.rootId), isRoot: this.isRoot(), rootCost: this.rootCost, rootPort: this.rootPort,
+    return {bridgeId: idStr(this.bid), root: idStr(this.rootId), isRoot: this.isRoot(), topologyChange: this.tc, topologyChangeDetected: this.tcd, rootCost: this.rootCost, rootPort: this.rootPort,
       ports: Object.fromEntries([...this.ports.values()].map(p => [p.name, {role: p.role, state: p.state, no: p.no, id: p.id, cost: p.cost,
         designatedRoot: idStr(p.desRoot ?? this.bid), designatedCost: p.desCost, designatedBridge: idStr(p.desBridge ?? this.bid), designatedPort: p.desPort}]))};
   }

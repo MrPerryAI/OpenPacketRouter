@@ -46,7 +46,7 @@ class Heap {
 }
 
 const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
-const describe = f => f.type === "bpdu" ? `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}` : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
+const describe = f => f.type === "bpdu" ? (f.bpdu.tcn ? "STP TCN" : `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}${f.bpdu.tc ? " [topology change]" : ""}${f.bpdu.tca ? " [TC ack]" : ""}`) : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
   : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : f.ip.proto === "tcp" ? `TCP ${f.ip.tcp.sport}→${f.ip.tcp.dport} ${tcpName(f.ip.tcp)}${f.ip.tcp.len ? ` ${f.ip.tcp.len}B` : ""}` : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"][i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
@@ -69,7 +69,7 @@ export class Switch extends Device {
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
   constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300} = {}) {
-    super(net, name, "switch"); this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.blocked = new Set(blocked);
+    super(net, name, "switch"); this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -91,19 +91,27 @@ export class Switch extends Device {
   }
   _fwd(p) { return !this.blocked.has(p) && (!this.stp || !this.stp.ports.get(p) || this.stp.ports.get(p).state === "forwarding"); }
   flushPort(p) { for (const [k, v] of this.table) if (v === p) { this.table.delete(k); this.seen.delete(k); } }
-  /** Learned port for a table key ("vid|mac"), or undefined. An entry not refreshed for `agingTime` seconds is gone
-   *  (a kernel bridge's ageing_time). */
-  _lookup(key) {
-    const out = this.table.get(key); if (out === undefined) return undefined;
-    if (this.net.time - this.seen.get(key) >= this.agingTime) {
-      this.table.delete(key); this.seen.delete(key); this.log("age-out", `${key.split("|")[1]} aged out of the MAC table (not heard from for ${this.agingTime}s)`); return undefined;
+  /** MAC aging, modeled on the kernel bridge's garbage collector (br_fdb_cleanup): entries are NOT checked for expiry
+   *  when a frame is forwarded; a collector removes those not refreshed for the aging time. It wakes when the
+   *  earliest entry expires, or after one aging time if there is none, and never sooner than 10 ms. So an entry can
+   *  outlive its aging time until the collector next runs (this matters when a topology change shortens the time). */
+  /** Set the aging time (a kernel bridge's `ip link set br0 type bridge ageing_time`): also wakes the collector at once. */
+  setAgingTime(seconds) { this.agingTime = seconds; this.agingOverride = null; this._gcArm(0); }
+  _gcArm(delay) { const g = this._gcGen = (this._gcGen || 0) + 1; this.net._after(delay, () => { if (this._gcGen === g) this._gc(); }, true); }
+  /** How long an entry lives without a frame from its MAC. Linux: while the topology-change flag is set, one forward delay. */
+  holdTime() { return this.stp?.tc ? this.stp.curFwd : this.agingTime; }
+  _gc() {
+    const now = this.net.time, hold = this.holdTime(); let next = hold;
+    for (const [k, t] of [...this.seen]) {
+      if (t + hold > now) next = Math.min(next, t + hold - now);
+      else { this.table.delete(k); this.seen.delete(k); this.log("age-out", `${k.split("|")[1]} aged out of the MAC table (not heard from for ${hold}s)`); }
     }
-    return out;
+    this._gcArm(Math.max(next, 0.01));
   }
-  /** The live MAC address table: [{vlan, mac, port, age}] with age in seconds since the entry was last refreshed. */
+  /** The MAC address table: [{vlan, mac, port, age}] with age in seconds since the entry was last refreshed
+   *  (entries past their aging time stay listed, marked `stale`, until the collector removes them, as `bridge fdb show` does). */
   macTable() {
-    for (const k of [...this.table.keys()]) this._lookup(k);
-    return [...this.table].map(([k, port]) => { const [vid, mac] = k.split("|"); return {vlan: +vid, mac, port, age: Math.round((this.net.time - this.seen.get(k)) * 1000) / 1000}; });
+    return [...this.table].map(([k, port]) => { const [vid, mac] = k.split("|"); return {vlan: +vid, mac, port, age: Math.round((this.net.time - this.seen.get(k)) * 1000) / 1000, stale: this.net.time - this.seen.get(k) >= this.holdTime()}; });
   }
   /** Send `f` out port p in VLAN vid, tagged or untagged as the port is configured. False if p isn't in vid. */
   _emit(p, f, vid) {
@@ -115,17 +123,22 @@ export class Switch extends Device {
   /** A frame the switch's own IP stack sends from an SVI (Linux br_dev_xmit): known unicast goes out the
    *  learned port, anything else floods every forwarding port in the VLAN. */
   fromStack(vid, f) {
-    const out = f.dst === BROADCAST_MAC ? null : this._lookup(vid + "|" + f.dst);
+    const out = f.dst === BROADCAST_MAC ? null : this.table.get(vid + "|" + f.dst);
     if (out) { if (this._fwd(out)) this._emit(out, f, vid); return; }
     const ports = Object.keys(this.ifaces).filter(p => this._fwd(p) && this.ifaces[p].link && this.vcfg(p).member.has(vid));
     for (const p of ports) this._emit(p, f, vid);
   }
   linkChange(ifname, up) { if (this.stp) this.stp.linkChange(ifname, up); }
-  start() { if (this.stp) this.stp.start(); }
+  start() { if (this.stp) this.stp.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
 
   receive(ifname, f) {
     if (this.blocked.has(ifname)) return;
-    if (this.stp && f.type === "bpdu") return this.stp.receive(ifname, f);   // STP-enabled bridges consume BPDUs; others flood them like any multicast
+    if (this.stp && f.type === "bpdu") {   // STP-enabled bridges consume BPDUs; others flood them like any multicast
+      const state = this.stp.ports.get(ifname)?.state;   // Linux still learns the sender's MAC from a BPDU (br_handle_local_finish), in the port's VLAN
+      const vid = this.vlans ? this.vcfg(ifname).pvid : 0;
+      if ((state === "learning" || state === "forwarding") && vid !== null) { this.table.set(vid + "|" + f.src, ifname); this.seen.set(vid + "|" + f.src, this.net.time); }
+      return this.stp.receive(ifname, f);
+    }
     const st = this.stp && this.stp.ports.get(ifname) ? this.stp.ports.get(ifname).state : "forwarding";
     if (st === "disabled" || st === "listening" || st === "blocking") return;
     // VLAN classification
@@ -136,14 +149,15 @@ export class Switch extends Device {
       if (vid === null || !c.member.has(vid)) { this.log("vlan-drop", `${describe(f)}: VLAN ${f.vlan ?? "untagged"} not allowed in on ${ifname}`); return; }
     }
     const key = m => vid + "|" + m;
-    if (f.src !== BROADCAST_MAC) { this._lookup(key(f.src)); this.table.set(key(f.src), ifname); this.seen.set(key(f.src), this.net.time); }
+    if (f.src !== BROADCAST_MAC) { this.table.set(key(f.src), ifname); this.seen.set(key(f.src), this.net.time); }
     if (st === "learning") return;
     const svi = this.vlans && this.l3 ? this.svi(vid) : null;
     if (svi && f.dst === this.l3mac) { const g = {...f}; delete g.vlan; return this.l3.receive(svi.name, g); }   // for the switch itself
-    const out = f.dst === BROADCAST_MAC ? null : this._lookup(key(f.dst));
+    const out = f.dst === BROADCAST_MAC ? null : this.table.get(key(f.dst));
     if (out === ifname) { this.log("filter", `drop: ${f.dst} lives on the port it came in on (${ifname})`); return; }
     const emit = p => this._emit(p, f, vid);
     const vtag = this.vlans ? ` [VLAN ${vid}]` : "";
+    if (out && !this._fwd(out)) { this.log("filter", `drop: ${f.dst} is learned on ${out}, which is not forwarding`); return; }   // Linux drops these; it does not flood them
     if (out && this._fwd(out)) { if (emit(out)) this.log("forward", `${describe(f)}${vtag}: ${f.dst} learned on ${out}`); else this.log("vlan-drop", `${describe(f)}: VLAN ${vid} not allowed out ${out}`); return; }
     const ports = Object.keys(this.ifaces).filter(p => p !== ifname && this._fwd(p) && this.ifaces[p].link && (!this.vlans || this.vcfg(p).member.has(vid)));
     this.log("flood", `${describe(f)}${vtag}: ${f.dst === BROADCAST_MAC ? "broadcast" : "unknown destination " + f.dst} → ${ports.join(", ") || "nowhere"}`);
@@ -371,7 +385,7 @@ export class Network {
       if (++n >= maxEvents) throw new Error("event limit reached (a loop that never ends?)");
       if (stop && stop()) return true;
     }
-    if (until !== Infinity && this.time < until && !this.q.size) this.time = until;
+    if (until !== Infinity && this.time < until && (!this.q.size || this.q.peek().t > until)) this.time = until;
     return stop ? !!stop() : true;
   }
   /** Let every frame in flight land (bounded so loops can't hang). */

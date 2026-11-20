@@ -11,6 +11,7 @@
 #   validate/docker/run.sh cli        # the device CLI's Linux rendering vs the engine (validate/cli)
 #   validate/docker/run.sh intervlan  # just the inter-VLAN routing check (subinterfaces + SVIs)
 #   validate/docker/run.sh aging      # just the MAC-aging check (kernel bridge ageing_time)
+#   validate/docker/run.sh tcn        # just the spanning-tree topology-change check (TCN BPDUs, aging)
 #   validate/docker/run.sh full       # every check in CLAUDE.md except the browser smoke test
 #   validate/docker/run.sh -- CMD...  # any command, as root, in /repo (e.g. python3 validate/l2/run_kernel_l2.py)
 set -euo pipefail
@@ -29,7 +30,8 @@ intervlan='python3 validate/intervlan/run_kernel_intervlan.py'
 ospf='python3 validate/ospf/run_kernel_ospf.py'
 aging='python3 validate/aging/run_kernel_aging.py'
 rip='python3 validate/rip/run_kernel_rip.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$aging"'; '"$rip"'; ('"$storm"')'
+tcn='python3 validate/tcn/run_kernel_tcn.py'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$aging"'; '"$rip"'; '"$tcn"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
@@ -43,10 +45,11 @@ case "${1:-all}" in
   ospf)  cmd="$ospf" ;;
   aging) cmd="$aging" ;;
   rip)   cmd="$rip" ;;
-  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $aging; $rip; ($storm)" ;;
+  tcn)   cmd="$tcn" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $aging; $rip; $tcn; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|aging|rip|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|aging|rip|tcn|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
