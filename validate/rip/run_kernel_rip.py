@@ -73,7 +73,9 @@ class RipNet(l3.KernelNet):
         Path(f"{d}/ripd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
         shutil.chown(d, "frr", "frr")   # the daemons run as their usual user "frr" (root isn't in the frrvty group)
-        for f in os.listdir(d): shutil.chown(f"{d}/{f}", "frr", "frr")
+        Path(f"{d}/ripd.pid").write_text("")   # newer ripd can't always create its own pid file here
+        for f in os.listdir(d): shutil.chown(f"{d}/{f}", "frr", "frr"); os.chmod(f"{d}/{f}", 0o666)
+        os.chmod(d, 0o777)
         return d
 
     def tables(self):
