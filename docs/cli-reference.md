@@ -66,7 +66,7 @@ Lab `routed-lan-dns`, device `R1`:
 ```text
 R1>enable
 R1#show ip route
-Codes: C = connected network, S = static route
+Legend: C = connected network, S = static route
 
 C  10.0.0.0/24 on eth0 (directly connected)
 C  10.1.0.0/24 on eth1 (directly connected)
@@ -279,7 +279,7 @@ Configuring from the terminal. Type end or press Ctrl-Z to finish.
 R1(config)#ip route 10.9.0.0/16 10.1.0.53
 R1(config)#end
 R1#show ip route
-Codes: C = connected network, S = static route
+Legend: C = connected network, S = static route
 
 C  10.0.0.0/24 on eth0 (directly connected)
 C  10.1.0.0/24 on eth1 (directly connected)
@@ -427,3 +427,5 @@ node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render linux    
 node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render frr       # FRRouting config
 node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render openwrt   # OpenWrt UCI commands
 ```
+
+For Linux, add `--lab-parity` to include the extra settings that make the real kernel's frames match the engine's, as the validators use.

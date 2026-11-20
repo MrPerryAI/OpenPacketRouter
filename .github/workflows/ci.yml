@@ -35,6 +35,10 @@ jobs:
       - name: Device CLI tests (incl. running-config round trip on every spec)
         working-directory: cli
         run: npm test
+      - name: CLI reference and lab commands.txt are up to date
+        run: |
+          node cli/tools/gen-reference.mjs --check
+          node cli/tools/gen-commands.mjs --check
       - name: Engine vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l3/run_kernel_l3.py
       - name: Engine L2 (STP + VLANs) vs real Linux

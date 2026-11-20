@@ -173,6 +173,8 @@ node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render linux    
 node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render frr       # FRRouting config
 node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 --render openwrt   # OpenWrt UCI commands
 \`\`\`
+
+For Linux, add \`--lab-parity\` to include the extra settings that make the real kernel's frames match the engine's, as the validators use.
 `;
 
 if (process.argv.includes("--check")) {
