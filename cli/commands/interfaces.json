@@ -13,13 +13,13 @@
     {"modes": ["config-if"], "syntax": "no description", "handler": "interface.no-description",
      "help": {"description": "Remove the note"}},
 
-    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address PREFIX", "args": {"PREFIX": "ipv4-prefix"}, "handler": "ipv4.address.set",
+    {"modes": ["config-if"], "kinds": ["router", "host", "server", "switch"], "syntax": "ip address PREFIX", "args": {"PREFIX": "ipv4-prefix"}, "handler": "ipv4.address.set",
      "help": {"ip": "IPv4 settings of this interface", "address": "Set the interface's IPv4 address", "PREFIX": "Address and prefix length, like 10.0.0.1/24"}},
-    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address ADDRESS MASK", "args": {"ADDRESS": "ipv4-address", "MASK": "ipv4-mask"}, "handler": "ipv4.address.set",
+    {"modes": ["config-if"], "kinds": ["router", "host", "server", "switch"], "syntax": "ip address ADDRESS MASK", "args": {"ADDRESS": "ipv4-address", "MASK": "ipv4-mask"}, "handler": "ipv4.address.set",
      "help": {"ADDRESS": "Address", "MASK": "Network mask, like 255.255.255.0"}},
     {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address dhcp", "handler": "ipv4.address.dhcp",
      "help": {"dhcp": "Ask a DHCP server for an address"}},
-    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "no ip address", "handler": "ipv4.address.remove",
+    {"modes": ["config-if"], "kinds": ["router", "host", "server", "switch"], "syntax": "no ip address", "handler": "ipv4.address.remove",
      "help": {"address": "Remove the interface's address"}},
 
     {"modes": ["config-if"], "syntax": "shape rate RATE burst BYTES limit QUEUE", "args": {"RATE": "rate", "BYTES": "bytes", "QUEUE": "bytes"}, "handler": "shaper.set",
