@@ -53,7 +53,7 @@ class RipNet(l3.KernelNet):
         self.t0 = time.time()
         for n in routers:
             d = self.frr[n["name"]]
-            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-i", f"{d}/ripd.pid",
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-u", "root", "-g", "root", "-i", f"{d}/ripd.pid",
                                                 "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
                                                stdout=open(f"{self.tmp}/ripd-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
         time.sleep(1)

@@ -197,6 +197,29 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.
 | `service tcp-echo PORT` | config | routers, hosts, servers | TCP port |
 | `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
 
+### Rip
+
+RIPv2 in FRRouting's style: router rip, then network, passive-interface and timers basic. Split horizon and triggered updates are per router here (FRR sets them per interface).
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `router rip` | config | routers | Routing Information Protocol (version 2) |
+| `no router rip` | config | routers | Turn RIP off |
+| `version 2` | routing | routers | RIPv2 (the only version) |
+| `network PREFIX` | routing | routers | Network and prefix length |
+| `network IFNAME` | routing | routers | Run RIP on this interface |
+| `no network PREFIX` | routing | routers | Network and prefix length |
+| `no network IFNAME` | routing | routers | Interface name |
+| `passive-interface IFNAME` | routing | routers | Interface name |
+| `no passive-interface IFNAME` | routing | routers | Interface name |
+| `timers basic UPDATE TIMEOUT GARBAGE` | routing | routers | Seconds an invalid route is kept (default 120) |
+| `no timers basic` | routing | routers | Back to the default timers |
+| `split-horizon simple` | routing | routers | Leave them out (the default) |
+| `split-horizon poisoned-reverse` | routing | routers | Advertise them with metric 16 |
+| `no split-horizon` | routing | routers | Advertise everything everywhere |
+| `triggered-updates` | routing | routers | Send changes at once (the default) |
+| `no triggered-updates` | routing | routers | Wait for the update timer (a teaching setting, not in FRR) |
+
 ### Show
 
 Show commands. Every one also takes | json, | include WORD and | exclude WORD.
