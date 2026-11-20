@@ -3,7 +3,8 @@ import {validateSpec, validateActions} from "../engine/src/spec.js";
 import {simulate, analyse} from "./sim.js";
 import {autoLayout} from "./layout.js";
 import {EXAMPLES} from "./examples.js";
-import {createSession} from "./cli-stub.js";
+import {createSession} from "../cli/src/index.js";
+import {engineBackend} from "../cli/src/backends/engine.js";
 
 const $ = s => document.querySelector(s);
 const SVG = "http://www.w3.org/2000/svg";
@@ -359,9 +360,29 @@ async function init() {
   document.body.dataset.ready = "1";
 }
 
-// ---------------------------------------------------------------- console (Cisco-style CLI, cli-stub.js until cli/ exists)
+// ---------------------------------------------------------------- console: the project's CLI (cli/) on the engine backend
 
-const env = {
+/** Studio's tables at the current frame, in the shape cli/ show commands read (see stateOf in cli/src/backends/engine.js). */
+function cliState(dev) {
+  const d = (currentState() || {})[dev] || {}, node = S.spec.nodes.find(n => n.name === dev);
+  if (!node) return {};
+  const status = port => { const i = S.spec.links.findIndex(l => l[0] === `${dev}:${port}` || l[1] === `${dev}:${port}`);
+    return i < 0 ? "down" : S.cut.has(i) ? "admin-down" : "up"; };
+  if (node.kind === "switch") {
+    const ports = S.spec.links.flatMap(l => l.slice(0, 2)).filter(r => typeof r === "string" && r.startsWith(dev + ":")).map(r => r.slice(dev.length + 1));
+    return {interfaces: ports.map(p => ({name: p, status: (node.blocked || []).includes(p) ? "admin-down" : status(p)})),
+      mac: (d.mac || []).map(m => ({vlan: m.vlan || 1, mac: m.mac, port: m.port})), stp: d.stp || null};
+  }
+  return {
+    interfaces: (d.ifaces || []).map(i => ({name: i.name, address: /^\d/.test(i.ip) ? i.ip : null, dhcp: node.ifaces?.[i.name] === "dhcp", mac: i.mac, status: status(i.name)})),
+    routes: ((S.sim.routes || {})[dev] || []).map(r => r.via === "connected" ? {prefix: r.dst, protocol: "connected", interface: r.iface}
+      : {prefix: r.dst, protocol: "static", nextHop: r.via, interface: r.iface === "?" ? null : r.iface}),
+    arp: (d.arp || []).map(a => ({ip: a.ip, mac: a.mac, interface: a.iface})),
+    leases: d.leases || [],
+  };
+}
+
+const backend = engineBackend({
   spec: () => S.spec,
   /** Keep a changed spec if it is still valid; returns the problems otherwise. Devices keep their place (also when renamed). */
   setSpec(spec) {
@@ -370,17 +391,18 @@ const env = {
     if (S.selected) { const i = S.spec.nodes.findIndex(n => n.name === S.selected); if (i >= 0) S.selected = spec.nodes[i].name; }
     S.pos = pos; S.spec = spec; return [];
   },
-  actions: () => S.actions, setActions(a) { S.actions = a; },
-  get cut() { return S.cut; }, setCut(c) { S.cut = c; },
-  state: dev => (currentState() || {})[dev], routes: dev => (S.sim.routes || {})[dev],
+  get cut() { return S.cut; }, setCut(c) { S.cut = new Set(c); },
+  onRename(old, name) { S.actions = S.actions.map(a => a.src === old ? {...a, src: name} : a); },
+  state: cliState,
+  /** ping / traceroute from the console: added to the actions, so its frames play like any other. */
   run(action) { S.actions = [...S.actions, action]; rerun(); const a = S.sim.actions[S.sim.actions.length - 1];
     if (a.last >= a.first) goto(a.first); return a.result; },
-};
+});
 
 export function openConsole(name) {
   const box = $("#console"); box.hidden = false;
   S.selected = name; for (const g of document.querySelectorAll(".node")) g.classList.toggle("selected", g.dataset.node === name); drawDevice();
-  if (!S.sessions.has(name)) S.sessions.set(name, {cli: createSession(env, name), log: `${name} console (a stand-in for the project's CLI). Type ? for help, Tab to complete. Drag the title bar to move this window.\n\n`, hist: [], at: 0});
+  if (!S.sessions.has(name)) S.sessions.set(name, {cli: createSession(backend, name), log: `${name} console: the OpenPacketRouter CLI. Type ? for help, Tab to complete, | json after a show command. Drag the title bar to move this window.\n\n`, hist: [], at: 0});
   S.console = name; showConsole(); $("#consoleInput").focus();
 }
 function closeConsole() { const b = $("#console"); if (b) b.hidden = true; S.console = null; }
