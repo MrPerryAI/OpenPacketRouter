@@ -283,11 +283,19 @@ def last_hellos(pkts):
     return last
 
 
-def kinds(win):
+def kinds(win, switches=()):
     """Which packet types other than Hello crossed every cable direction (when a Hello went out depends on when a ping or a
-    cable cut happened, and the last Hello on every cable is compared separately), and how many Hellos."""
+    cable cut happened, and the last Hello on every cable is compared separately), and how many Hellos.
+    One exception: a Link State Request on a switched LAN is recorded for the switch, not for its cables. A router that
+    rejoins a LAN is adjacent to several routers at once and asks only for the LSAs it is still missing when each one's
+    Database Description arrives; which neighbor's LSUs arrive first is a race in real time (ospfd skips a request
+    the other neighbor's updates already answered, and which one it skips changes between runs), so "an LS Request
+    crossed this switch" is deterministic but "to this router" is not."""
     t, hello = {}, {}
     for p in win:
+        if p["type"] == "lsr":
+            sw = next((n for n in switches if f"{n}:" in p["cable"]), None)
+            if sw: t.setdefault(f"{sw}:*", set()).add("lsr"); continue
         if p["type"] != "hello": t.setdefault(p["cable"], set()).add(p["type"])
         if p["type"] == "hello": hello[p["cable"]] = hello.get(p["cable"], 0) + 1
     return {c: sorted(v) for c, v in t.items()}, hello
@@ -308,13 +316,14 @@ def main():
         steps_spec = json.loads((HERE / f"{name}.steps.json").read_text())
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_ospf.mjs"), str(netfile(name)), str(HERE / f"{name}.steps.json")))
         kr = kern[name]
+        switches = [n["name"] for n in json.loads(netfile(name).read_text())["nodes"] if n.get("kind") == "switch"]
         wants = [s.get("lastHello", True) for s in steps_spec if "snapshot" in s]
         for (es, ewin, eupto), (ks, kwin, kupto), want in zip(phases(eng, steps_spec), phases(kr, steps_spec), wants):
             ec = {r: canon_router(v, False) for r, v in es["routers"].items()}; kc = {r: canon_router(v, True) for r, v in ks["routers"].items()}
             checks = {}
             for part in ("neighbors", "interfaces", "routes", "database"): checks[part] = all(ec[r][part] == kc[r][part] for r in ec)
             if want: checks["last hello on every cable"] = last_hellos(eupto) == last_hellos(kupto)
-            et, eh = kinds(ewin); kt, kh = kinds(kwin)
+            et, eh = kinds(ewin, switches); kt, kh = kinds(kwin, switches)
             checks["packet types on every cable"] = et == kt
             ok = all(checks.values())
             rows.append((name, es["snapshot"], "; ".join(f"{r}: {nbr_text(v)}" for r, v in es["routers"].items()),

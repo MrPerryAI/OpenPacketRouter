@@ -22,3 +22,4 @@ FRR originates a router LSA (and a network LSA, as DR) on every neighbor or inte
 Timers are short (hello 1 s, dead 4 s) so a full run takes about five minutes. ospfd's own timing is real time, so
 the comparison is of states after convergence, not of exact send times: Hello counts are shown in the table, and
 which packet types crossed each cable (other than Hello) is compared, not how many.
+One exception: a Link State Request on a switched LAN is compared per switch ("one crossed SW"), not per cable. A router that rejoins a LAN is adjacent to two or more routers at once and asks each only for the LSAs still missing when that neighbor's Database Description arrives; which neighbor's updates arrive first is a race in real time, so ospfd skips the request to one of them in some runs (seen in 6 of 9 runs of `ospf-lan` under CPU load). The engine asks both.
