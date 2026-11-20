@@ -118,10 +118,10 @@ Selecting an interface; turning it off and on; addresses; shaping.
 | `no shutdown` | interface | all devices | Turn this interface back on |
 | `description TEXT` | interface | all devices | The note |
 | `no description` | interface | all devices | Remove the note |
-| `ip address PREFIX` | interface | routers, hosts, servers | Address and prefix length, like 10.0.0.1/24 |
-| `ip address ADDRESS MASK` | interface | routers, hosts, servers | Network mask, like 255.255.255.0 |
+| `ip address PREFIX` | interface | routers, hosts, servers, switches | Address and prefix length, like 10.0.0.1/24 |
+| `ip address ADDRESS MASK` | interface | routers, hosts, servers, switches | Network mask, like 255.255.255.0 |
 | `ip address dhcp` | interface | routers, hosts, servers | Ask a DHCP server for an address |
-| `no ip address` | interface | routers, hosts, servers | Remove the interface's address |
+| `no ip address` | interface | routers, hosts, servers, switches | Remove the interface's address |
 | `shape rate RATE burst BYTES limit QUEUE` | interface | all devices | Bytes |
 | `no shape` | interface | all devices | Send at full speed again |
 
@@ -131,11 +131,11 @@ Static routes in FRRouting's style (ip route PREFIX NEXTHOP); the mask form and 
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `ip route PREFIX NEXTHOP` | config | routers, hosts, servers | Address of the next router |
-| `ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers | Address of the next router |
-| `no ip route PREFIX NEXTHOP` | config | routers, hosts, servers | Remove a static route |
-| `no ip route PREFIX` | config | routers, hosts, servers | Remove a static route |
-| `no ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers | Remove a static route |
+| `ip route PREFIX NEXTHOP` | config | routers, hosts, servers, switches | Address of the next router |
+| `ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers, switches | Address of the next router |
+| `no ip route PREFIX NEXTHOP` | config | routers, hosts, servers, switches | Remove a static route |
+| `no ip route PREFIX` | config | routers, hosts, servers, switches | Remove a static route |
+| `no ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers, switches | Remove a static route |
 | `ip default-gateway GATEWAY` | config | routers, hosts, servers | Router address |
 | `no ip default-gateway` | config | routers, hosts, servers | Remove the default route |
 
