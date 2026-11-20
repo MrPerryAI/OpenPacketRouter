@@ -8,6 +8,10 @@
      "help": {"openconfig": "The configuration in OpenConfig's JSON form"}},
     {"modes": ["user", "priv"], "syntax": "show version", "handler": "show.version",
      "help": {"show": "Show status and settings", "version": "Software, device kind and backend"}},
+    {"modes": ["user", "priv"], "syntax": "show interfaces", "handler": "show.interfaces",
+     "help": {"interfaces": "Details of every interface: state, MAC, addresses, VLANs, shaping"}},
+    {"modes": ["user", "priv"], "syntax": "show interfaces IFNAME", "args": {"IFNAME": "ifname"}, "handler": "show.interfaces",
+     "help": {"IFNAME": "The interface to describe"}},
     {"modes": ["user", "priv"], "syntax": "show interface brief", "handler": "show.interface-brief",
      "help": {"interface": "Interfaces", "brief": "One line per interface"}},
     {"modes": ["user", "priv"], "syntax": "show ip interface brief", "handler": "show.interface-brief",
@@ -25,11 +29,6 @@
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show vlan brief", "handler": "show.vlan-brief",
      "help": {"vlan": "VLANs", "brief": "VLANs with their access ports, and the trunks"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show vlan", "handler": "show.vlan-brief",
-     "help": {"vlan": "VLANs"}},
-
-    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "ping ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.ping",
-     "help": {"ping": "Send one echo request and wait for the reply", "ADDRESS": "Address to ping"}},
-    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "traceroute ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.traceroute",
-     "help": {"traceroute": "List the routers on the way to an address", "ADDRESS": "Destination address"}}
+     "help": {"vlan": "VLANs"}}
   ]
 }

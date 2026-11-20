@@ -114,7 +114,7 @@ test("every show command answers | json with JSON", () => {
     const s = createSession(b, device, {mode: "priv"});
     const kind = b.kind(device);
     for (const c of table.commands.filter(c => c.handler.startsWith("show.") && c.modes.includes("priv") && (!c.kinds || c.kinds.includes(kind)))) {
-      const r = s.exec(`${c.syntax} | json`);
+      const r = s.exec(`${c.syntax.replace("IFNAME", b.ports(device)[0])} | json`);
       assert.doesNotThrow(() => JSON.parse(r.output), `${device}: ${c.syntax} | json -> ${r.output}`);
     }
   }
@@ -124,7 +124,8 @@ test("pipes: include and exclude; pipes only on show", () => {
   const s = createSession(routed(), "R1", {mode: "priv"});
   assert.equal(s.exec("show running-config | include address").output, " ip address 10.0.0.1/24\n ip address 10.1.0.1/24");
   assert.ok(!s.exec("show running-config | exclude !").output.includes("!"));
-  assert.match(s.exec("ping 10.1.0.53 | json").output, /Only show commands/);
+  assert.match(s.exec("configure terminal | json").output, /Only show commands/);
+  assert.equal(s.exec("ping 10.1.0.53 | json").json.ok, true);
 });
 
 test("ping and traceroute run the engine", () => {

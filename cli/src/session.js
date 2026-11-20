@@ -80,14 +80,14 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
       return {out: backend.save() === false ? "% Saving failed" : "Configuration saved."};
     },
     "tools.ping": ([ip]) => {
-      const r = backend.run ? backend.run(s.device, {do: "ping", dst: ip}) : null;
+      let r; try { r = backend.run ? backend.run(s.device, {do: "ping", dst: ip}) : null; } catch (e) { return {out: `% ${e.message}`}; }
       if (!r) return {out: "% This backend cannot run ping"};
       const text = r.ok ? `Reply from ${r.from}: time ${r.rtt_ms} ms\nping ${ip}: 1 sent, 1 answered`
         : `${r.from ? `${r.from} says: ${r.error}` : `No answer (${r.error})`}\nping ${ip}: 1 sent, 0 answered`;
       return {out: text, changed: "actions", json: r};
     },
     "tools.traceroute": ([ip]) => {
-      const r = backend.run ? backend.run(s.device, {do: "traceroute", dst: ip}) : null;
+      let r; try { r = backend.run ? backend.run(s.device, {do: "traceroute", dst: ip}) : null; } catch (e) { return {out: `% ${e.message}`}; }
       if (!r) return {out: "% This backend cannot run traceroute"};
       const lines = [`Route to ${ip}:`, ...(r.hops || []).map((h, i) => `${String(i + 1).padStart(3)}  ${h.from ?? "*"}${h.rtt_ms !== undefined ? `  ${h.rtt_ms} ms` : ""}`)];
       return {out: lines.join("\n"), changed: "actions", json: r};
@@ -112,11 +112,14 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
     const full = r.live.filter(x => x.c.tokens.length === words.length);
     if (!full.length) return {output: "% Command is incomplete (type ? to see what comes next)", changed: null};
     const {c, values} = full[0];
-    if (pipes.length && !c.handler.startsWith("show.")) return {output: "% Only show commands take | json, | include or | exclude", changed: null};
+    if (pipes.length && !c.handler.startsWith("show.") && !c.handler.startsWith("tools.")) return {output: "% Only show commands take | json, | include or | exclude", changed: null};
 
     const saved = s.mode;
     if (use === "config" && mode !== "config") { s.mode = "config"; s.iface = s.pool = s.vlan = s.router = null; }
-    const res = run(c, values, use);
+    let res = run(c, values, use);
+    // ping and traceroute take the same pipes as show commands: their text and their JSON result.
+    const changedByTool = c.handler.startsWith("tools.") ? res.changed : null;
+    if (changedByTool && pipes.length) res = {kind: "show", text: res.out, json: res.json};
     if (mode === "priv" && saved !== "priv" && !s.closed && CONFIG_MODES.has(saved)) s.mode = saved;   // `do`: back where we were
 
     if (res.kind !== "show") return {output: res.out || "", changed: res.changed || null, ...(res.json ? {json: res.json} : {})};
@@ -128,7 +131,7 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
       else if ("exclude".startsWith(pw.toLowerCase()) && pw && arg) out = out.split("\n").filter(l => !l.includes(arg)).join("\n");
       else return {output: `% Unknown pipe "${p.trim()}": use | json, | include WORD or | exclude WORD`, changed: null};
     }
-    return {output: out, changed: null, json};
+    return {output: out, changed: changedByTool, json};
   }
 
   function help(text) {

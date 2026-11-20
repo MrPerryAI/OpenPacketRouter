@@ -6,5 +6,6 @@ import ipRouting from "./ip-routing.json" with {type: "json"};
 import switching from "./switching.json" with {type: "json"};
 import services from "./services.json" with {type: "json"};
 import show from "./show.json" with {type: "json"};
+import exec from "./exec.json" with {type: "json"};
 
-export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, show];
+export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, show, exec];

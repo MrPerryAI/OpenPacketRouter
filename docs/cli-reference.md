@@ -206,6 +206,8 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show running-config` | privileged | all devices | The configuration, as commands that rebuild it |
 | `show running-config openconfig` | privileged | all devices | The configuration in OpenConfig's JSON form |
 | `show version` | user, privileged | all devices | Software, device kind and backend |
+| `show interfaces` | user, privileged | all devices | Details of every interface: state, MAC, addresses, VLANs, shaping |
+| `show interfaces IFNAME` | user, privileged | all devices | The interface to describe |
 | `show interface brief` | user, privileged | all devices | One line per interface |
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
@@ -215,8 +217,15 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show vlan brief` | user, privileged | switches | VLANs with their access ports, and the trunks |
 | `show vlan` | user, privileged | switches | VLANs |
-| `ping ADDRESS` | user, privileged | routers, hosts, servers | Address to ping |
-| `traceroute ADDRESS` | user, privileged | routers, hosts, servers | Destination address |
+
+### Exec
+
+Commands that run something on the device now (ping, traceroute) instead of reading or changing configuration. Each takes | json like a show command.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `ping ADDRESS` | user, privileged | routers, hosts, servers, switches | Address to ping |
+| `traceroute ADDRESS` | user, privileged | routers, hosts, servers, switches | Destination address |
 
 ## Examples
 

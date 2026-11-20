@@ -84,6 +84,44 @@ export const SHOWS = {
     return {json: {vlans: vl, trunks}, text};
   },
 
+  // One block per interface (or one interface): everything the device knows about it.
+  "show.interfaces": (ctx, values) => {
+    const names = values && values[0] ? [values[0]] : ctx.ports();
+    const st = ctx.state().interfaces || [], relay = M.relayInterfaces(ctx.model);
+    const rows = names.map(p => {
+      const ifc = M.iface(ctx.model, p, false), live = st.find(x => x.name === p) || {};
+      const sv = ifc && M.switchedVlan(ifc, false), sp = ctx.kind === "switch" ? M.stpPort(ctx.model, p, false) : null;
+      const addrs = M.addressesOf(ifc || {}).map(a => `${a.ip}/${a.prefixLength}`);
+      if (!addrs.length && live.address) addrs.push(live.address);
+      const sub = /^(.+)\.(\d+)$/.exec(p), svi = /^vlan(\d+)$/.exec(p);
+      const row = {name: p, description: ifc?.config.description ?? null, admin: ifc && ifc.config.enabled === false ? "down" : "up",
+        link: live.status ? (live.status === "up" ? "up" : "down") : "unknown", mac: live.mac ?? null,
+        addresses: addrs, dhcpClient: !!(ifc && M.dhcpClientOf(ifc))};
+      if (sub && ctx.kind !== "switch") Object.assign(row, {parent: sub[1], vlan: +sub[2]});
+      if (svi && ctx.kind === "switch") row.vlan = +svi[1];
+      if (sv && sv["interface-mode"]) Object.assign(row, {vlanMode: sv["interface-mode"].toLowerCase(),
+        ...(sv["interface-mode"] === "TRUNK" ? {trunkVlans: sv["trunk-vlans"], nativeVlan: sv["native-vlan"] ?? 1} : {accessVlan: sv["access-vlan"] ?? 1})});
+      if (sp) row.stp = {cost: sp.cost ?? null, portPriority: sp["port-priority"] ?? null};
+      const shaper = ifc && ifc["openpacketrouter:shaper"];
+      if (shaper) row.shaper = {rate: shaper.rate, burst: shaper.burst, limit: shaper.limit};
+      const helpers = relay[p]?.config["helper-address"];
+      if (helpers && helpers.length) row.helperAddresses = helpers;
+      return row;
+    });
+    const text = rows.map(r => [
+      `${r.name} is ${r.admin === "down" ? "administratively down" : r.link}${r.description ? `, ${r.description}` : ""}`,
+      ...(r.mac ? [`  MAC address ${r.mac}`] : []),
+      ...(r.parent ? [`  802.1Q subinterface of ${r.parent}, VLAN ${r.vlan}`] : r.vlan && !r.vlanMode ? [`  Layer 3 interface for VLAN ${r.vlan}`] : []),
+      ...r.addresses.map(a => `  IPv4 address ${a}`),
+      ...(r.dhcpClient && !r.addresses.length ? ["  IPv4 address from DHCP (none yet)"] : []),
+      ...(r.vlanMode === "trunk" ? [`  Trunk, allowed VLANs ${formatVlanList(r.trunkVlans)}, native VLAN ${r.nativeVlan}`] : r.vlanMode ? [`  Access port in VLAN ${r.accessVlan}`] : []),
+      ...(r.stp ? [`  Spanning tree cost ${r.stp.cost ?? "default"}, port priority ${r.stp.portPriority ?? "default"}`] : []),
+      ...(r.shaper ? [`  Shaper: rate ${r.shaper.rate}, burst ${r.shaper.burst}, queue limit ${r.shaper.limit}`] : []),
+      ...(r.helperAddresses ? [`  DHCP relay to ${r.helperAddresses.join(", ")}`] : []),
+    ].join("\n")).join("\n\n");
+    return {json: values && values[0] ? rows[0] : rows, text};
+  },
+
   "show.dhcp-binding": ctx => {
     const rows = ctx.state().leases || [];
     return {json: rows, text: rows.length ? table(["Address", "Client MAC"], rows.map(r => [r.ip, r.mac])) : "No addresses handed out yet"};
