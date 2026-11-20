@@ -270,4 +270,4 @@ printf 'conf t\ninterface p3\nswitchport access vlan 20\nend\nwrite\n' | node cl
 3. More switching commands (VLAN names, spanning-tree detail), RIP commands after RIPv2 lands.
 4. `docs/cli-reference.md`: every command, generated from the definition files where possible.
 5. One working proof per real backend: Linux first (checked in the Docker validator), then FRR, then
-   OpenWrt.
+   OpenWrt. Linux: done for routers, hosts and plain switches (`validate/cli/`, 12/12 frame-for-frame matches).
