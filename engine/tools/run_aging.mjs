@@ -32,7 +32,7 @@ for (const s of JSON.parse(fs.readFileSync(stepsFile, "utf8"))) {
   else if (s.ping) {
     const before = net.snapshot(); window("ping");
     const r = ping(net, s.ping[0], s.ping[1], {timeout: 2});
-    net.settle(s.settle ?? 1);
+    net.run(net.time + (s.settle ?? 1));
     let frames;   // "frames": "data" counts only non-STP frames (BPDUs share the cables); false compares none
     if (s.frames === "data") { frames = {}; for (const [k, v] of Object.entries(window("ping"))) if (v.includes("data")) frames[k] = v.filter(x => x === "data").length; }
     else frames = net.diff(before);

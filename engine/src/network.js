@@ -378,18 +378,18 @@ export class Network {
   log(node, event, detail) { if (this.trace.length < this.traceLimit) this.trace.push({t: this.time, node, event, detail}); }
 
   /** Process events until `until` (seconds), the queue empties, or `stop()` returns true. */
-  run(until = Infinity, stop = null, maxEvents = 5e6) {
+  run(until = Infinity, stop = null, maxEvents = 5e6, pad = true) {
     let n = 0; this._start();
     while (this.q.size && this.q.peek().t <= until && (until !== Infinity || this.live > 0)) {
       const e = this.q.pop(); this.time = e.t; if (!e.daemon) this.live--; e.fn(); this.events++;
       if (++n >= maxEvents) throw new Error("event limit reached (a loop that never ends?)");
       if (stop && stop()) return true;
     }
-    if (until !== Infinity && this.time < until && (!this.q.size || this.q.peek().t > until)) this.time = until;
+    if (until !== Infinity && this.time < until && (pad ? (!this.q.size || this.q.peek().t > until) : !this.q.size)) this.time = until;   // pad: land on `until` even with timers pending (settle() does not: it only lets traffic finish)
     return stop ? !!stop() : true;
   }
   /** Let every frame in flight land (bounded so loops can't hang). */
-  settle(maxSeconds = 3) { this.run(this.time + maxSeconds); }
+  settle(maxSeconds = 3) { this.run(this.time + maxSeconds, null, 5e6, false); }
   flushCaches() { for (const n of this.nodes.values()) n.flush(); }
   snapshot() { return new Map(this.counters); }
   diff(before) { const d = {}; for (const [k, v] of this.counters) { const x = v - (before.get(k) || 0); if (x) d[k] = x; } return d; }
