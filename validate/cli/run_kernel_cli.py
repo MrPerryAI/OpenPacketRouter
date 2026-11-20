@@ -12,8 +12,9 @@ the commands the CLI renders for it:
 (addresses, routes, forwarding, bridges, the DNS server, and the settings that pin the kernel to what the engine
 models). One substitution: the engine's DNS is a simplified teaching protocol (JSON over UDP 53, see
 validate/l3/dns_server.py), so the names the CLI renders for dnsmasq (`--host-record=NAME,IP`) are served by that
-same stand-in instead of dnsmasq, exactly as validate/l3 does. It then runs the same actions as validate/l3 and compares each result and the frame count on every cable
-direction with the engine. If they match, the CLI's model -> Linux mapping builds the same network the engine runs.
+same stand-in instead of dnsmasq, exactly as validate/l3 does. It then runs the same checks as validate/l3 and
+validate/l2 (results and the frame count on every cable direction; for spanning tree, every bridge's root, costs
+and port roles and states after convergence, a cable cut and a restore) and compares them with the engine. If they match, the CLI's model -> Linux mapping builds the same network the engine runs.
 """
 import json, os, shlex, shutil, subprocess, sys, time
 from pathlib import Path
