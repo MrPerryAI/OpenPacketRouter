@@ -35,11 +35,11 @@ export const SHOWS = {
 
   "show.ip-route": ctx => {
     const rows = ctx.state().routes || [];
-    const code = r => r.protocol === "connected" ? "C" : "S";
-    const lines = ["Legend: C = connected network, S = static route", ""];
+    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : "S";
+    const lines = [`Legend: C = connected network, S = static route${rows.some(r => r.protocol === "ospf") ? ", O = learned through OSPF" : ""}`, ""];
     for (const r of rows) lines.push(r.protocol === "connected"
       ? `C  ${r.prefix} on ${r.interface} (directly connected)`
-      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
+      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.metric !== undefined ? ` (cost ${r.metric})` : ""}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
     if (!rows.length) lines.push("(no routes)");
     return {json: rows, text: lines.join("\n")};
   },

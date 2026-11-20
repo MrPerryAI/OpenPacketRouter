@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {createSession} from "../src/index.js";
 import {engineBackend} from "../src/backends/engine.js";
+import {loadSpec} from "../../engine/src/spec.js";
 import {frrConfig} from "../src/backends/frr.js";
 import {ROOT} from "./helpers.js";
 
@@ -40,15 +41,34 @@ test("ospf commands are for routers, and need router ospf first", () => {
   assert.match(s.exec("ospf cost 5").output, /OSPF is not running/);
 });
 
-test("show ip ospf ... print text and | json, also with OSPF off", () => {
-  const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf/ospf-p2p.net"), "utf8"));
-  const s = createSession(engineBackend(sp), "R1"); s.exec("enable");
-  for (const c of ["neighbor", "interface", "route", "database"]) {
-    const r = s.exec(`show ip ospf ${c} | json`); assert.ok(Array.isArray(r.json), c);
-    assert.ok(s.exec(`show ip ospf ${c}`).output.length > 0);
+test("show ip ospf ... | json equal the engine's own OSPF state once converged (p2p and LAN)", () => {
+  for (const name of ["ospf-p2p", "ospf-lan"]) {
+    const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf", name + ".net"), "utf8"));
+    const truth = loadSpec(sp); truth._start(); truth.run(30);
+    const b = engineBackend(sp);
+    for (const dev of b.devices().filter(d => b.kind(d) === "router")) {
+      b.run(dev, {do: "wait", seconds: 30});
+      const s = createSession(b, dev); s.exec("enable");
+      const o = truth.node(dev).ospf;
+      assert.deepEqual(s.exec("show ip ospf neighbor | json").json, o.neighbors(), `${name} ${dev} neighbor`);
+      assert.deepEqual(s.exec("show ip ospf interface | json").json, o.interfaces(), `${name} ${dev} interface`);
+      assert.deepEqual(s.exec("show ip ospf route | json").json, o.describe(), `${name} ${dev} route`);
+      assert.deepEqual(s.exec("show ip ospf database | json").json, o.database(), `${name} ${dev} database`);
+      assert.ok(o.neighbors().length, `${name} ${dev} has neighbors`);
+      assert.match(s.exec("show ip ospf neighbor").output, /Full/, "text view lists the full adjacency");
+      const rt = s.exec("show ip route | json").json;
+      assert.ok(rt.some(r => r.protocol === "ospf"), `${name} ${dev}: show ip route lists OSPF routes: ${JSON.stringify(rt)}`);
+    }
   }
+});
+
+test("show ip ospf ... with OSPF off: a message, and json null; not offered on hosts", () => {
+  const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf/ospf-p2p.net"), "utf8"));
   const h = createSession(engineBackend(sp), "H1"); h.exec("enable");
-  assert.match(h.exec("show ip ospf neighbor").output, /%|Unknown|Invalid|Incomplete/i);
+  assert.match(h.exec("show ip ospf neighbor").output, /%/);
+  const r = createSession(engineBackend(spec()), "R1"); r.exec("enable");
+  assert.equal(r.exec("show ip ospf neighbor | json").json, null);
+  assert.match(r.exec("show ip ospf neighbor").output, /not running/);
 });
 
 test("every OSPF spec in validate/ spells out the same configuration through the CLI", () => {

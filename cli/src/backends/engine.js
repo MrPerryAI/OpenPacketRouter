@@ -297,6 +297,7 @@ function routesOf(n) {
     const out = Object.values(n.ifaces).find(i => i.ip && inSubnet(r.via, i.net, i.mask));
     routes.push({prefix: r.cidr || `${intToIp(r.net)}/${r.prefix}`, protocol: "static", nextHop: r.via, interface: out ? out.name : null});
   }
+  if (n.ospf) for (const r of n.ospf.fib()) routes.push({prefix: r.cidr, protocol: "ospf", nextHop: r.gw, interface: r.iface, metric: r.metric});
   return routes;
 }
 
