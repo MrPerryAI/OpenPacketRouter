@@ -56,6 +56,8 @@ jobs:
       - name: RIPv2 vs FRRouting ripd (tables and packets on every cable)
         # Runs in the project's privileged container (Dockerfile has frr): the runner's AppArmor/lock-dir
         # setup stops ripd from creating its pid lock file there.
-        run: validate/docker/run.sh rip
+        run: |
+          sudo aa-status 2>/dev/null | grep -iE 'frr|ripd|zebra' || true
+          validate/docker/run.sh rip
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
