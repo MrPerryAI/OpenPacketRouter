@@ -71,6 +71,15 @@ export function configLines(model, {kind, ports}) {
     if (p.lease !== undefined) out.push(` lease ${p.lease}`);
     out.push("!");
   }
+  if (s.rip) {
+    out.push("router rip", " version 2");
+    for (const n of s.rip.networks) out.push(` network ${n}`);
+    for (const i of s.rip.passive || []) out.push(` passive-interface ${i}`);
+    const t = s.rip.timers; if (t) out.push(` timers basic ${t.update} ${t.timeout} ${t.garbage}`);
+    if (s.rip.splitHorizon) out.push(s.rip.splitHorizon === "off" ? " no split-horizon" : " split-horizon poisoned-reverse");
+    if (s.rip.triggered === false) out.push(" no triggered-updates");
+    out.push("!");
+  }
   if (s.tcp) { for (const [port, app] of Object.entries(s.tcp)) if (app === "echo") out.push(`service tcp-echo ${port}`); out.push("!"); }
   out.push("end");
   return out;

@@ -11,6 +11,14 @@
    "readme": "bottleneck/README.md"
   },
   {
+   "id": "count-to-infinity",
+   "name": "Count to infinity (teaching scenario, engine only)",
+   "about": "A triangle of routers with triggered updates off: after a LAN cut, the false route circulates and its metric climbs from 3 to 16.",
+   "spec": "count-to-infinity/spec.json",
+   "actions": "count-to-infinity/actions.json",
+   "readme": "count-to-infinity/README.md"
+  },
+  {
    "id": "dhcp-relay",
    "name": "DHCP through a relay",
    "about": "The only DHCP server sits in the server room. Student PCs are on another network, behind router R1. DHCP broadcasts cannot cross a router, so R1 relays them to the server, which picks an address from the pool for the PC's network.",
@@ -67,12 +75,28 @@
    "readme": "mac-aging/README.md"
   },
   {
+   "id": "rip-chain",
+   "name": "RIP on a chain of three routers (poisoned reverse)",
+   "about": "Three routers learn each other's networks with RIPv2. Cut a cable: the route is poisoned (metric 16), then garbage collected, and returns when the cable is restored.",
+   "spec": "rip-chain/spec.json",
+   "actions": "rip-chain/actions.json",
+   "readme": "rip-chain/README.md"
+  },
+  {
    "id": "routed-lan-dns",
    "name": "Two LANs and a router: ping, traceroute, DNS",
    "about": "Students on 10.0.0.0/24, servers on 10.1.0.0/24, one router between them. Ping crosses the router, traceroute shows it as the first hop, and DNS turns a name into an address.",
    "spec": "routed-lan-dns/spec.json",
    "actions": "routed-lan-dns/actions.json",
    "readme": "routed-lan-dns/README.md"
+  },
+  {
+   "id": "stp-topology-change",
+   "name": "STP topology change",
+   "about": "Cut a cable in a spanning-tree triangle: TCN BPDUs and the topology-change flag make every switch age out MAC entries after one forward delay instead of the normal aging time.",
+   "spec": "stp-topology-change/spec.json",
+   "actions": "stp-topology-change/actions.json",
+   "readme": "stp-topology-change/README.md"
   },
   {
    "id": "tcp",

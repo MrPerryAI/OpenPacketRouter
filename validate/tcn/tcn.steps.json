@@ -1,0 +1,196 @@
+[
+ {
+  "gcReset": true
+ },
+ {
+  "wait": 14
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 12
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "link": {
+   "end": "SW1:p1",
+   "up": false
+  }
+ },
+ {
+  "wait": 3
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "wait": 6
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "wait": 1
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "wait": 4
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 14
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ],
+  "fresh": true
+ },
+ {
+  "wait": 2
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "link": {
+   "end": "SW4:p3",
+   "up": false
+  }
+ },
+ {
+  "wait": 2
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "link": {
+   "end": "SW4:p3",
+   "up": true
+  }
+ },
+ {
+  "wait": 13
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "wait": 10
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ }
+]
