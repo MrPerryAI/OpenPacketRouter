@@ -76,6 +76,7 @@
             "cost": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
             "portPriority": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 255}}}},
           "vlans": {"type": "object", "additionalProperties": {"$ref": "#/$defs/vlanPort"}},
+          "vlanNames": {"type": "object", "propertyNames": {"pattern": "^[0-9]+$"}, "additionalProperties": {"type": "string", "minLength": 1}},
           "ifaces": {"type": "object", "description": "SVIs: makes a VLAN-aware switch a Layer 3 switch", "propertyNames": {"pattern": "^vlan[0-9]{1,4}$"}, "additionalProperties": {"$ref": "#/$defs/cidr"}},
           "gw": {"$ref": "#/$defs/ipv4"},
           "routes": {"$ref": "#/$defs/ipNode/properties/routes"}
