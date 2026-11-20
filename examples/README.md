@@ -1,7 +1,7 @@
 # Example labs
 
 Ready-to-run networks for the OpenPacketRouter engine. Each folder has a `spec.json` (the network), an
-`actions.json` (what to do on it) and a short README saying what to look for. No install needed beyond Node 18+.
+`actions.json` (what to do on it) and a short README saying what to look for, and a `commands.txt`: the same configuration of every device as CLI commands (see [docs/cli-reference.md](../docs/cli-reference.md); regenerate with `node cli/tools/gen-commands.mjs`). No install needed beyond Node 18+.
 
 From the repository root:
 
