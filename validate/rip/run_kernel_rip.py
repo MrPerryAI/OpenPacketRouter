@@ -48,14 +48,14 @@ class RipNet(l3.KernelNet):
             d = self.frr[n["name"]]
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/zebra", "-f", f"{d}/zebra.conf", "-i", f"{d}/zebra.pid",
                                                 "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
-                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+                                               stdout=open(f"{self.tmp}/zebra-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
         time.sleep(2)
         self.t0 = time.time()
         for n in routers:
             d = self.frr[n["name"]]
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-f", f"{d}/ripd.conf", "-i", f"{d}/ripd.pid",
                                                 "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
-                                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+                                               stdout=open(f"{self.tmp}/ripd-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
 
     def write_conf(self, n):
         d = f"{self.tmp}/frr-{n['name']}"; os.makedirs(d)
@@ -73,8 +73,12 @@ class RipNet(l3.KernelNet):
     def tables(self):
         out = {}
         for name, d in self.frr.items():
-            txt = l3.nsx(self.ns[name], "vtysh", "--vty_socket", d, "-c", "show ip rip")
-            rows = []
+            r = subprocess.run(["ip", "netns", "exec", self.ns[name], "vtysh", "--vty_socket", d, "-c", "show ip rip"], capture_output=True, text=True)
+            if r.returncode:
+                logs = "".join(f"\n--- {f}\n" + Path(f"{self.tmp}/{f}").read_text()[-1500:] for f in sorted(os.listdir(self.tmp)) if f.endswith(".log"))
+                raise RuntimeError(f"vtysh failed ({r.returncode}) on {name}: {r.stderr[-1500:]}{r.stdout[-500:]}\n{subprocess.run(['ls', '-la', d], capture_output=True, text=True).stdout}\n"
+                                   f"{subprocess.run(['ps', 'aux'], capture_output=True, text=True).stdout[-1500:]}{logs}")
+            txt = r.stdout; rows = []
             for line in txt.splitlines():
                 m = re.match(r"^([CR])\(\w\)\s+(\S+)\s+(\S+)\s+(\d+)\s", line)
                 if m: rows.append({"network": m[2], "nextHop": m[3], "metric": int(m[4]), "type": m[1]})
@@ -243,6 +247,7 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["--inner"]: inner()
     else:
         try: sys.exit(main())
-        except subprocess.CalledProcessError as e:
-            l3.gh_note("error", "RIP validation crashed", f"{e}\nstdout: {(e.stdout or '')[-3000:]}\nstderr: {(e.stderr or '')[-5000:]}")
+        except (subprocess.CalledProcessError, RuntimeError) as e:
+            l3.gh_note("error", "RIP validation crashed", f"{e}\nstdout: {(getattr(e, 'stdout', '') or '')[-3000:]}\nstderr: {(getattr(e, 'stderr', '') or '')[-6000:]}")
+            print((getattr(e, 'stderr', '') or str(e))[-6000:], file=sys.stderr)
             raise
