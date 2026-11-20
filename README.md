@@ -84,3 +84,7 @@ The school network must allow student devices to reach the Mac on port 8080, and
 ## Accuracy
 
 As of Nov 17, 2026, the FAA hasn't said what protocol carried the flood. The lab models a Layer 2 broadcast storm as a teaching analogy. Link delays and speeds are illustrative, not FAA data.
+
+## License
+
+Apache License 2.0: see [LICENSE](LICENSE) and [NOTICE](NOTICE).

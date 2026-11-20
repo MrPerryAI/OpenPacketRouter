@@ -1,0 +1,16 @@
+OpenPacketRouter
+Copyright 2026 The OpenPacketRouter Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party material
+--------------------
+
+None is bundled yet. When command definitions from the SONiC management
+framework (Apache License 2.0, https://github.com/sonic-net/sonic-mgmt-framework)
+are adapted for cli/, they are listed here with their original copyright notice
+and the files they appear in.
+
+The CLI in cli/ follows the general command style common to network devices and
+the routing syntax style of FRRouting. It contains no Cisco IOS code or
+documentation and no FRRouting (GPL) code or text.
