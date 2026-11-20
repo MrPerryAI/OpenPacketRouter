@@ -1,0 +1,45 @@
+{
+  "feature": "services",
+  "about": "What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.",
+  "commands": [
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip dns server", "handler": "dns.server",
+     "help": {"ip": "IPv4 settings", "dns": "DNS service", "server": "Answer DNS questions for the names set with ip host"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip dns server", "handler": "dns.no-server",
+     "help": {"no": "Undo a setting", "server": "Stop answering DNS questions (and forget the names)"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip host NAME ADDRESS", "args": {"NAME": "word", "ADDRESS": "ipv4-address"}, "handler": "dns.host",
+     "help": {"host": "A name this device's DNS server answers", "NAME": "Name, like pc1.lan", "ADDRESS": "Its IPv4 address"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip host NAME", "args": {"NAME": "word"}, "handler": "dns.no-host",
+     "help": {"host": "Forget a name"}},
+
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip dhcp pool NAME", "args": {"NAME": "word"}, "handler": "dhcp.pool", "enter": "config-dhcp",
+     "help": {"dhcp": "DHCP server", "pool": "Create or change a pool of addresses to hand out (the first pool serves this device's own network)", "NAME": "Pool name"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip dhcp pool NAME", "args": {"NAME": "word"}, "handler": "dhcp.no-pool",
+     "help": {"pool": "Delete a pool"}},
+    {"modes": ["config-dhcp"], "syntax": "range FIRST LAST", "args": {"FIRST": "ipv4-address", "LAST": "ipv4-address"}, "handler": "dhcp.range",
+     "help": {"range": "Addresses to hand out", "FIRST": "First address", "LAST": "Last address"}},
+    {"modes": ["config-dhcp"], "syntax": "netmask MASK", "args": {"MASK": "ipv4-mask"}, "handler": "dhcp.set:netmask",
+     "help": {"netmask": "Mask for a relayed network's pool", "MASK": "Network mask"}},
+    {"modes": ["config-dhcp"], "syntax": "default-router ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "dhcp.set:default-router",
+     "help": {"default-router": "Gateway to tell clients about", "ADDRESS": "Router address"}},
+    {"modes": ["config-dhcp"], "syntax": "dns-server ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "dhcp.set:dns-server",
+     "help": {"dns-server": "DNS server to tell clients about", "ADDRESS": "DNS server address"}},
+    {"modes": ["config-dhcp"], "syntax": "lease SECONDS", "args": {"SECONDS": "seconds"}, "handler": "dhcp.set:lease",
+     "help": {"lease": "How long a client may keep its address", "SECONDS": "Seconds (default 3600)"}},
+    {"modes": ["config-dhcp"], "syntax": "no netmask", "handler": "dhcp.unset:netmask", "help": {"no": "Undo a setting", "netmask": "Remove the mask"}},
+    {"modes": ["config-dhcp"], "syntax": "no default-router", "handler": "dhcp.unset:default-router", "help": {"default-router": "Tell clients no gateway"}},
+    {"modes": ["config-dhcp"], "syntax": "no dns-server", "handler": "dhcp.unset:dns-server", "help": {"dns-server": "Tell clients no DNS server"}},
+    {"modes": ["config-dhcp"], "syntax": "no lease", "handler": "dhcp.unset:lease", "help": {"lease": "Default lease time"}},
+
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "ip helper-address ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "relay.add",
+     "help": {"ip": "IPv4 settings of this interface", "helper-address": "Relay DHCP requests heard on this interface to a server", "ADDRESS": "DHCP server address"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "no ip helper-address", "handler": "relay.remove",
+     "help": {"no": "Undo a setting", "helper-address": "Stop relaying DHCP on this interface"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "no ip helper-address ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "relay.remove",
+     "help": {"ADDRESS": "DHCP server address"}},
+
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-echo PORT", "args": {"PORT": "port"}, "handler": "tcp.echo",
+     "help": {"service": "Programs this device runs", "tcp-echo": "Listen on a TCP port and send back what arrives", "PORT": "TCP port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-echo PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
+     "help": {"service": "Stop a program", "tcp-echo": "Stop the TCP echo service on a port"}}
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "feature": "interfaces",
+  "about": "Selecting an interface; turning it off and on; addresses; shaping.",
+  "commands": [
+    {"modes": ["config"], "syntax": "interface IFNAME", "args": {"IFNAME": "ifname"}, "handler": "interface.select", "enter": "config-if",
+     "help": {"interface": "Configure one interface", "IFNAME": "Interface name"}},
+    {"modes": ["config-if"], "syntax": "shutdown", "handler": "interface.shutdown",
+     "help": {"shutdown": "Turn this interface off"}},
+    {"modes": ["config-if"], "syntax": "no shutdown", "handler": "interface.no-shutdown",
+     "help": {"no": "Undo a setting", "shutdown": "Turn this interface back on"}},
+    {"modes": ["config-if"], "syntax": "description TEXT", "args": {"TEXT": "word"}, "handler": "interface.description",
+     "help": {"description": "A note about this interface (one word)", "TEXT": "The note"}},
+    {"modes": ["config-if"], "syntax": "no description", "handler": "interface.no-description",
+     "help": {"description": "Remove the note"}},
+
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address PREFIX", "args": {"PREFIX": "ipv4-prefix"}, "handler": "ipv4.address.set",
+     "help": {"ip": "IPv4 settings of this interface", "address": "Set the interface's IPv4 address", "PREFIX": "Address and prefix length, like 10.0.0.1/24"}},
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address ADDRESS MASK", "args": {"ADDRESS": "ipv4-address", "MASK": "ipv4-mask"}, "handler": "ipv4.address.set",
+     "help": {"ADDRESS": "Address", "MASK": "Network mask, like 255.255.255.0"}},
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ip address dhcp", "handler": "ipv4.address.dhcp",
+     "help": {"dhcp": "Ask a DHCP server for an address"}},
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "no ip address", "handler": "ipv4.address.remove",
+     "help": {"address": "Remove the interface's address"}},
+
+    {"modes": ["config-if"], "syntax": "shape rate RATE burst BYTES limit QUEUE", "args": {"RATE": "rate", "BYTES": "bytes", "QUEUE": "bytes"}, "handler": "shaper.set",
+     "help": {"shape": "Limit how fast this interface sends (token bucket)", "rate": "Sending rate", "burst": "Bytes that may leave back to back",
+              "limit": "Queue size in bytes: more waiting than this is dropped", "BYTES": "Bytes", "QUEUE": "Bytes"}},
+    {"modes": ["config-if"], "syntax": "no shape", "handler": "shaper.remove",
+     "help": {"shape": "Send at full speed again"}}
+  ]
+}

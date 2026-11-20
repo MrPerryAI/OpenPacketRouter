@@ -1,0 +1,99 @@
+// Linux backend (renderer): the shell commands that build a device's configuration on a Linux box with iproute2,
+// the kernel bridge, tc and dnsmasq. These are the same commands the validators in validate/ use, so a device
+// rendered here behaves like the network those validators check against the engine.
+//
+//   linuxCommands(model, {kind, ports}) -> ["ip link add br0 type bridge stp_state 1 ...", ...]
+//
+// Assumes the interfaces already exist (cabled: veth pairs, or real ports) under the names in the model. A switch
+// becomes one bridge, br0. Reading a configuration back from Linux is not done yet (see docs/cli-design.md).
+
+import * as M from "../model.js";
+
+const centis = s => String(Math.round(s * 100));
+
+export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(model))} = {}) {
+  const out = [];
+  const ifs = M.interfaces(model);
+  if (kind === "switch") {
+    const g = M.stpGlobal(model), stp = M.stpEnabled(model);
+    const vlanAware = ports.some(p => ifs[p] && M.switchedVlan(ifs[p], false)?.["interface-mode"]);
+    const br = ["ip link add br0 type bridge", `stp_state ${stp ? 1 : 0}`];
+    if (stp) br.push(`priority ${g["bridge-priority"] ?? 32768}`, `hello_time ${centis(g["hello-time"] ?? 2)}`,
+      `max_age ${centis(g["max-age"] ?? 20)}`, `forward_delay ${centis(g["forwarding-delay"] ?? 15)}`);
+    if (vlanAware) br.push("vlan_filtering 1");
+    out.push(br.join(" "));
+    if (stp && g["openpacketrouter:bridge-address"]) out.push(`ip link set br0 address ${g["openpacketrouter:bridge-address"]}`);
+    out.push("ip link set br0 up");
+    for (const p of ports) {
+      const ifc = ifs[p];
+      out.push(`ip link set ${p} master br0`);
+      const sp = M.stpPort(model, p, false);
+      if (stp && (sp?.cost !== undefined || sp?.["port-priority"] !== undefined))
+        out.push(`ip link set ${p} type bridge_slave${sp.cost !== undefined ? ` cost ${sp.cost}` : ""}${sp["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
+      // (the kernel's port priority is 6 bits shifted by 10 in the port ID, the model's is 8 bits shifted by 8: 128 -> 32)
+      const sv = ifc && M.switchedVlan(ifc, false);
+      if (vlanAware) {
+        const mode = sv?.["interface-mode"] || "ACCESS";
+        out.push(`bridge vlan del dev ${p} vid 1`);
+        if (mode === "ACCESS") out.push(`bridge vlan add dev ${p} vid ${sv?.["access-vlan"] ?? 1} pvid untagged`);
+        else {
+          for (const v of sv["trunk-vlans"]) out.push(`bridge vlan add dev ${p} vid ${v}`);
+          if (sv["native-vlan"] !== undefined) out.push(`bridge vlan add dev ${p} vid ${sv["native-vlan"]} pvid untagged`);
+        }
+      }
+      pushShaper(out, p, ifc);
+      out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
+    }
+    return out;
+  }
+
+  out.push(`sysctl -w net.ipv4.ip_forward=${kind === "router" ? 1 : 0}`);
+  for (const p of ports) {
+    const ifc = ifs[p]; if (!ifc) continue;
+    for (const a of M.addressesOf(ifc)) out.push(`ip addr add ${a.ip}/${a.prefixLength} dev ${p}`);
+    pushShaper(out, p, ifc);
+    out.push(`ip link set ${p} ${ifc.config.enabled === false ? "down" : "up"}`);
+    if (M.dhcpClientOf(ifc)) out.push(`busybox udhcpc -i ${p} -n -q`);
+  }
+  for (const r of M.staticList(model)) out.push(`ip route add ${r.prefix === "0.0.0.0/0" ? "default" : r.prefix} via ${r.nextHop}`);
+
+  const s = M.services(model);
+  if (s.dns?.enabled) out.push(["dnsmasq --no-resolv --no-hosts", ...Object.entries(s.dns.hosts).map(([n, ip]) => `--host-record=${n},${ip}`)].join(" "));
+  const pools = Object.values(s["dhcp-server"]?.pools || {}).filter(p => p.range);
+  if (pools.length) {
+    const own = Object.entries(ifs).map(([p, i]) => [p, M.addressesOf(i)[0]]).find(([, a]) => a);
+    const mask = p => p.netmask || (own ? prefixMask(own[1].prefixLength) : "255.255.255.0");
+    const args = ["dnsmasq --port=0 --no-resolv --no-hosts", ...(own ? [`--interface=${own[0]}`] : []),
+      ...pools.map(p => `--dhcp-range=${p.range[0]},${p.range[1]},${mask(p)},${p.lease ?? 3600}`)];
+    const first = pools[0];
+    args.push(first["default-router"] ? `--dhcp-option=3,${first["default-router"]}` : "--dhcp-option=3");
+    if (first["dns-server"]) args.push(`--dhcp-option=6,${first["dns-server"]}`);
+    out.push(args.join(" "));
+  }
+  const relay = Object.entries(M.relayInterfaces(model)).filter(([, e]) => e.config["helper-address"].length);
+  if (relay.length) {
+    const args = ["dnsmasq --port=0 --no-resolv --no-hosts"];
+    for (const [p, e] of relay) {
+      const a = ifs[p] && M.addressesOf(ifs[p])[0];
+      args.push(`--interface=${p}`);
+      for (const h of e.config["helper-address"]) args.push(`--dhcp-relay=${a ? a.ip : "0.0.0.0"},${h}`);
+    }
+    out.push(args.join(" "));
+  }
+  for (const [port, app] of Object.entries(s.tcp || {})) if (app === "echo") out.push(`socat TCP-LISTEN:${port},fork,reuseaddr EXEC:cat`);
+  return out;
+}
+
+function pushShaper(out, p, ifc) {
+  const sh = ifc && ifc["openpacketrouter:shaper"];
+  if (sh) out.push(`tc qdisc add dev ${p} root tbf rate ${sh.rate} burst ${sh.burst} limit ${sh.limit}`);
+}
+const prefixMask = p => { const n = p === 0 ? 0 : (0xffffffff << (32 - p)) >>> 0; return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join("."); };
+
+/** A render-only backend over another backend's models (the device list and ports come from `source`). */
+export function linuxBackend(source) {
+  return {
+    name: "linux",
+    render: device => linuxCommands(source.getConfig(device), {kind: source.kind(device), ports: source.ports(device)}),
+  };
+}

@@ -1,0 +1,22 @@
+{
+  "feature": "base",
+  "about": "Moving between modes, the device name, saving.",
+  "commands": [
+    {"modes": ["user"], "syntax": "enable", "handler": "session.enable",
+     "help": {"enable": "Go to privileged mode (configuration and every show command)"}},
+    {"modes": ["priv"], "syntax": "disable", "handler": "session.disable",
+     "help": {"disable": "Go back to user mode"}},
+    {"modes": ["priv"], "syntax": "configure terminal", "handler": "session.configure",
+     "help": {"configure": "Change the configuration", "terminal": "Type the changes here, one command per line"}},
+    {"modes": ["user", "priv", "config", "config-if", "config-router", "config-vlan", "config-dhcp"], "syntax": "exit", "handler": "session.exit",
+     "help": {"exit": "Leave this mode (in user or privileged mode: close the session)"}},
+    {"modes": ["config", "config-if", "config-router", "config-vlan", "config-dhcp"], "syntax": "end", "handler": "session.end",
+     "help": {"end": "Finish configuring and go back to privileged mode"}},
+    {"modes": ["priv"], "syntax": "write", "handler": "session.write",
+     "help": {"write": "Save the configuration"}},
+    {"modes": ["priv"], "syntax": "write memory", "handler": "session.write",
+     "help": {"write": "Save the configuration", "memory": "Save it where it is loaded from at start"}},
+    {"modes": ["config"], "syntax": "hostname NAME", "args": {"NAME": "hostname"}, "handler": "system.hostname",
+     "help": {"hostname": "Rename this device", "NAME": "New name (letters, digits, - and _)"}}
+  ]
+}

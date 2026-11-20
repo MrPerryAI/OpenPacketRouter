@@ -1,0 +1,20 @@
+{
+  "feature": "ip-routing",
+  "about": "Static routes in FRRouting's style (ip route PREFIX NEXTHOP); the mask form and ip default-gateway are accepted too.",
+  "commands": [
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip route PREFIX NEXTHOP", "args": {"PREFIX": "ipv4-prefix", "NEXTHOP": "ipv4-address"}, "handler": "static.add",
+     "help": {"ip": "IPv4 settings", "route": "Add a static route", "PREFIX": "Destination network, like 10.2.0.0/24 (0.0.0.0/0 for the default route)", "NEXTHOP": "Address of the next router"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip route NETWORK MASK NEXTHOP", "args": {"NETWORK": "ipv4-address", "MASK": "ipv4-mask", "NEXTHOP": "ipv4-address"}, "handler": "static.add",
+     "help": {"NETWORK": "Destination network", "MASK": "Its mask, like 255.255.255.0", "NEXTHOP": "Address of the next router"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip route PREFIX NEXTHOP", "args": {"PREFIX": "ipv4-prefix", "NEXTHOP": "ipv4-address"}, "handler": "static.remove",
+     "help": {"no": "Undo a setting", "route": "Remove a static route"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip route PREFIX", "args": {"PREFIX": "ipv4-prefix"}, "handler": "static.remove",
+     "help": {"route": "Remove a static route"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip route NETWORK MASK NEXTHOP", "args": {"NETWORK": "ipv4-address", "MASK": "ipv4-mask", "NEXTHOP": "ipv4-address"}, "handler": "static.remove",
+     "help": {"route": "Remove a static route"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip default-gateway GATEWAY", "args": {"GATEWAY": "ipv4-address"}, "handler": "static.default",
+     "help": {"default-gateway": "Send traffic for unknown networks to this router (same as ip route 0.0.0.0/0)", "GATEWAY": "Router address"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip default-gateway", "handler": "static.no-default",
+     "help": {"default-gateway": "Remove the default route"}}
+  ]
+}

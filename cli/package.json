@@ -1,0 +1,18 @@
+{
+  "name": "@openpacketrouter/cli",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Open, data-driven device CLI for routers and switches: modes, ? help, Tab completion, | json, OpenConfig-shaped model, pluggable backends.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./engine": "./src/backends/engine.js",
+    "./linux": "./src/backends/linux.js",
+    "./frr": "./src/backends/frr.js",
+    "./openwrt": "./src/backends/openwrt.js"
+  },
+  "bin": {"opr-cli": "bin/opr-cli.mjs"},
+  "scripts": {"test": "node --test"}
+}
