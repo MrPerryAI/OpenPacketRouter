@@ -194,10 +194,22 @@ def last_updates(pkts):
     return last
 
 
+def poisoned_before(before):
+    """Per (cable, source): the networks whose most recent mention in a response was metric 16. Walks every response, not only
+    the last one: a triggered update lists just the routes that changed, so which update happens to be the last one before a
+    snapshot depends on FRR's random timers (ripd's 1-5 s triggered-update delay, ±update/4 periodic jitter)."""
+    state = {}
+    for p in before:
+        if p["command"] != "response": continue
+        st = state.setdefault(f'{p["cable"]} from {p["src"]}', {})
+        for e in p["entries"]: st[f'{e["net"]}/{e["mask"]}'] = e["metric"]
+    return {k: {n for n, m in st.items() if m == 16} for k, st in state.items()}
+
+
 def views(win, upto, before):
-    """before: packets up to the previous snapshot. Metric-16 routes count only when newly poisoned: not already at 16 in
-    that router's last update on that cable (poisoned reverse repeats in every periodic update, whose timing is random)."""
-    old = {k: {f'{e["net"]}/{e["mask"]}' for e in m["entries"] if e["metric"] == 16} for k, m in last_updates(before).items()}
+    """before: packets up to the previous snapshot. Metric-16 routes count only when newly poisoned: not already at 16 the last
+    time that router mentioned them on that cable (poisoned reverse repeats in every periodic update, whose timing is random)."""
+    old = poisoned_before(before)
     poisoned, requests, updates = {}, set(), {}
     for p in win:
         if p["command"] == "request": requests.add(p["cable"])
@@ -220,6 +232,7 @@ def main():
     names = sys.argv[1:] or SPECS
     kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner", *names], check=True,
                                      capture_output=True, text=True, timeout=1200).stdout)
+    if os.environ.get('RIP_DUMP'): Path(os.environ['RIP_DUMP']).write_text(json.dumps(kern))
     rows, detail = [], {}
     for name in names:
         steps_spec = json.loads((HERE / f"{name}.steps.json").read_text())
