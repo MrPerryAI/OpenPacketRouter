@@ -4,6 +4,11 @@ const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 2 : 1).padStart(8)} ms`;
 
 /** One line describing an action's outcome. */
 export function describeResult(a, r) {
+  if (a.do === "wait") return `wait ${a.seconds} s (now ${+r.t.toFixed(3)} s)`;
+  if (a.do === "link") return `cable at ${a.end} ${r.up ? "restored" : "cut"}`;
+  if (a.do === "ripTable") return `RIP table of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.routes.map(x => `${x.type} ${x.network}${x.type === "R" ? " via " + x.nextHop : ""} metric ${x.metric}`).join(", ") || "empty");
+  if (a.do === "ripRoute") return `${a.network} at ${+r.t.toFixed(3)} s: ` + Object.entries(r.routers).map(([n, x]) =>
+    `${n} ${x ? (x.metric === 16 ? "16 (unreachable)" : x.metric) + (x.type === "R" ? " via " + x.nextHop : " (connected)") : "no route"}`).join(" · ");
   const what = a.do === "dns" ? `dns ${a.name} via ${a.server} from ${a.src}` :
     a.do === "udpBurst" ? `${a.count} UDP datagrams of ${a.size} B ${a.src} → ${a.dst}:${a.port}` :
     a.do === "dhcp" ? `dhcp on ${a.src}` : `${a.do} ${a.src} → ${a.dst}${a.port ? ":" + a.port : ""}`;
