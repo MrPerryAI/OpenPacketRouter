@@ -48,6 +48,8 @@ const ni = m => m["network-instances"]["network-instance"].default;
 export const statics = m => ni(m).protocols.protocol.STATIC["static-routes"].static;
 export const staticList = m => Object.entries(statics(m)).flatMap(([prefix, r]) => Object.values(r["next-hops"]["next-hop"]).map(h => ({prefix, nextHop: h.config["next-hop"]})));
 export const vlans = m => ni(m).vlans.vlan;
+/** MAC table settings (openconfig-network-instance fdb): config["mac-aging-time"] in seconds; absent = the default (300). */
+export const fdb = m => (ni(m).fdb ||= {config: {}}).config;
 
 export const stpGlobal = m => m.stp.global.config;
 export const stpEnabled = m => (stpGlobal(m)["enabled-protocol"] || []).length > 0;

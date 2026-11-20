@@ -53,6 +53,7 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `services.dhcp.pools` | Extra pools for relayed subnets: `[{"range": ["first", "last"], "mask": "255.255.255.0", "router": "ip"}]`. The server picks the pool that contains the relay's address. |
 | `services.dhcpRelay` | A router that relays DHCP broadcasts on some interfaces to a server elsewhere: `{"server": "10.0.0.1", "clients": ["lan"]}`. `clients` lists the router's own interfaces to listen on. |
 | `services.tcp` | A TCP server: `{"7": "echo"}` listens on port 7 and echoes what it receives. |
+| `agingTime` | Switches: seconds a learned MAC address stays in the MAC table without being heard from (above 0; default 300, like a Linux bridge's `ageing_time`). |
 | `blocked` | Switches: ports that drop everything. A manual override; spanning tree (`stp`) blocks ports by itself. |
 | `stp` | Switches: turns on spanning tree. Optional fields: `priority` (default 32768), `mac`, `hello` (2 s), `maxAge` (20 s), `forwardDelay` (15 s), `cost` (`{"p1": n}`), `portPriority` (`{"p1": n}`). Timers are in seconds, the 802.1D defaults in brackets. |
 | `vlans` | Switches: makes the switch VLAN-aware. Per port: `{"access": 10}` or `{"trunk": [10, 20], "native": 1}`. Ports not listed are access VLAN 1. |
@@ -80,9 +81,11 @@ frame counts don't depend on the order of actions — the same rule the Linux va
 | `tcp` | `src`, `dst`, `port` | `size` (bytes to send and get echoed; none by default), `timeout` s. Opens a connection, sends the data, closes. The result is `ok` or `error` (`refused`, `timeout`) plus the `wire` list of segments the client sent and received. |
 | `udp` | `src`, `dst`, `port` | |
 | `udpBurst` | `src`, `dst`, `port`, `count`, `size` | sends `count` UDP datagrams of `size` bytes back to back, to load a shaped link |
+| `wait` | `seconds` | Pauses simulated time, so MAC entries age. Actions flush caches first unless `"keepCaches": true`; put it on the actions around a `wait`. |
+| `macTable` | `switch` | The switch's MAC table now: `{vlan, mac, port, age}` per entry. |
 | `dhcp` | `src` | `iface` (default: the first interface marked `"dhcp"`), `tries` (3), `interval` (1 s). Runs a DHCP client; the result is the address, server and lease. |
 
-Every action also takes `settle` (seconds to let frames in flight land after the answer, default 1).
+Every action also takes `settle` (seconds to let frames in flight land after the answer, default 1; 0 for `wait` and `macTable`) and `keepCaches` (true: do not flush ARP caches and MAC tables before this action).
 Features add action types with `registerAction(name, {required, run})`.
 
 ## Result (`openpacketrouter.result/1`)
