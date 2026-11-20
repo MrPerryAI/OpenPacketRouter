@@ -2,6 +2,7 @@
   "name": "openpacketrouter",
   "private": true,
   "description": "Open network simulator for teaching. Home of the El Dorado Storm Lab.",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "python3 tools/build_web.py",
     "check": "python3 tools/build_web.py --check",
