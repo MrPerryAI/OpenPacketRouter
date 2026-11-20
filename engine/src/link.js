@@ -17,6 +17,7 @@ export function frameBytes(f) {
   const tag = f.vlan !== undefined ? 4 : 0;
   const p = f.ip;
   let l4;
+  if (p.proto === "ospf") return 14 + tag + 20 + p.ospf.size;
   if (p.proto === "udp") l4 = 8 + (p.udp.size ?? JSON.stringify(p.udp.payload ?? null).length);
   else if (p.icmp.type === 0 || p.icmp.type === 8) l4 = 8 + (p.icmp.size ?? 16);
   else l4 = 8 + 28;                                        // ICMP error: original IP header + 8 bytes

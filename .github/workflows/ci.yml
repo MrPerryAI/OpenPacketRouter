@@ -55,3 +55,14 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
+      - name: OSPFv2 vs FRRouting ospfd (neighbors, DR/BDR, routes, LSDB and packets on every cable)
+        # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh ospf` locally.
+        run: |
+          # The runner's AppArmor may ship an enforcing "ospfd" profile (as it does for ripd); host profiles also bind to
+          # /usr/lib/frr/ospfd inside privileged containers and deny its pid lock file in our per-router dirs.
+          # Unload it for this job; the comparison against real ospfd is unchanged.
+          sudo aa-status 2>/dev/null | grep -iE 'frr|ospfd|zebra' || true
+          f=$(grep -lE '^ *profile +ospfd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
+          if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; grep -E 'pid|/run' "$f" | head -5 || true; sudo apparmor_parser -R "$f"; fi
+          sudo aa-status 2>/dev/null | grep -iE 'ospfd' && { echo "ospfd profile still loaded"; exit 1; } || true
+          validate/docker/run.sh ospf

@@ -23,7 +23,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "ifaces", "routes", "gw"],   // stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services"],
+  router: ["ifaces", "routes", "gw", "services", "ospf"],      // ospf: engine/src/ospf.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
 };
@@ -42,6 +42,27 @@ const IP_LINK_KEYWORDS = ["address", "broadcast", "mtu", "name", "netns", "maste
   "dev", "group", "alias", "vf", "state", "arp", "multicast", "allmulticast", "promisc", "txqueuelen", "qlen", "link", "mode", "protodown", "xdp", "addrgenmode"];
 const SUBIF_RE = /^([^.]+)\.(\d+)$/;
 const ambiguousIfname = n => IP_LINK_KEYWORDS.find(k => k.startsWith(n));
+
+const OSPF_IF_KEYS = {type: v => ["broadcast", "point-to-point"].includes(v), priority: v => Number.isInteger(v) && v >= 0 && v <= 255,
+  cost: v => Number.isInteger(v) && v >= 1 && v <= 65535, hello: v => Number.isInteger(v) && v >= 1, dead: v => Number.isInteger(v) && v >= 1, retransmit: v => Number.isInteger(v) && v >= 1};
+function checkOspf(n, p, err) {
+  const o = n.ospf, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+  if (!isObj(o)) return err(`${p}.ospf`, `node "${n.name}": ospf must be an object like {"networks": ["10.0.0.0/8"]}`);
+  for (const k of Object.keys(o)) if (!["routerId", "networks", "interfaces"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, interfaces)`);
+  if (o.routerId !== undefined && !isIp(o.routerId)) err(`${p}.ospf.routerId`, `node "${n.name}": routerId "${o.routerId}" is not like 1.1.1.1`);
+  if (!Array.isArray(o.networks) || !o.networks.length) err(`${p}.ospf.networks`, `node "${n.name}": ospf needs networks: interface names or prefixes like 10.0.0.0/8`);
+  else o.networks.forEach((x, j) => { if (!(isCidr(x) || names.includes(x))) err(`${p}.ospf.networks[${j}]`, `node "${n.name}": "${x}" is neither one of its interfaces nor a prefix like 10.0.0.0/8`); });
+  if (o.interfaces !== undefined) {
+    if (!isObj(o.interfaces)) return err(`${p}.ospf.interfaces`, `node "${n.name}": ospf.interfaces maps interface names to {type, priority, cost, hello, dead, retransmit}`);
+    for (const [ifn, c] of Object.entries(o.interfaces)) {
+      if (!names.includes(ifn)) err(`${p}.ospf.interfaces.${ifn}`, `node "${n.name}": ${ifn} is not one of its interfaces (${names.join(", ")})`);
+      if (!isObj(c)) { err(`${p}.ospf.interfaces.${ifn}`, `node "${n.name}": ${ifn}: expected an object`); continue; }
+      for (const [k, v] of Object.entries(c)) if (!OSPF_IF_KEYS[k]) err(`${p}.ospf.interfaces.${ifn}.${k}`, `node "${n.name}": unknown key "${k}" (${Object.keys(OSPF_IF_KEYS).join(", ")})`);
+        else if (!OSPF_IF_KEYS[k](v)) err(`${p}.ospf.interfaces.${ifn}.${k}`, `node "${n.name}": ${ifn}: bad ${k} ${JSON.stringify(v)}`);
+      if (c.hello !== undefined && c.dead !== undefined && c.dead <= c.hello) err(`${p}.ospf.interfaces.${ifn}.dead`, `node "${n.name}": ${ifn}: dead (${c.dead}) must be longer than hello (${c.hello})`);
+    }
+  }
+}
 
 /** Check a spec. Returns {ok, errors: [{path, message}], warnings: [...]}; never throws. */
 export function validateSpec(spec) {
@@ -120,6 +141,7 @@ export function validateSpec(spec) {
         else if (nets.length && !reachable(r[1])) err(rp, `node "${n.name}": next hop ${r[1]} is not on any of its subnets`);
       });
     }
+    if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.services !== undefined) {
       if (!isObj(n.services)) err(`${p}.services`, `node "${n.name}": services must be an object`);
       else if (n.services.dns !== undefined && !(isObj(n.services.dns) && Object.values(n.services.dns).every(isIp)))

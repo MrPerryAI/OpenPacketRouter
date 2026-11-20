@@ -1,0 +1,1 @@
+[{"wait": 22}, {"snapshot": "converged"}, {"ping": ["H1", "10.3.0.10"]}, {"linkDown": "R1:eth0"}, {"wait": 25}, {"snapshot": "R1-R2 cut: R1 uses the direct link"}, {"ping": ["H1", "10.3.0.10"]}, {"linkUp": "R1:eth0"}, {"wait": 25}, {"snapshot": "cable restored"}, {"ping": ["H1", "10.3.0.10"]}]

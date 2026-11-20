@@ -37,6 +37,13 @@
         "ifaces": {"type": "object", "description": "name → address; \"eth0.10\" is an 802.1Q subinterface of eth0 in VLAN 10", "propertyNames": {"pattern": "^[^.:]+(\\.[0-9]{1,4})?$"}, "additionalProperties": {"oneOf": [{"$ref": "#/$defs/cidr"}, {"const": "dhcp"}]}},
         "gw": {"$ref": "#/$defs/ipv4"},
         "routes": {"type": "array", "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/cidr"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2}},
+        "ospf": {"type": "object", "description": "OSPFv2, single area 0 (engine/src/ospf.js)", "required": ["networks"], "properties": {
+          "routerId": {"$ref": "#/$defs/ipv4"},
+          "networks": {"type": "array", "minItems": 1, "items": {"type": "string"}, "description": "interface names or prefixes like 10.0.0.0/8"},
+          "interfaces": {"type": "object", "additionalProperties": {"type": "object", "properties": {
+            "type": {"enum": ["broadcast", "point-to-point"]}, "priority": {"type": "integer", "minimum": 0, "maximum": 255},
+            "cost": {"type": "integer", "minimum": 1, "maximum": 65535}, "hello": {"type": "integer", "minimum": 1},
+            "dead": {"type": "integer", "minimum": 1}, "retransmit": {"type": "integer", "minimum": 1}}}}}},
         "services": {
           "type": "object",
           "properties": {
