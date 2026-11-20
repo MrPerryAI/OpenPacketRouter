@@ -16,15 +16,21 @@ import * as M from "../model.js";
 const centis = s => String(Math.round(s * 100));
 
 export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(model)), labParity = false} = {}) {
+  ports = [...ports];
   const out = [];
   const ifs = M.interfaces(model);
+  // VLAN subinterfaces (eth0.10) and SVIs (vlan10) are created by the commands below; their sysctls follow the creation.
+  const logical = p => /^(.+)\.(\d+)$/.test(p) || (kind === "switch" && /^vlan\d+$/.test(p));
+  const parity = p => { const d = p.replace(/\./g, "/"); return [`sysctl -w net.ipv6.conf.${d}.disable_ipv6=1`, `sysctl -w net.ipv4.conf.${d}.send_redirects=0`, `sysctl -w net.ipv4.conf.${d}.rp_filter=0`]; };
   if (labParity) {
     out.push("sysctl -w net.ipv6.conf.all.disable_ipv6=1", "sysctl -w net.ipv6.conf.default.disable_ipv6=1",
       "sysctl -w net.ipv4.conf.all.send_redirects=0", "sysctl -w net.ipv4.conf.default.send_redirects=0", "sysctl -w net.ipv4.icmp_ratelimit=0",
       "sysctl -w net.ipv4.conf.all.rp_filter=0", "sysctl -w net.ipv4.conf.default.rp_filter=0");
-    for (const p of ports) out.push(`sysctl -w net.ipv6.conf.${p}.disable_ipv6=1`, `sysctl -w net.ipv4.conf.${p}.send_redirects=0`, `sysctl -w net.ipv4.conf.${p}.rp_filter=0`);
+    for (const p of ports) if (!logical(p)) out.push(...parity(p));
   }
+  const isSvi = p => /^vlan\d+$/.test(p);
   if (kind === "switch") {
+    const svis = ports.filter(isSvi); ports = ports.filter(p => !isSvi(p));
     const g = M.stpGlobal(model), stp = M.stpEnabled(model);
     const vlanAware = ports.some(p => ifs[p] && M.switchedVlan(ifs[p], false)?.["interface-mode"]);
     const br = ["ip link add br0 type bridge", `stp_state ${stp ? 1 : 0}`];
@@ -54,11 +60,27 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       pushShaper(out, p, ifc);
       out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
     }
+    // Layer 3 switch: each SVI is a VLAN device on the bridge itself (the bridge must carry that VLAN "self").
+    if (svis.length) out.push("sysctl -w net.ipv4.ip_forward=1");
+    for (const p of svis) {
+      const v = p.slice(4), ifc = ifs[p];
+      out.push(`bridge vlan add dev br0 vid ${v} self`, `ip link add link br0 name ${p} type vlan id ${v}`);
+      for (const a of M.addressesOf(ifc || {})) out.push(`ip addr add ${a.ip}/${a.prefixLength} dev ${p}`);
+      out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
+      if (labParity) out.push(...parity(p));
+    }
+    for (const r of M.staticList(model)) out.push(`ip route add ${r.prefix === "0.0.0.0/0" ? "default" : r.prefix} via ${r.nextHop}`);
     return out;
   }
 
   out.push(`sysctl -w net.ipv4.ip_forward=${kind === "router" ? 1 : 0}`);
-  for (const p of ports) {
+  // eth0.10 is an 802.1Q subinterface of eth0 (VLAN 10): create it on its parent, parents first.
+  const sub = p => /^(.+)\.(\d+)$/.exec(p);
+  const upParents = new Set();
+  for (const p of [...ports].sort((a, b) => (sub(a) ? 1 : 0) - (sub(b) ? 1 : 0))) {
+    const m = sub(p);
+    if (m && !ports.includes(m[1]) && !upParents.has(m[1])) { upParents.add(m[1]); out.push(`ip link set ${m[1]} up`); }
+    if (m) { out.push(`ip link add link ${m[1]} name ${p} type vlan id ${m[2]}`); if (labParity) out.push(...parity(p)); }
     const ifc = ifs[p]; if (!ifc) continue;
     for (const a of M.addressesOf(ifc)) out.push(`ip addr add ${a.ip}/${a.prefixLength} dev ${p}`);
     pushShaper(out, p, ifc);

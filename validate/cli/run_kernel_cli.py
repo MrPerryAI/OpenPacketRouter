@@ -3,7 +3,7 @@
 
     sudo python3 validate/cli/run_kernel_cli.py        (on a Mac: validate/docker/run.sh cli)
 
-For each L3 validation network (validate/l3: fti-routed, fti-loop, fti-noreturn) this builds the cabling from the
+For each L3 validation network (validate/l3: fti-routed, fti-loop, fti-noreturn; validate/intervlan: roas, svi) this builds the cabling from the
 spec (a network namespace per device, a veth pair per cable, nothing else), then configures every device ONLY with
 the commands the CLI renders for it:
 
@@ -24,7 +24,12 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402  (sh, nsx, no_ipv6, KernelNet.flush/counters/act/close, comparable, gh_note)
 
-SPECS = ["fti-routed", "fti-loop", "fti-noreturn"]
+SPECS = ["fti-routed", "fti-loop", "fti-noreturn", "roas", "svi"]
+DIRS = {"roas": "intervlan", "svi": "intervlan"}   # everything else is in validate/l3
+
+
+def spec_path(name): return ROOT / "validate" / DIRS.get(name, "l3") / f"{name}.json"
+def actions_path(name): return ROOT / "validate" / DIRS.get(name, "l3") / f"{name}.actions.json"
 CLI = ROOT / "cli" / "bin" / "opr-cli.mjs"
 DAEMONS = ("dnsmasq", "socat")
 
@@ -65,10 +70,17 @@ class CliNet(l3.KernelNet):
                     if r.returncode != 0: raise RuntimeError(f"{n['name']}: `{c}` failed: {r.stderr.strip()}")
         time.sleep(1)
 
+    def flush(self):
+        """l3's flush leaves a Layer 3 switch's own ARP cache alone; the engine clears it (validate/l2 does too)."""
+        for n in self.spec["nodes"]:
+            ns = self.ns[n["name"]]
+            if n["kind"] == "switch": l3.sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "fdb_flush")
+            if n["kind"] != "switch" or n.get("ifaces"): l3.sh("ip", "-n", ns, "neigh", "flush", "all")
+
 
 def kernel_run(name):
-    spec_file = ROOT / "validate" / "l3" / f"{name}.json"
-    spec = json.loads(spec_file.read_text()); actions = json.loads((ROOT / "validate" / "l3" / f"{name}.actions.json").read_text())
+    spec_file = spec_path(name)
+    spec = json.loads(spec_file.read_text()); actions = json.loads(actions_path(name).read_text())
     k = CliNet(spec, spec_file); out = []
     try:
         for a in actions:
@@ -93,8 +105,7 @@ def main():
     kern = json.loads(p.stdout)
     rows, ok_all, detail = [], True, {}
     for name in SPECS:
-        spec_file = ROOT / "validate" / "l3" / f"{name}.json"
-        eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(spec_file), str(ROOT / "validate" / "l3" / f"{name}.actions.json")))
+        eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(spec_path(name)), str(actions_path(name))))
         for e, k in zip(eng, kern[name]["runs"]):
             a = e["action"]; same = l3.comparable(e["result"]) == l3.comparable(k["result"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))

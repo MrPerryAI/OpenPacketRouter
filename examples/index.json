@@ -27,6 +27,22 @@
    "readme": "dhcp-router/README.md"
   },
   {
+   "id": "intervlan-roas",
+   "name": "Router on a stick",
+   "about": "R routes between VLANs 10 and 20 over one trunk cable using 802.1Q subinterfaces eth0.10 and eth0.20; its untagged eth0 is on the native VLAN 1. SW1 and SW2 are VLAN-aware switches joined by a trunk. E is in VLAN 30, which R has no subinterface for.",
+   "spec": "intervlan-roas/spec.json",
+   "actions": "intervlan-roas/actions.json",
+   "readme": "intervlan-roas/README.md"
+  },
+  {
+   "id": "l3-switch",
+   "name": "Layer 3 switch",
+   "about": "SW1 is a Layer 3 switch: SVIs vlan10, vlan20 and vlan30 route between its VLANs, and a static route sends 10.9.0.0/24 to router R on VLAN 30. SW2 is a plain VLAN switch on a trunk.",
+   "spec": "l3-switch/spec.json",
+   "actions": "l3-switch/actions.json",
+   "readme": "l3-switch/README.md"
+  },
+  {
    "id": "loop-no-stp",
    "name": "Switch triangle, no spanning tree",
    "about": "Three switches cabled in a ring, with no spanning tree. One broadcast (the ARP request inside a ping) goes round and round. Watch the frame counts.",
@@ -61,7 +77,7 @@
   {
    "id": "vlans",
    "name": "Two VLANs across a trunk",
-   "about": "Two switches joined by one trunk cable that carries VLAN 10 (Sales) and VLAN 20 (Labs). Hosts in the same VLAN can talk even on different switches; hosts in different VLANs cannot, even though they share an IP subnet and a cable. (Crossing between VLANs needs a router; that is a later example.)",
+   "about": "Two switches joined by one trunk cable that carries VLAN 10 (Sales) and VLAN 20 (Labs). Hosts in the same VLAN can talk even on different switches; hosts in different VLANs cannot, even though they share an IP subnet and a cable. (Crossing between VLANs needs a router: see the intervlan-roas and l3-switch labs.)",
    "spec": "vlans/spec.json",
    "actions": "vlans/actions.json",
    "readme": "vlans/README.md"

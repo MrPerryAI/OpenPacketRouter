@@ -13,4 +13,4 @@ node engine/bin/openpacketrouter.mjs run examples/vlans/spec.json examples/vlans
 | SALES1 → LABS1 | times out | different VLANs: the ARP broadcast never reaches the other VLAN |
 | SALES1 → LABS2 | times out | same reason |
 
-Getting between VLANs needs a router; that example will be added when the engine supports it.
+Getting between VLANs needs a router; see [intervlan-roas](../intervlan-roas/README.md) and [l3-switch](../l3-switch/README.md).

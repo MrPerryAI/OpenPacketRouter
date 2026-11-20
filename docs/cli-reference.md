@@ -208,8 +208,8 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show version` | user, privileged | all devices | Software, device kind and backend |
 | `show interface brief` | user, privileged | all devices | One line per interface |
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
-| `show ip route` | user, privileged | routers, hosts, servers | Routing table: where each network is sent |
-| `show arp` | user, privileged | routers, hosts, servers | IPv4 address to MAC address table |
+| `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
+| `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |

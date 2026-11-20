@@ -221,20 +221,33 @@ function freshNet(spec, cut) {
 }
 
 /** Operational state of one device from a running network: interfaces, routes, ARP, MAC table, spanning tree, leases. */
-export function stateOf(net, device, spec) {
-  const n = net.node(device); if (!n) return {};
-  const cabledUp = p => { const i = n.ifaces[p]; return !!(i && i.link && i.link.up !== false); };
-  if (n.kind === "switch") return {
-    interfaces: Object.keys(n.ifaces).map(p => ({name: p, status: !cabledUp(p) ? "down" : n.blocked.has(p) ? "admin-down" : "up"})),
-    mac: [...n.table].map(([k, port]) => { const [vlan, mac] = k.split("|"); return {vlan: +vlan || 1, mac, port}; }),
-    stp: n.stp && n.stp.started ? n.stp.describe() : null,
-  };
+function routesOf(n) {
   const routes = [];
   for (const i of Object.values(n.ifaces)) if (i.ip) routes.push({prefix: `${intToIp(i.net)}/${i.prefix}`, protocol: "connected", interface: i.name});
   for (const r of n.routes) {
     const out = Object.values(n.ifaces).find(i => i.ip && inSubnet(r.via, i.net, i.mask));
     routes.push({prefix: r.cidr || `${intToIp(r.net)}/${r.prefix}`, protocol: "static", nextHop: r.via, interface: out ? out.name : null});
   }
+  return routes;
+}
+
+export function stateOf(net, device, spec) {
+  const n = net.node(device); if (!n) return {};
+  const cabledUp = p => { const i = n.ifaces[p]; return !!(i && i.link && i.link.up !== false); };
+  if (n.kind === "switch") {
+    const svis = n.l3 ? Object.values(n.l3.ifaces) : [];
+    // An SVI is up while some cabled, forwarding port carries its VLAN (as a Linux vlan device on a bridge follows its ports).
+    const sviUp = i => Object.keys(n.ifaces).some(p => cabledUp(p) && !n.blocked.has(p) && n.vcfg(p).member.has(i.vid));
+    const base = {
+      interfaces: [...Object.keys(n.ifaces).map(p => ({name: p, status: !cabledUp(p) ? "down" : n.blocked.has(p) ? "admin-down" : "up"})),
+        ...svis.map(i => ({name: i.name, address: i.ip ? `${i.ip}/${i.prefix}` : null, mac: i.mac, status: sviUp(i) ? "up" : "down"}))],
+      mac: [...n.table].map(([k, port]) => { const [vlan, mac] = k.split("|"); return {vlan: +vlan || 1, mac, port}; }),
+      stp: n.stp && n.stp.started ? n.stp.describe() : null,
+    };
+    if (!n.l3) return base;
+    return {...base, routes: routesOf(n.l3), arp: [...n.l3.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface}))};
+  }
+  const routes = routesOf(n);
   return {
     interfaces: Object.values(n.ifaces).map(i => ({name: i.name, address: i.ip ? `${i.ip}/${i.prefix}` : null, dhcp: !!i.dhcp, mac: i.mac,
       status: !i.link ? "down" : i.link.up === false ? "admin-down" : "up"})),
