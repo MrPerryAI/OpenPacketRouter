@@ -11,6 +11,14 @@
    "readme": "bottleneck/README.md"
   },
   {
+   "id": "dhcp-relay",
+   "name": "DHCP through a relay",
+   "about": "The only DHCP server sits in the server room. Student PCs are on another network, behind router R1. DHCP broadcasts cannot cross a router, so R1 relays them to the server, which picks an address from the pool for the PC's network.",
+   "spec": "dhcp-relay/spec.json",
+   "actions": "dhcp-relay/actions.json",
+   "readme": "dhcp-relay/README.md"
+  },
+  {
    "id": "dhcp-router",
    "name": "DHCP, then a router to the server network",
    "about": "PC1 has no address. A DHCP server on the same LAN hands it one (and names the router as the default gateway). After that, PC1 can reach a web server network on the far side of router R1. DHCP broadcasts do not cross a router, so each LAN needs its own DHCP server (or a relay).",

@@ -50,6 +50,8 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `routes` | Static routes: `[["10.2.0.0/24", "10.0.0.2"], …]`. The next hop must be on one of the node's subnets. |
 | `services.dns` | A DNS server on UDP 53: name → IPv4 address. |
 | `services.dhcp` | A DHCP server on the node's subnet: `{"range": ["first", "last"], "lease": 3600, "router": "ip", "dns": "ip"}`. `lease` is seconds (default 3600); `router` and `dns` are optional. The first address of the range must be on one of the node's subnets. |
+| `services.dhcp.pools` | Extra pools for relayed subnets: `[{"range": ["first", "last"], "mask": "255.255.255.0", "router": "ip"}]`. The server picks the pool that contains the relay's address. |
+| `services.dhcpRelay` | A router that relays DHCP broadcasts on some interfaces to a server elsewhere: `{"server": "10.0.0.1", "clients": ["lan"]}`. `clients` lists the router's own interfaces to listen on. |
 | `services.tcp` | A TCP server: `{"7": "echo"}` listens on port 7 and echoes what it receives. |
 | `blocked` | Switches: ports that drop everything. A manual override; spanning tree (`stp`) blocks ports by itself. |
 | `stp` | Switches: turns on spanning tree. Optional fields: `priority` (default 32768), `mac`, `hello` (2 s), `maxAge` (20 s), `forwardDelay` (15 s), `cost` (`{"p1": n}`), `portPriority` (`{"p1": n}`). Timers are in seconds, the 802.1D defaults in brackets. |

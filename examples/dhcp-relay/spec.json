@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "DHCP through a relay",
+  "about": "The only DHCP server sits in the server room. Student PCs are on another network, behind router R1. DHCP broadcasts cannot cross a router, so R1 relays them to the server, which picks an address from the pool for the PC's network.",
+  "nodes": [
+    {"name": "R1", "kind": "router", "ifaces": {"lan": "10.1.0.1/24", "core": "10.0.0.254/24"}, "services": {"dhcpRelay": {"server": "10.0.0.1", "clients": ["lan"]}}},
+    {"name": "SW-CORE", "kind": "switch"},
+    {"name": "SW-LAN", "kind": "switch"},
+    {"name": "DHCP", "kind": "server", "ifaces": {"eth0": "10.0.0.1/24"}, "gw": "10.0.0.254",
+     "services": {"dhcp": {"range": ["10.0.0.100", "10.0.0.110"], "lease": 3600, "pools": [{"range": ["10.1.0.100", "10.1.0.110"], "mask": "255.255.255.0", "router": "10.1.0.1"}]}}},
+    {"name": "PC1", "kind": "host", "ifaces": {"eth0": "dhcp"}},
+    {"name": "PC2", "kind": "host", "ifaces": {"eth0": "dhcp"}}
+  ],
+  "links": [
+    ["R1:core", "SW-CORE:p1"], ["DHCP:eth0", "SW-CORE:p2"],
+    ["R1:lan", "SW-LAN:p1"], ["PC1:eth0", "SW-LAN:p2"], ["PC2:eth0", "SW-LAN:p3"]
+  ]
+}

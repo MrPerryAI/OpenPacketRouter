@@ -77,3 +77,10 @@ test("index.json lists exactly the lab folders, with files that exist", () => {
     assert.equal(JSON.parse(fs.readFileSync(`${dir}${l.spec}`)).name, l.name);
   }
 });
+
+test("dhcp-relay: the router relays, each PC gets an address from the relayed pool", () => {
+  const [a, b, p] = run("dhcp-relay");
+  assert.equal(a.result.ip, "10.1.0.100");
+  assert.equal(b.result.ip, "10.1.0.101");
+  assert.equal(p.result.ok, true);
+});

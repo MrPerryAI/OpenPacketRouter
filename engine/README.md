@@ -49,7 +49,7 @@ RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OS
 ## Tests
 
 ```bash
-npm test                                  # 58 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, TCP, CLI report, example labs
+npm test                                  # 61 tests: engine, spec format, storm math, spanning tree, VLANs, link shaping, DHCP, TCP, CLI report, example labs
 ```
 
 ## TCP
@@ -59,6 +59,8 @@ A server with `services.tcp` (`{"7": "echo"}`) listens on a port; the `tcp` acti
 ## DHCP
 
 A node with `services.dhcp` runs a DHCP server on its subnet: it hands out addresses from a range, with a lease time, and can name a router and DNS server. An interface marked `"dhcp"` has no address until a `dhcp` action runs a client on it. The engine picks the same address a real server gives and reports the server and lease. `validate/dhcp/` checks this against real `dnsmasq` and `udhcpc` (client): the lease result and the frames on every cable, in [validate/dhcp/results.md](../validate/dhcp/results.md). The spec keys are in [docs/spec-format.md](../docs/spec-format.md).
+
+A router with `services.dhcpRelay` forwards a LAN's DHCP broadcasts to a server on another network (stamping its own address, `giaddr`, so the server can pick a pool), and the server's `services.dhcp.pools` give each relayed subnet its own range. The relay is modeled on and checked against dnsmasq's relay mode. Lab: [examples/dhcp-relay](../examples/dhcp-relay/).
 
 ## Link capacity and queues
 
