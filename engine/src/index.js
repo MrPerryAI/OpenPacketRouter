@@ -6,3 +6,4 @@ export * from "./addr.js";
 export * from "./spec.js";
 export {dhcp, dhcpServer, dhcpRelay} from "./dhcp.js";
 export {tcpRequest, tcpAction} from "./tcp.js";
+export {Ospf, OSPF_DEFAULTS} from "./ospf.js";

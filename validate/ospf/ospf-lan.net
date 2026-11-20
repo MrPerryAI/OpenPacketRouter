@@ -1,0 +1,121 @@
+{
+ "version": 1,
+ "name": "OSPF on a shared LAN",
+ "about": "Three routers on one switched LAN, equal priority: the highest router ID (R3) becomes DR, R2 BDR, R1 DROther. Each has a host LAN behind it (H1, H3 present). R3's cable to the switch is cut: R2 becomes DR and R1 BDR, R3 is alone. After the repair R3 rejoins as DROther (no preemption).",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.0.1/24",
+    "eth1": "10.1.0.1/24"
+   },
+   "ospf": {
+    "routerId": "1.1.1.1",
+    "networks": [
+     "10.0.0.0/8"
+    ],
+    "interfaces": {
+     "eth0": {
+      "hello": 1,
+      "dead": 4
+     },
+     "eth1": {
+      "hello": 1,
+      "dead": 4
+     }
+    }
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   },
+   "ospf": {
+    "routerId": "2.2.2.2",
+    "networks": [
+     "10.0.0.0/8"
+    ],
+    "interfaces": {
+     "eth0": {
+      "hello": 1,
+      "dead": 4
+     }
+    }
+   }
+  },
+  {
+   "name": "R3",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.0.3/24",
+    "eth1": "10.3.0.1/24"
+   },
+   "ospf": {
+    "routerId": "3.3.3.3",
+    "networks": [
+     "10.0.0.0/8"
+    ],
+    "interfaces": {
+     "eth0": {
+      "hello": 1,
+      "dead": 4
+     },
+     "eth1": {
+      "hello": 1,
+      "dead": 4
+     }
+    }
+   }
+  },
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.1.0.10/24"
+   },
+   "gw": "10.1.0.1"
+  },
+  {
+   "name": "H3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.3.0.10/24"
+   },
+   "gw": "10.3.0.1"
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "SW:p1",
+   1
+  ],
+  [
+   "R2:eth0",
+   "SW:p2",
+   1
+  ],
+  [
+   "R3:eth0",
+   "SW:p3",
+   1
+  ],
+  [
+   "H1:eth0",
+   "R1:eth1",
+   1
+  ],
+  [
+   "H3:eth0",
+   "R3:eth1",
+   1
+  ]
+ ]
+}

@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+"""OSPFv2: the engine vs FRRouting ospfd in Linux namespaces: neighbor states, DR/BDR, routing tables and packets.
+
+    sudo python3 validate/ospf/run_kernel_ospf.py        # on a Mac: validate/docker/run.sh ospf
+
+Builds each spec from network namespaces like validate/l3 (it reuses that harness). Every router with an `ospf`
+key runs its own zebra + ospfd (FRRouting), configured from the spec: router ID, `network … area 0`, and per
+interface the network type, cost, hello and dead interval and priority (the engine's defaults, written out, when the
+spec says nothing). tcpdump records every OSPF packet sent out of every interface. The same steps (waits, cable
+cuts, pings) run in the engine (engine/tools/run_ospf.mjs).
+
+Compared at every snapshot, for every router:
+  - the neighbors: router ID, address, interface, state and role (`Full/DR`, `2-Way/DROther`, `Full/-`);
+  - the interfaces: state, DR and BDR address, cost, priority;
+  - the routes ospfd put in the kernel: prefix, next hop, interface and metric (= the OSPF cost);
+  - the link state database: which LSAs exist (type, ID, advertising router) and what the router and network LSAs say
+    (links with type, ID, data and metric; attached routers), not sequence numbers, ages or checksums;
+  - the last Hello from every router on every cable: source, destination, TTL, router ID, mask, intervals, options,
+    priority, DR, BDR and neighbor list;
+  - which packet types crossed every cable direction since the previous snapshot (Hello, Database Description, Link
+    State Request/Update/Acknowledgment), and how many Hellos;
+  - ping results at the steps that ask for one.
+Not compared: exact times and the counts of every type but Hello (FRR delays acknowledgments and LSA origination
+by timers that are only roughly the engine's); LSA sequence numbers, ages and checksums.
+"""
+import json, os, re, shutil, struct, subprocess, sys, tempfile, time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent.parent
+sys.path.insert(0, str(ROOT / "validate" / "l3"))
+import run_kernel_l3 as l3  # noqa: E402
+
+SPECS = ["ospf-p2p", "ospf-lan", "ospf-priority"]
+FRR = "/usr/lib/frr"
+DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
+PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
+
+
+def netfile(name): return HERE / f"{name}.net"      # .net, not .json: see README (the CLI round-trip test reads every *.json spec)
+
+
+class OspfNet(l3.KernelNet):
+    def __init__(self, spec):
+        super().__init__(spec)
+        self.tmp = tempfile.mkdtemp(); os.chmod(self.tmp, 0o755); self.caps = []; self.frr = {}
+        for (node, ifn), peer in sorted(self.ifmap.items()):
+            f = f"{self.tmp}/{node}-{ifn}.pcap"
+            p = subprocess.Popen(["ip", "netns", "exec", self.ns[node], "tcpdump", "-i", ifn, "-Q", "out", "-U", "-n", "-s", "0",
+                                  "-Z", "root", "-w", f, "ip proto 89"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.caps.append((f"{node}:{ifn}>{peer}", f, p))
+        time.sleep(1.5)
+        routers = [n for n in spec["nodes"] if n.get("ospf")]
+        for n in routers: self.frr[n["name"]] = self.write_conf(n)
+        for n in routers:
+            d = self.frr[n["name"]]; c = self.conf_dir(n["name"])
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/zebra", "-f", f"{c}/zebra.conf", "-i", f"{d}/zebra.pid",
+                                                "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
+                                               stdout=open(f"{self.tmp}/zebra-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
+        time.sleep(2)
+        for n in routers:
+            d = self.frr[n["name"]]
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ospfd", "-i", f"{d}/ospfd.pid",
+                                                "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
+                                               stdout=open(f"{self.tmp}/ospfd-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
+        time.sleep(1)
+        for n in routers:   # load the config through vtysh (ospfd has no -f in newer FRR)
+            d = self.frr[n["name"]]; c = self.conf_dir(n["name"])
+            r = subprocess.run(["ip", "netns", "exec", self.ns[n["name"]], "vtysh", "--vty_socket", d, "-f", f"{c}/ospfd.conf"], capture_output=True, text=True)
+            if r.returncode: raise RuntimeError(f"vtysh -f failed on {n['name']}: {r.stdout[-800:]}{r.stderr[-800:]}")
+        self.t0 = time.time()
+
+    def conf_dir(self, name): return f"{self.tmp}/frr-{name}"
+
+    def write_conf(self, n):
+        """Config files go in a temp dir; every runtime path (pid files, zserv.api, vty sockets) goes in a per-router dir
+        under /run/frr, the only place a host AppArmor profile confining the FRR daemons lets them write. Returns the latter."""
+        d = self.conf_dir(n["name"]); os.makedirs(d)
+        o = n["ospf"]; ifc = o.get("interfaces") or {}
+        conf = [f"hostname {n['name']}"]
+        for ifn in n["ifaces"]:
+            c = {**DEFAULTS, **ifc.get(ifn, {})}
+            hello = c["hello"]; dead = c.get("dead", hello * 4)
+            conf += [f"interface {ifn}", f" ip ospf network {'point-to-point' if c['type'] == 'point-to-point' else 'broadcast'}",
+                     f" ip ospf cost {c['cost']}", f" ip ospf hello-interval {hello}", f" ip ospf dead-interval {dead}",
+                     f" ip ospf priority {c['priority']}", f" ip ospf retransmit-interval {c['retransmit']}", "!"]
+        conf += ["router ospf"]
+        if o.get("routerId"): conf += [f" ospf router-id {o['routerId']}"]
+        for x in o["networks"]:
+            if "/" not in x: x = str(__import__("ipaddress").ip_interface(n["ifaces"][x]).network)
+            conf += [f" network {x} area 0"]
+        conf += ["!"]
+        Path(f"{d}/ospfd.conf").write_text("\n".join(conf) + "\n")
+        Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
+        shutil.chown(d, "frr", "frr")   # the daemons run as their usual user "frr"
+        for f in os.listdir(d): shutil.chown(f"{d}/{f}", "frr", "frr"); os.chmod(f"{d}/{f}", 0o666)
+        os.chmod(d, 0o777)
+        os.makedirs("/run/frr", exist_ok=True); shutil.chown("/run/frr", "frr", "frr"); os.chmod("/run/frr", 0o775)
+        rd = f"/run/frr/opr-{os.path.basename(self.tmp)}-{n['name']}"; os.makedirs(rd, exist_ok=True)
+        shutil.chown(rd, "frr", "frr"); os.chmod(rd, 0o775)
+        return rd
+
+    def vty(self, name, cmd):
+        r = subprocess.run(["ip", "netns", "exec", self.ns[name], "vtysh", "--vty_socket", self.frr[name], "-c", cmd], capture_output=True, text=True)
+        if r.returncode:
+            logs = "".join(f"\n--- {f}\n" + Path(f"{self.tmp}/{f}").read_text()[-1500:] for f in sorted(os.listdir(self.tmp)) if f.endswith(".log"))
+            raise RuntimeError(f"vtysh {cmd!r} failed ({r.returncode}) on {name}: {r.stderr[-1500:]}{r.stdout[-500:]}\n{subprocess.run(['ps', 'aux'], capture_output=True, text=True).stdout[-1500:]}{logs}")
+        return r.stdout
+
+    def state(self, name):
+        """What ospfd says, in the engine's terms."""
+        raw = os.environ.get("OSPF_RAW")   # a file to append the raw vtysh JSON to (for developing the parsers)
+        nb = json.loads(self.vty(name, "show ip ospf neighbor json") or "{}")
+        ifs = json.loads(self.vty(name, "show ip ospf interface json") or "{}")
+        db = {"router": json.loads(self.vty(name, "show ip ospf database router json") or "{}"), "network": json.loads(self.vty(name, "show ip ospf database network json") or "{}")}
+        if raw: print(f"=== {name} neighbor", json.dumps(nb, indent=1), f"=== {name} interface", json.dumps(ifs, indent=1), f"=== {name} database", json.dumps(db, indent=1), file=open(raw, "a"))
+        return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db)}
+
+    def routes(self, name):
+        """The routes ospfd got into the kernel (`ip route`: next hops) with their OSPF cost (zebra's table: the kernel metric is not the cost)."""
+        z = json.loads(self.vty(name, "show ip route ospf json") or "{}")
+        if os.environ.get("OSPF_RAW"): print(f"=== {name} zebra", json.dumps(z, indent=1), file=open(os.environ["OSPF_RAW"], "a"))
+        cost = {pfx: min(r["metric"] for r in rs if r.get("protocol") == "ospf") for pfx, rs in z.items() if any(r.get("protocol") == "ospf" for r in rs)}
+        out = []
+        for r in json.loads(l3.nsx(self.ns[name], "ip", "-j", "route", "show")):
+            if r.get("protocol") not in ("ospf", "188"): continue
+            via = r.get("nexthops") or [r]
+            out.append({"network": r["dst"], "cost": cost.get(r["dst"]), "via": sorted([{"gw": v.get("gateway"), "iface": v.get("dev")} for v in via], key=lambda v: (v["gw"] or "", v["iface"]))})
+        return sorted(out, key=lambda r: (ip2int(r["network"].split("/")[0]), r["network"]))
+
+    def link(self, ref, up):
+        node, ifn = ref.split(":")
+        l3.sh("ip", "-n", self.ns[node], "link", "set", ifn, "up" if up else "down")
+
+    def close(self):
+        for _, _, p in self.caps: p.kill()
+        super().close()
+        for d in self.frr.values(): shutil.rmtree(d, ignore_errors=True)
+
+    def packets(self):
+        for _, _, p in self.caps: p.terminate()
+        for _, _, p in self.caps: p.wait()
+        out = []
+        for cable, f, _ in self.caps: out += [{**pkt, "cable": cable, "t": pkt["t"] - self.t0} for pkt in read_pcap(f)]
+        return sorted(out, key=lambda p: p["t"])
+
+
+def ip2int(s): return struct.unpack("!I", bytes(int(x) for x in s.split(".")))[0]
+def ip4(b): return ".".join(str(x) for x in b)
+
+
+LINK_TYPES = {"another Router (point-to-point)": "p2p", "Stub Network": "stub", "a Transit Network": "transit"}
+
+
+def parse_neighbors(js):
+    out = []
+    for rid, lst in js.get("neighbors", js).items():
+        for n in (lst if isinstance(lst, list) else [lst]):
+            state, _, role = n["nbrState"].partition("/")
+            out.append({"routerId": rid, "address": n["address"], "iface": n["ifaceName"].split(":")[0], "state": state, "role": role or "-"})
+    return sorted(out, key=lambda n: (n["iface"], ip2int(n["routerId"])))
+
+
+def parse_interfaces(js):
+    out = []
+    for name, i in js.get("interfaces", js).items():
+        if not i.get("ospfEnabled") or not i.get("ifUp"): continue
+        out.append({"iface": name, "state": i["state"], "type": "point-to-point" if i["networkType"] == "POINTOPOINT" else "broadcast",
+                    "cost": i["cost"], "priority": i["priority"], "dr": i.get("drAddress", "0.0.0.0"), "bdr": i.get("bdrAddress", "0.0.0.0")})
+    return sorted(out, key=lambda i: i["iface"])
+
+
+def parse_database(js):
+    """[{type, id, adv, links | mask, attached}] like the engine's database(): routers by ID, networks by DR address."""
+    out = []
+    for l in (js["router"].get("routerLinkStates", {}).get("areas", {}).get("0.0.0.0") or []):
+        links = []
+        for k in sorted(l["routerLinks"], key=lambda k: int(k[4:])):
+            x = l["routerLinks"][k]; t = LINK_TYPES[x["linkType"]]
+            links.append({"type": t, "id": {"p2p": x.get("neighborRouterId"), "stub": x.get("networkAddress"), "transit": x.get("designatedRouterAddress")}[t],
+                          "data": {"p2p": x.get("routerInterfaceAddress"), "stub": x.get("networkMask"), "transit": x.get("routerInterfaceAddress")}[t], "metric": x["tos0Metric"]})
+        if l["lsaAge"] >= 3600: continue   # flushed (MaxAge), waiting for ospfd's 30 s sweep to drop it; the engine drops it at once
+        out.append({"type": "router", "id": l["linkStateId"], "adv": l["advertisingRouter"], "links": links})
+    for l in (js["network"].get("networkLinkStates", {}).get("areas", {}).get("0.0.0.0") or []):
+        if l["lsaAge"] >= 3600: continue
+        out.append({"type": "network", "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": l["networkMask"], "attached": sorted(l["attchedRouters"], key=ip2int)})
+    return sorted(out, key=lambda l: (l["type"] != "router", ip2int(l["id"]), ip2int(l["adv"])))
+
+
+def engine_database(db):
+    out = []
+    for l in db:
+        if l["type"] == "router": out.append({"type": "router", "id": l["id"], "adv": l["adv"], "links": l["links"]})
+        else: out.append({"type": "network", "id": l["id"], "adv": l["adv"], "maskLen": sum(bin(int(o)).count("1") for o in l["mask"].split(".")), "attached": sorted(l["attached"], key=ip2int)})
+    return out
+
+
+def canon_router(r, kernel):
+    """The comparable form of one router's state: sorted lists, links as sets, no sequence numbers."""
+    db = r["database"] if kernel else engine_database(r["database"])
+    for l in db:
+        if "links" in l: l["links"] = sorted(l["links"], key=lambda x: (x["type"], ip2int(x["id"]), x["data"], x["metric"]))
+    return {"neighbors": r["neighbors"], "interfaces": [{k: i[k] for k in ("iface", "state", "type", "cost", "priority", "dr", "bdr")} for i in r["interfaces"]],
+            "routes": [{"network": x["network"], "cost": x["cost"], "via": x["via"]} for x in r["routes"]], "database": db}
+
+
+def read_pcap(path):
+    data = Path(path).read_bytes() if Path(path).exists() else b""
+    if len(data) < 24: return []
+    magic = struct.unpack("<I", data[:4])[0]
+    e, scale = ("<", 1e-6) if magic in (0xa1b2c3d4, 0xa1b23c4d) else (">", 1e-6)
+    if magic in (0xa1b23c4d, 0x4d3cb2a1): scale = 1e-9
+    off, out = 24, []
+    while off + 16 <= len(data):
+        sec, frac, incl, _ = struct.unpack(e + "IIII", data[off:off + 16]); off += 16
+        frame = data[off:off + incl]; off += incl
+        if len(frame) < 14 or frame[12:14] != b"\x08\x00": continue
+        ip = frame[14:]; ihl = (ip[0] & 15) * 4
+        if ip[9] != 89: continue
+        o = ip[ihl:]; typ = PTYPES.get(o[1], o[1])
+        pk = {"t": sec + frac * scale, "src": ip4(ip[12:16]), "dst": ip4(ip[16:20]), "ttl": ip[8], "type": typ, "routerId": ip4(o[4:8])}
+        if typ == "hello":
+            b = o[24:]
+            pk.update({"mask": ip4(b[0:4]), "helloInterval": struct.unpack("!H", b[4:6])[0], "options": b[6], "priority": b[7],
+                       "deadInterval": struct.unpack("!I", b[8:12])[0], "dr": ip4(b[12:16]), "bdr": ip4(b[16:20]),
+                       "neighbors": sorted(ip4(b[k:k + 4]) for k in range(20, len(b) - 3, 4))})
+        out.append(pk)
+    return out
+
+
+def kernel_run(name):
+    spec = json.loads(netfile(name).read_text()); steps = json.loads((HERE / f"{name}.steps.json").read_text())
+    k = OspfNet(spec); out = []; clock = 0.0
+    try:
+        for s in steps:
+            if "wait" in s:
+                clock += s["wait"]; time.sleep(max(0.0, k.t0 + clock - time.time()))
+            elif "linkDown" in s: k.link(s["linkDown"], False)
+            elif "linkUp" in s: k.link(s["linkUp"], True)
+            elif "ping" in s:
+                k.flush(); r = k.act({"do": "ping", "src": s["ping"][0], "dst": s["ping"][1], "timeout": 2})
+                out.append({"t": time.time() - k.t0, "ping": s["ping"], "result": r}); clock = max(clock, time.time() - k.t0)
+            elif "snapshot" in s:
+                out.append({"t": time.time() - k.t0, "snapshot": s["snapshot"], "routers": {n["name"]: k.state(n["name"]) for n in spec["nodes"] if n.get("ospf")}})
+        packets = k.packets()
+    finally:
+        k.close()
+    return {"steps": out, "packets": packets}
+
+
+def inner():
+    l3.sh("mount", "-t", "tmpfs", "none", "/run")
+    print(json.dumps({name: kernel_run(name) for name in sys.argv[2:] or SPECS}))
+
+
+HELLO_KEYS = ("src", "dst", "ttl", "routerId", "mask", "helloInterval", "deadInterval", "options", "priority", "dr", "bdr", "neighbors")
+
+
+def phases(run, steps_spec):
+    """Per snapshot: (snapshot, packets since the previous snapshot, packets before it and at it)."""
+    snaps = [s for s in run["steps"] if "snapshot" in s]
+    out, prev, pk = [], 0, run["packets"]
+    for s in snaps:
+        n = s["packets"] if "packets" in s else sum(1 for p in pk if p["t"] <= s["t"])
+        out.append((s, pk[prev:n], pk[:n])); prev = n
+    return out
+
+
+def last_hellos(pkts):
+    last = {}
+    for p in pkts:
+        if p["type"] == "hello": last[f'{p["cable"]} from {p["src"]}'] = {k: p[k] for k in HELLO_KEYS}
+    return last
+
+
+def kinds(win):
+    """Which packet types other than Hello crossed every cable direction (when a Hello went out depends on when a ping or a
+    cable cut happened, and the last Hello on every cable is compared separately), and how many Hellos."""
+    t, hello = {}, {}
+    for p in win:
+        if p["type"] != "hello": t.setdefault(p["cable"], set()).add(p["type"])
+        if p["type"] == "hello": hello[p["cable"]] = hello.get(p["cable"], 0) + 1
+    return {c: sorted(v) for c, v in t.items()}, hello
+
+
+def nbr_text(r): return ", ".join(f'{n["iface"]}: {n["routerId"]} {n["state"]}/{n["role"]}' for n in r["neighbors"]) or "no neighbors"
+
+
+def main():
+    need = ["unshare", "ip", "tcpdump", "vtysh", f"{FRR}/ospfd", f"{FRR}/zebra"]
+    if os.geteuid() != 0 or not all(shutil.which(x) or os.path.exists(x) for x in need):
+        print("Needs root, unshare, iproute2, tcpdump and FRRouting (zebra, ospfd, vtysh). Skipping."); return 0
+    names = sys.argv[1:] or SPECS
+    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner", *names], check=True,
+                                     capture_output=True, text=True, timeout=1800).stdout)
+    rows, detail = [], {}
+    for name in names:
+        steps_spec = json.loads((HERE / f"{name}.steps.json").read_text())
+        eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_ospf.mjs"), str(netfile(name)), str(HERE / f"{name}.steps.json")))
+        kr = kern[name]
+        wants = [s.get("lastHello", True) for s in steps_spec if "snapshot" in s]
+        for (es, ewin, eupto), (ks, kwin, kupto), want in zip(phases(eng, steps_spec), phases(kr, steps_spec), wants):
+            ec = {r: canon_router(v, False) for r, v in es["routers"].items()}; kc = {r: canon_router(v, True) for r, v in ks["routers"].items()}
+            checks = {}
+            for part in ("neighbors", "interfaces", "routes", "database"): checks[part] = all(ec[r][part] == kc[r][part] for r in ec)
+            if want: checks["last hello on every cable"] = last_hellos(eupto) == last_hellos(kupto)
+            et, eh = kinds(ewin); kt, kh = kinds(kwin)
+            checks["packet types on every cable"] = et == kt
+            ok = all(checks.values())
+            rows.append((name, es["snapshot"], "; ".join(f"{r}: {nbr_text(v)}" for r, v in es["routers"].items()),
+                         ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()) + f' · hellos {sum(eh.values())} (Linux {sum(kh.values())})', "✓" if ok else "✗"))
+            if not ok:
+                d = {}
+                for part in ("neighbors", "interfaces", "routes", "database"):
+                    if not checks[part]: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
+                if not checks.get("last hello on every cable", True):
+                    el, kl = last_hellos(eupto), last_hellos(kupto)
+                    d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}
+                if not checks["packet types on every cable"]:
+                    d["packet types"] = {c: {"engine": et.get(c), "linux": kt.get(c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
+                detail[f'{name}: {es["snapshot"]}'] = d
+        for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
+            e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
+            what = f'ping {ep_["ping"][0]} → {ep_["ping"][1]} at {ep_["t"]:.0f} s'
+            rows.append((name, what, ("ok" if e.get("ok") else e.get("error", "?")) + (f' from {e["from"]}' if e.get("from") else ""), "result", "✓" if ok else "✗"))
+            if not ok: detail[f"{name}: {what}"] = {"engine": e, "linux": k}
+    md = ["| Network | Snapshot | Engine neighbors (same in ospfd?) | Checks | Match |", "|---|---|---|---|---|"]
+    md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
+    (HERE / "results.md").write_text("\n".join(md) + "\n")
+    (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
+    print("\n".join(md))
+    if detail: print(json.dumps(detail, indent=1)[:8000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
+    return 0 if not detail else 1
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--inner"]: inner()
+    else:
+        try: sys.exit(main())
+        except (subprocess.CalledProcessError, RuntimeError) as e:
+            l3.gh_note("error", "OSPF validation crashed", f"{e}\nstdout: {(getattr(e, 'stdout', '') or '')[-3000:]}\nstderr: {(getattr(e, 'stderr', '') or '')[-6000:]}")
+            print((getattr(e, 'stderr', '') or str(e))[-6000:], file=sys.stderr)
+            raise
