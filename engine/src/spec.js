@@ -177,6 +177,14 @@ export const ACTIONS = {
   tcp: {required: ["src", "dst", "port"], run: (net, a) => tcpAction(net, a)},
   // Pause `seconds` of simulated time (MAC entries age; use "keepCaches": true on the actions around it).
   wait: {required: ["seconds"], run: (net, a) => { net.run(net.time + a.seconds); return {waited: a.seconds, time: net.time}; }},
+  // Cut or restore a cable (a port name: "SW1:p1"); use "keepCaches": true so the tables stay as they are.
+  linkDown: {required: ["link"], run: (net, a) => { net.setLink(a.link, false); return {link: a.link, up: false}; }},
+  linkUp: {required: ["link"], run: (net, a) => { net.setLink(a.link, true); return {link: a.link, up: true}; }},
+  // The spanning-tree state of a switch right now (root, port roles and states, topology-change flag).
+  stp: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch" || !n.stp) throw new Error(`${a.switch} is not a switch running spanning tree`);
+    return {switch: a.switch, ...n.stp.describe()};
+  }},
   // The MAC address table of a switch right now: [{vlan, mac, port, age}]
   macTable: {required: ["switch"], run: (net, a) => {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
@@ -206,7 +214,8 @@ export function validateActions(actions, spec = null) {
     const sn = spec && Array.isArray(spec.nodes) && spec.nodes.find(n => n && n.name === a.src);
     if (sn && sn.kind === "switch" && !isObj(sn.ifaces)) errors.push({path: `${p}.src`, message: `${a.src} is a switch with no IP interfaces (give it SVIs: "ifaces": {"vlan10": ...})`});
     if (a.do === "wait" && !(typeof a.seconds === "number" && a.seconds >= 0)) errors.push({path: `${p}.seconds`, message: "seconds must be a number ≥ 0"});
-    if (a.do === "macTable" && !(spec && Array.isArray(spec.nodes) ? spec.nodes.some(n => n && n.name === a.switch && n.kind === "switch") : typeof a.switch === "string")) errors.push({path: `${p}.switch`, message: `no switch named "${a.switch}"`});
+    if (a.switch !== undefined && !(spec && Array.isArray(spec.nodes) ? spec.nodes.some(n => n && n.name === a.switch && n.kind === "switch") : typeof a.switch === "string")) errors.push({path: `${p}.switch`, message: `no switch named "${a.switch}"`});
+    if (a.link !== undefined && spec && Array.isArray(spec.links) && !spec.links.some(l => Array.isArray(l) && l.slice(0, 2).includes(a.link))) errors.push({path: `${p}.link`, message: `no cable end named "${a.link}" (use "node:port")`});
     if (a.keepCaches !== undefined && typeof a.keepCaches !== "boolean") errors.push({path: `${p}.keepCaches`, message: "keepCaches must be true or false"});
     if (a.settle !== undefined && !(typeof a.settle === "number" && a.settle >= 0)) errors.push({path: `${p}.settle`, message: "settle must be seconds ≥ 0"});
   });
@@ -238,7 +247,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
-    net.settle(a.settle ?? (a.do === "wait" || a.do === "macTable" ? 0 : 1));
+    net.settle(a.settle ?? (["wait", "macTable", "linkDown", "linkUp", "stp"].includes(a.do) ? 0 : 1));
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }

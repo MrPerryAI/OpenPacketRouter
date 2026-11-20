@@ -364,6 +364,7 @@ SW1>enable
 SW1#show spanning-tree
 Bridge 8000.02aa00000001  (this switch is the root)
 Root   8000.02aa00000001
+Topology change in progress: MAC entries age out fast (one forward delay)
 
 Port  Role        State       Cost  Port ID
 p1    designated  forwarding  19    128.1

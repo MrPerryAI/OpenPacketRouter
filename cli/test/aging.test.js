@@ -35,3 +35,11 @@ test("linux rendering sets the bridge's ageing_time in centiseconds", () => {
   const out = linuxCommands(b.getConfig("SW1"), {kind: "switch", ports: b.ports("SW1")});
   assert.match(out[0], /^ip link add br0 type bridge stp_state 0 ageing_time 500/);
 });
+
+test("show spanning-tree notes a topology change in progress, and `| json` carries the flags", () => {
+  const spec = JSON.parse(fs.readFileSync(path.join(ROOT, "examples/stp-topology-change/spec.json"), "utf8"));
+  const b = engineBackend(spec), s = createSession(b, "SW3", {mode: "priv"});
+  const d = JSON.parse(s.exec("show spanning-tree | json").output);
+  assert.equal(typeof d.topologyChange, "boolean"); assert.equal(typeof d.topologyChangeDetected, "boolean");
+  assert.equal(/Topology change in progress/.test(s.exec("show spanning-tree").output), d.topologyChange);
+});

@@ -44,7 +44,7 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-RSTP, topology-change notifications, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
+RSTP, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
 
 ## Tests
 

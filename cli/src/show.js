@@ -61,6 +61,7 @@ export const SHOWS = {
     if (!d) return {json: null, text: "Spanning tree is off on this switch"};
     const lines = [`Bridge ${d.bridgeId}${d.isRoot ? "  (this switch is the root)" : ""}`, `Root   ${d.root}`];
     if (!d.isRoot) lines.push(`Path cost to root ${d.rootCost}, through port ${d.rootPort}`);
+    if (d.topologyChange) lines.push("Topology change in progress: MAC entries age out fast (one forward delay)");
     lines.push("", table(["Port", "Role", "State", "Cost", "Port ID"], Object.entries(d.ports).map(([p, x]) => [p, x.role, x.state, x.cost, `${x.id >> 8}.${x.no}`])));
     return {json: d, text: lines.join("\n")};
   },

@@ -28,6 +28,8 @@ STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
 
 
 class Net:
+    DEFER_UP = False   # validators that compare timers (aging, topology change) bring the bridges up themselves, all at once, at step 0
+
     def __init__(self, spec):
         self.spec = spec; self.ifmap = {}; self.ns = {n["name"]: "n-" + n["name"] for n in spec["nodes"]}
         os.makedirs("/run/netns", exist_ok=True); no_ipv6()
@@ -36,7 +38,7 @@ class Net:
             ns = self.ns[n["name"]]; sh("ip", "netns", "add", ns); no_ipv6(ns); sh("ip", "-n", ns, "link", "set", "lo", "up")
             routes = n["kind"] == "router" or (n["kind"] == "switch" and n.get("ifaces"))   # a switch with SVIs is a Layer 3 switch
             for k, v in [("net.ipv4.conf.all.send_redirects", 0), ("net.ipv4.conf.default.send_redirects", 0), ("net.ipv4.icmp_ratelimit", 0),
-                         ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.ip_forward", 1 if routes else 0)]:
+                         ("net.ipv4.conf.all.rp_filter", 0), ("net.ipv4.conf.default.rp_filter", 0), ("net.ipv4.igmp_link_local_mcast_reports", 0), ("net.ipv4.ip_forward", 1 if routes else 0)]:
                 sysctl(ns, k, v)
             if n["kind"] == "switch":
                 cmd = ["ip", "-n", ns, "link", "add", "br0", "type", "bridge", "stp_state", "0"]
@@ -48,7 +50,8 @@ class Net:
                 sh(*cmd)
                 if n.get("stp"): sh("ip", "-n", ns, "link", "set", "br0", "address", n["stp"]["mac"])
                 if n.get("vlans"): sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "vlan_filtering", "1")
-                no_ipv6(ns, "br0"); sh("ip", "-n", ns, "link", "set", "br0", "up")
+                no_ipv6(ns, "br0")
+                if not self.DEFER_UP: sh("ip", "-n", ns, "link", "set", "br0", "up")
         for k, (a, b, *_r) in enumerate(spec["links"]):
             ta, tb = f"va{k}", f"vb{k}"; sh("ip", "link", "add", ta, "type", "veth", "peer", "name", tb)
             for tmp, ref in ((ta, a), (tb, b)):

@@ -27,7 +27,7 @@ export function frameKind(f) {
 /** One line for a frame, in the engine's trace wording. */
 export function describeFrame(f) {
   const tag = f.vlan !== undefined ? ` [VLAN ${f.vlan}]` : "";
-  if (f.type === "bpdu") return `STP BPDU: root ${f.bpdu.root[1]}, cost ${f.bpdu.cost}${tag}`;
+  if (f.type === "bpdu") return f.bpdu.tcn ? `STP topology change notice${tag}` : `STP BPDU: root ${f.bpdu.root[1]}, cost ${f.bpdu.cost}${f.bpdu.tc ? ", topology change" : ""}${f.bpdu.tca ? ", change acknowledged" : ""}${tag}`;
   if (f.type === "arp") return (f.arp.op === "request" ? `ARP: who has ${f.arp.tpa}? tell ${f.arp.spa}` : `ARP: ${f.arp.spa} is at ${f.arp.sha}`) + tag;
   const p = f.ip;
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}`
