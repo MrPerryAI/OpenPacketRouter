@@ -28,6 +28,13 @@ export function configLines(model, {kind, ports}) {
   // access lists come before the interfaces that apply them, so replaying the text finds each list
   const acls = M.services(model).acl;
   if (acls) for (const [name, rules] of Object.entries(acls.lists)) out.push(`ip access-list ${name}`, ...rules.map(r => ` ${ruleText(r)}`), "!");
+  const og = M.ospf(model);
+  if (og) {
+    out.push("router ospf");
+    if (og.global.config["router-id"]) out.push(` router-id ${og.global.config["router-id"]}`);
+    for (const x of og["openpacketrouter:networks"]) out.push(/^\d/.test(x) ? ` network ${x}` : ` network interface ${x}`);
+    out.push("!");
+  }
 
   const nat = M.services(model).nat;
   if (nat) {
@@ -60,6 +67,16 @@ export function configLines(model, {kind, ports}) {
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
       if (ifc["openpacketrouter:nat"]) out.push(` ip nat ${ifc["openpacketrouter:nat"]}`);
       for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
+      const oi = M.ospfIf(model, name, false);
+      if (oi) {
+        const c = oi.config, t = oi.timers.config;
+        if (c["network-type"]) out.push(` ospf network ${c["network-type"] === "POINT_TO_POINT_NETWORK" ? "point-to-point" : "broadcast"}`);
+        if (c.metric !== undefined) out.push(` ospf cost ${c.metric}`);
+        if (c.priority !== undefined) out.push(` ospf priority ${c.priority}`);
+        if (t["hello-interval"] !== undefined) out.push(` ospf hello-interval ${t["hello-interval"]}`);
+        if (t["dead-interval"] !== undefined) out.push(` ospf dead-interval ${t["dead-interval"]}`);
+        if (t["retransmission-interval"] !== undefined) out.push(` ospf retransmit-interval ${t["retransmission-interval"]}`);
+      }
       const sh = ifc["openpacketrouter:shaper"];
       if (sh) out.push(` shape rate ${sh.rate} burst ${sh.burst} limit ${sh.limit}`);
       if (ifc.config.enabled === false) out.push(" shutdown");

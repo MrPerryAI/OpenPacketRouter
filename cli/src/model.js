@@ -47,6 +47,19 @@ const ni = m => m["network-instances"]["network-instance"].default;
 /** Static routes: {prefix: {"next-hops": {"next-hop": {index: {config: {"next-hop": ip}}}}}} in the order they were added. */
 export const statics = m => ni(m).protocols.protocol.STATIC["static-routes"].static;
 export const staticList = m => Object.entries(statics(m)).flatMap(([prefix, r]) => Object.values(r["next-hops"]["next-hop"]).map(h => ({prefix, nextHop: h.config["next-hop"]})));
+/** OSPFv2 (openconfig-ospfv2): null until `router ospf`. Its networks are under "openpacketrouter:networks" (OpenConfig selects interfaces per area instead). */
+export const ospf = (m, make = false) => {
+  const all = ni(m).protocols.protocol;
+  if (!all.OSPF) { if (!make) return null; all.OSPF = {identifier: "OSPF", config: {identifier: "OSPF", name: "ospf"}, ospfv2: {global: {config: {}}, "openpacketrouter:networks": [], areas: {area: {"0": {interfaces: {interface: {}}}}}}}; }
+  return all.OSPF.ospfv2;
+};
+export const ospfDelete = m => { delete ni(m).protocols.protocol.OSPF; };
+/** One interface's OSPF settings: {config: {metric, priority, "network-type"}, timers: {config: {...}}}. */
+export const ospfIf = (m, name, make = true) => {
+  const all = ospf(m, make)?.areas.area["0"].interfaces.interface; if (!all) return null;
+  if (!all[name]) { if (!make) return null; all[name] = {config: {id: name}, timers: {config: {}}}; }
+  return all[name];
+};
 export const vlans = m => ni(m).vlans.vlan;
 /** MAC table settings (openconfig-network-instance fdb): config["mac-aging-time"] in seconds; absent = the default (300). */
 export const fdb = m => (ni(m).fdb ||= {config: {}}).config;
@@ -81,7 +94,7 @@ export const services = m => m["openpacketrouter:services"];
 // ---- export
 
 const LIST_KEYS = {"interface": "name", "subinterface": "index", "address": "ip", "static": "prefix", "next-hop": "index",
-  "protocol": "identifier", "network-instance": "name", "vlan": "vlan-id"};
+  "protocol": "identifier", "area": "identifier", "network-instance": "name", "vlan": "vlan-id"};
 
 /** The model in OpenConfig's standard JSON encoding: keyed objects become lists of entries with their key leaf. */
 export function toOpenConfig(m) {
