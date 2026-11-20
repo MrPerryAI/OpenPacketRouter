@@ -53,9 +53,15 @@ class RipNet(l3.KernelNet):
         self.t0 = time.time()
         for n in routers:
             d = self.frr[n["name"]]
-            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-f", f"{d}/ripd.conf", "-i", f"{d}/ripd.pid",
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-i", f"{d}/ripd.pid",
                                                 "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
                                                stdout=open(f"{self.tmp}/ripd-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
+        time.sleep(1)
+        for n in routers:   # newer FRR's ripd has no -f: load the config through vtysh (works on older FRR too)
+            d = self.frr[n["name"]]
+            r = subprocess.run(["ip", "netns", "exec", self.ns[n["name"]], "vtysh", "--vty_socket", d, "-f", f"{d}/ripd.conf"], capture_output=True, text=True)
+            if r.returncode: raise RuntimeError(f"vtysh -f failed on {n['name']}: {r.stdout[-800:]}{r.stderr[-800:]}")
+        self.t0 = time.time()
 
     def write_conf(self, n):
         d = f"{self.tmp}/frr-{n['name']}"; os.makedirs(d)
