@@ -1,0 +1,15 @@
+[
+ {"do": "wait", "seconds": 14},
+ {"do": "ripRoute", "network": "10.3.0.0/24"},
+ {"do": "ping", "src": "H1", "dst": "10.3.0.10"},
+ {"do": "link", "end": "R2:eth1", "up": false},
+ {"do": "wait", "seconds": 4},
+ {"do": "ripRoute", "network": "10.3.0.0/24"},
+ {"do": "ping", "src": "H1", "dst": "10.3.0.10"},
+ {"do": "wait", "seconds": 30},
+ {"do": "ripRoute", "network": "10.3.0.0/24"},
+ {"do": "link", "end": "R2:eth1", "up": true},
+ {"do": "wait", "seconds": 14},
+ {"do": "ripRoute", "network": "10.3.0.0/24"},
+ {"do": "ping", "src": "H1", "dst": "10.3.0.10"}
+]

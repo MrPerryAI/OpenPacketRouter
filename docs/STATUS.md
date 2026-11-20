@@ -78,9 +78,9 @@ Each step counts as done only when it matches real Linux (or real FRRouting) fra
 3. **Inter-VLAN routing:** router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs.
 4. **MAC address aging:** learned entries expire after the aging time, checked against the kernel bridge `ageing_time`.
 5. **Spanning-tree topology change notices:** TCN BPDUs, and switches flush (shorten aging on) their MAC tables after a topology change.
-6. **RIPv2**, validated against FRRouting `ripd` in namespaces.
+6. **RIPv2: done** (`engine/src/rip.js`, `validate/rip/`): periodic and triggered updates, split horizon with poisoned reverse, timeout, garbage collection, metric 16 = infinity, requests, passive interfaces. Routing tables after convergence, after a link cut, after garbage collection and after repair, and the RIP packets on every cable, match FRRouting `ripd` in namespaces. Not yet: RIP commands in the CLI (waiting for `cli/`), RIPv1, authentication, redistribution, update jitter.
 7. **OSPF**, validated against FRRouting `ospfd` in namespaces.
-8. **Example lab networks** in `examples/` that run with the CLI: eight labs so far (loop with and without spanning tree, VLANs, DHCP, DHCP relay, shaped bottleneck, routed ping/traceroute/DNS, TCP), each run by `engine/test/examples.test.js`; a lab is added as each feature above lands.
+8. **Example lab networks** in `examples/` that run with the CLI: ten labs so far (loop with and without spanning tree, VLANs, DHCP, DHCP relay, shaped bottleneck, routed ping/traceroute/DNS, TCP, RIP chain, count to infinity), each run by `engine/test/examples.test.js`; a lab is added as each feature above lands.
 9. **Later:** RSTP / PVST+, EtherChannel/LACP, port security, DHCP snooping, storm control, LLDP, SPAN, NAT, ACLs, IPv6. Also kept from the earlier roadmap: mixed detail levels (swap one device between engine model and a real Linux namespace mid-traffic, the handoff experiment in `docs/vision.md`).
 
 ### Routing protocol decisions

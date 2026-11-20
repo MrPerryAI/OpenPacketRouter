@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "Count to infinity (teaching scenario, engine only)",
+  "about": "Three routers in a triangle; LAN 10.3.0.0/24 hangs off R3. Split horizon is on, but triggered updates are off (a teaching knob: real routers send them). R3's LAN cable is cut. At R3's next update R1 and R2 hear 'unreachable', but R2's own update, sent at the same moment, still offers the LAN, and it reaches R1 a few milliseconds after the bad news (the R1–R2 cable is longer). R1 believes it, tells R3, R3 tells R2, R2 tells R1 ... the false route goes round the loop, one hop per update and one metric step per hop, until the metric reaches 16 (infinity). Split horizon can't stop it: no router sends the route back where it came from. Triggered updates stop it at once (rip-chain and rip-nosplit, checked against FRRouting).",
+  "nodes": [
+    {"name": "R1", "kind": "router", "ifaces": {"eth0": "10.0.12.1/30", "eth1": "10.0.13.1/30"},
+     "rip": {"networks": ["10.0.0.0/8"], "triggered": false, "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R2", "kind": "router", "ifaces": {"eth0": "10.0.12.2/30", "eth1": "10.0.23.1/30"},
+     "rip": {"networks": ["10.0.0.0/8"], "triggered": false, "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "R3", "kind": "router", "ifaces": {"eth0": "10.0.13.2/30", "eth1": "10.0.23.2/30", "eth2": "10.3.0.1/24"},
+     "rip": {"networks": ["10.0.0.0/8"], "triggered": false, "timers": {"update": 5, "timeout": 15, "garbage": 10}}},
+    {"name": "H3", "kind": "host", "ifaces": {"eth0": "10.3.0.10/24"}, "gw": "10.3.0.1"}
+  ],
+  "links": [["R1:eth0", "R2:eth0", 5], ["R1:eth1", "R3:eth0", 1], ["R2:eth1", "R3:eth1", 1], ["R3:eth2", "H3:eth0", 1]]
+}
