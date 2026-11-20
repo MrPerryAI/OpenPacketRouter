@@ -14,6 +14,9 @@
   ]
  },
  {
+  "bpdus": "mark"
+ },
+ {
   "wait": 12
  },
  {
@@ -25,11 +28,14 @@
   ]
  },
  {
+  "bpdus": true
+ },
+ {
   "ping": [
    "A",
    "10.0.0.2"
   ],
-  "frames": false
+  "frames": "data"
  },
  {
   "table": [
@@ -58,6 +64,9 @@
   ]
  },
  {
+  "bpdus": true
+ },
+ {
   "wait": 6
  },
  {
@@ -65,7 +74,7 @@
    "A",
    "10.0.0.2"
   ],
-  "frames": false
+  "frames": "data"
  },
  {
   "wait": 1
@@ -100,6 +109,9 @@
   "fresh": true
  },
  {
+  "bpdus": "mark"
+ },
+ {
   "wait": 14
  },
  {
@@ -111,11 +123,14 @@
   ]
  },
  {
+  "bpdus": true
+ },
+ {
   "ping": [
    "A",
    "10.0.0.2"
   ],
-  "frames": false
+  "frames": "data"
  },
  {
   "table": [
@@ -125,5 +140,57 @@
    "SW4"
   ],
   "fresh": true
+ },
+ {
+  "wait": 2
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "link": {
+   "end": "SW4:p3",
+   "up": false
+  }
+ },
+ {
+  "wait": 2
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "link": {
+   "end": "SW4:p3",
+   "up": true
+  }
+ },
+ {
+  "wait": 13
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "wait": 10
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": true
  }
 ]

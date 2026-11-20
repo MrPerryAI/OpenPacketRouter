@@ -60,6 +60,15 @@ def kernel(name, steps_name, here=HERE):
         for sw, port in WATCH:   # diagnostic only: what the kernel really sent on these cables (shown if a step mismatches)
             f = f"/tmp/aging-{sw}-{port}.txt"; open(f, "w").close()
             sniffers.append(subprocess.Popen(["ip", "netns", "exec", k.ns[sw], sys.executable, str(HERE / "sniff.py"), port, f]))
+        cables = {}   # "node:if>peer:if" -> file of the kinds of frames that interface sent (cable.py), for "bpdus" steps and "frames": "data"
+        if any("bpdus" in s or s.get("frames") == "data" for s in steps):
+            for (node, ifn), peer in k.ifmap.items():
+                f = f"/tmp/cable-{node}-{ifn}.txt"; open(f, "w").close(); cables[f"{node}:{ifn}>{peer}"] = f
+                sniffers.append(subprocess.Popen(["ip", "netns", "exec", k.ns[node], sys.executable, str(HERE / "cable.py"), ifn, f]))
+        marks = {"ping": {c: 0 for c in cables}, "bpdus": {c: 0 for c in cables}}
+        def sent(): return {c: [l.split()[0] for l in open(f).read().splitlines()] for c, f in cables.items()}   # (cable.py also writes each frame's time, for reading the files by hand)
+        def window(who):   # what was sent since this reader last looked (pings and BPDU reports read independently)
+            time.sleep(0.2); now = sent(); m = marks[who]; w = {c: now[c][m[c]:] for c in cables}; m.update({c: len(now[c]) for c in cables}); return w
         time.sleep(0.3)
         for s in steps:
             if s.get("flush"): k.flush()
@@ -68,8 +77,13 @@ def kernel(name, steps_name, here=HERE):
                     if n["kind"] == "switch": sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "type", "bridge", "ageing_time", str(int(n.get("agingTime", 300) * 100)))
             elif "wait" in s: time.sleep(s["wait"])
             elif "ping" in s:
+                if s.get("frames") == "data": window("ping")
                 before = k.counters(); r = k.ping(*s["ping"]); time.sleep(s.get("settle", 1)); after = k.counters()
-                out.append({"ping": s["ping"], "ok": bool(r.get("ok")), "wire": {f"{sw}:{p}": open(f"/tmp/aging-{sw}-{p}.txt").read().splitlines()[-40:] for sw, p in WATCH}, **({} if s.get("frames") is False else {"frames": {x: after[x] - before.get(x, 0) for x in after if after[x] - before.get(x, 0)}})})
+                if s.get("frames") == "data": fr = {c: v.count("data") for c, v in window("ping").items() if v.count("data")}   # not counting spanning-tree frames
+                else: fr = {x: after[x] - before.get(x, 0) for x in after if after[x] - before.get(x, 0)}
+                out.append({"ping": s["ping"], "ok": bool(r.get("ok")), "wire": {f"{sw}:{p}": open(f"/tmp/aging-{sw}-{p}.txt").read().splitlines()[-40:] for sw, p in WATCH}, **({} if s.get("frames") is False else {"frames": fr})})
+            elif s.get("bpdus") == "mark": window("bpdus")   # start a new window without reporting the one that ends (startup transients differ: the bridges come up a few ms apart)
+            elif "bpdus" in s: out.append({"bpdus": True, "kinds": {c: sorted(set(v) - {"data"}) for c, v in window("bpdus").items() if set(v) - {"data"}}})
             elif "link" in s: k.link(s["link"]["end"], s["link"]["up"])   # {"end": "SW:port", "up": bool}, as the spec action `link`
             elif "tc" in s:
                 b = {}
@@ -80,6 +94,8 @@ def kernel(name, steps_name, here=HERE):
             elif "table" in s: out.append({"table": s["table"], "tables": {sw: table(k, sw, owner, s.get("fresh", False)) for sw in s["table"]}})
     finally:
         for p in sniffers: p.kill()
+        if os.environ.get("CABLE_DEBUG"):   # keep the per-cable timelines next to the steps, to read by hand
+            for c, f in cables.items(): shutil.copy(f, here / f"timeline-{c.replace(':', '_').replace('>', '-')}.txt")
         k.close()
     return out
 
@@ -104,6 +120,8 @@ def main(here=HERE, cases=CASES, script=__file__):
             if "ping" in e:
                 label = f'ping {e["ping"][0]} → {e["ping"][1]}'
                 res = f'{"ok" if e["ok"] else "no reply"}' + (f' · {sum(e["frames"].values())} frames on {len(e["frames"])} cable directions' if "frames" in e else "")
+            elif "bpdus" in e:
+                label = "BPDU kinds per cable direction"; res = f'{len(e["kinds"])} cable directions with BPDUs'
             elif "tc" in e:
                 label = "topology change " + ", ".join(e["tc"]); res = " · ".join(f'{sw}: tc={b["topologyChange"]} aging={b["agingTime"]:g}s' for sw, b in e["bridges"].items())
             else:

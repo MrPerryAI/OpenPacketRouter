@@ -9,6 +9,12 @@ steps in tcn.steps.json on the engine and on kernel bridges: wait, cut a cable, 
     and the MAC aging time in force (the kernel cuts it to twice the forward delay while the flag is set),
   * each switch's learned MAC table (the kernel does not flush on a topology change; it ages faster, and its
     garbage collector only runs when the earliest entry would expire).
+  * the kinds of BPDU each cable direction carried in a window (config, config+TC, config+TCA, config+TC+TCA, TCN),
+    sniffed on every interface by validate/aging/cable.py; pings compare the frame counts per cable direction
+    leaving out the spanning-tree frames, so flooding after the fast MAC aging is checked too.
+    Windows that end in the middle of a reconvergence are not reported ("bpdus": "mark"): whether an acknowledgment
+    carries the TC flag too depends on which hello slot the flag reaches the bridge in, and the kernel rounds its
+    1 s hold timer to wall-clock seconds. The leaf-port flap at the end gives crisp sets.
 Snapshots sit on plateaus, a few seconds from any transition, because BPDU timing differs by up to the
 kernel's 1 s hold timer. It reuses the step runner of validate/aging.
 """
