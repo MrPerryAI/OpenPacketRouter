@@ -47,3 +47,5 @@ jobs:
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: TCP vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
+      - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
