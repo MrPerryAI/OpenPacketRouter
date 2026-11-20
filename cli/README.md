@@ -101,7 +101,9 @@ Implement `kind(device)`, `ports(device)`, `getConfig(device)` → model, `setCo
 reasons, and optionally `state(device)`, `run(device, action)`, `save()`, `canCreatePorts(device)`. The model is
 described in [docs/cli-design.md](../docs/cli-design.md); `model.toOpenConfig()` gives the standard OpenConfig JSON.
 `src/backends/linux.js`, `frr.js` and `openwrt.js` are renderers today (model → iproute2/bridge/tc/dnsmasq
-commands, `frr.conf`, UCI); each gets one working proof against a real system.
+commands, `frr.conf`, UCI); each gets one working proof against a real system. The Linux one has it:
+`validate/cli/run_kernel_cli.py` configures the L3 validation networks in Linux namespaces only from
+`--render linux --lab-parity` and gets the engine's frames, cable by cable ([results](../validate/cli/results.md)).
 
 ## Tests
 
