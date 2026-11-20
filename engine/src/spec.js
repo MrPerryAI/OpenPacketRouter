@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "ifaces", "routes", "gw", "agingTime"],   // stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf"],      // ospf: engine/src/ospf.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
@@ -100,6 +100,8 @@ export function validateSpec(spec) {
     for (const k of Object.keys(n)) if (![...NODE_KEYS.common, ...NODE_KEYS[n.kind]].includes(k))
       warn(`${p}.${k}`, `node "${n.name}" (${n.kind}): unknown key "${k}" (ignored)`);
     if (n.kind === "switch") {
+      if (n.vlanNames !== undefined && !(isObj(n.vlanNames) && Object.entries(n.vlanNames).every(([id, v]) => /^\d+$/.test(id) && +id >= 1 && +id <= 4094 && typeof v === "string" && v)))
+        err(`${p}.vlanNames`, `node "${n.name}": vlanNames must map VLAN numbers (1-4094) to non-empty names, like {"10": "sales"}`);
       if (n.blocked !== undefined && !(Array.isArray(n.blocked) && n.blocked.every(x => typeof x === "string")))
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
       if (n.agingTime !== undefined && !(typeof n.agingTime === "number" && Number.isFinite(n.agingTime) && n.agingTime > 0))
