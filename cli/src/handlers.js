@@ -91,6 +91,10 @@ export const HANDLERS = {
   "stp.port.set": (ctx, [v], leaf) => { M.stpPort(ctx.model, curIface(ctx).config.name)[leaf] = v; },
   "stp.port.unset": (ctx, args, leaf) => { const c = M.stpPort(ctx.model, curIface(ctx).config.name, false); if (c) delete c[leaf]; },
 
+  // ---- MAC address table aging (openconfig fdb mac-aging-time)
+  "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
+  "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },
+
   // ---- link shaping (token bucket on the interface's egress)
   "shaper.set": (ctx, [rate, burst, limit]) => { curIface(ctx)["openpacketrouter:shaper"] = {rate, burst, limit}; },
   "shaper.remove": ctx => { delete curIface(ctx)["openpacketrouter:shaper"]; },

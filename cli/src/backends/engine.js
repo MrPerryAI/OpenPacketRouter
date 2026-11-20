@@ -39,6 +39,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
 
   if (n.kind === "switch") {
     for (const p of n.blocked || []) M.iface(m, p).config.enabled = false;
+    if (n.agingTime !== undefined) M.fdb(m)["mac-aging-time"] = n.agingTime;
     // a Layer 3 switch: SVIs (vlanN with an address) and static routes
     for (const [name, a] of Object.entries(n.ifaces || {})) { const [ip, pl] = a.split("/"); M.ipv4(M.iface(m, name)).addresses.address[ip] = {config: {ip, "prefix-length": +pl}}; }
     for (const [dst, via] of n.routes || []) {
@@ -101,7 +102,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "blocked", "stp", "vlans"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "blocked", "stp", "vlans", "agingTime"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -122,6 +123,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (srt.length) n.routes = srt;
     const blocked = ports.filter(p => ifs[p] && ifs[p].config.enabled === false);
     if (blocked.length) n.blocked = blocked;
+    if (M.fdb(m)["mac-aging-time"] !== undefined) n.agingTime = M.fdb(m)["mac-aging-time"];
     const vl = {};
     for (const p of ports) {
       const sv = ifs[p] && M.switchedVlan(ifs[p], false);
@@ -241,7 +243,7 @@ export function stateOf(net, device, spec) {
     const base = {
       interfaces: [...Object.keys(n.ifaces).map(p => ({name: p, status: !cabledUp(p) ? "down" : n.blocked.has(p) ? "admin-down" : "up"})),
         ...svis.map(i => ({name: i.name, address: i.ip ? `${i.ip}/${i.prefix}` : null, mac: i.mac, status: sviUp(i) ? "up" : "down"}))],
-      mac: [...n.table].map(([k, port]) => { const [vlan, mac] = k.split("|"); return {vlan: +vlan || 1, mac, port}; }),
+      mac: n.macTable().map(e => ({...e, vlan: e.vlan || 1})),
       stp: n.stp && n.stp.started ? n.stp.describe() : null,
     };
     if (!n.l3) return base;

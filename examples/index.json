@@ -59,6 +59,14 @@
    "readme": "loop-with-stp/README.md"
   },
   {
+   "id": "mac-aging",
+   "name": "MAC aging",
+   "about": "Two switches with different aging times. After a pause one switch has forgotten where a host is and floods the next frame to everyone, while the other still forwards it to one port.",
+   "spec": "mac-aging/spec.json",
+   "actions": "mac-aging/actions.json",
+   "readme": "mac-aging/README.md"
+  },
+  {
    "id": "routed-lan-dns",
    "name": "Two LANs and a router: ping, traceroute, DNS",
    "about": "Students on 10.0.0.0/24, servers on 10.1.0.0/24, one router between them. Ping crosses the router, traceroute shows it as the first hop, and DNS turns a name into an address.",

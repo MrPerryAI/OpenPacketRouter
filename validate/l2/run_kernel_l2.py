@@ -44,6 +44,7 @@ class Net:
                     s = n["stp"]; cmd[-1] = "1"
                     cmd += ["priority", str(s.get("priority", 32768)), "hello_time", str(int(s.get("hello", 2) * 100)),
                             "max_age", str(int(s.get("maxAge", 20) * 100)), "forward_delay", str(int(s.get("forwardDelay", 15) * 100))]
+                if n.get("agingTime") is not None: cmd += ["ageing_time", str(int(n["agingTime"] * 100))]
                 sh(*cmd)
                 if n.get("stp"): sh("ip", "-n", ns, "link", "set", "br0", "address", n["stp"]["mac"])
                 if n.get("vlans"): sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "vlan_filtering", "1")

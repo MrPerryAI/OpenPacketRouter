@@ -52,7 +52,7 @@ export const SHOWS = {
 
   "show.mac-table": ctx => {
     const rows = ctx.state().mac || [];
-    return {json: rows, text: rows.length ? table(["VLAN", "MAC", "Port"], rows.map(r => [r.vlan, r.mac, r.port])) + `\n${rows.length} entries`
+    return {json: rows, text: rows.length ? table(["VLAN", "MAC", "Port", "Age (s)"], rows.map(r => [r.vlan, r.mac, r.port, r.age === undefined ? "-" : +r.age.toFixed(1)])) + `\n${rows.length} entries`
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 

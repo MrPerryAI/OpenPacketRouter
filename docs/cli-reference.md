@@ -155,6 +155,8 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no switchport mode` | interface | switches | Forget this port's VLAN settings |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
+| `mac address-table aging-time SECONDS` | config | switches | Seconds |
+| `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
 | `spanning-tree priority PRIORITY` | config | switches | Priority (default 32768) |
 | `spanning-tree hello-time SECONDS` | config | switches | Seconds |
 | `spanning-tree max-age SECONDS` | config | switches | Seconds |

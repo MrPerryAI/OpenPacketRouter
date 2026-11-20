@@ -47,7 +47,7 @@ export function snapshotDevices(net) {
   const out = {};
   for (const n of net.nodes.values()) {
     if (n.kind === "switch") {
-      const mac = [...n.table].map(([k, port]) => { const [vlan, m] = k.split("|"); return {vlan: +vlan, mac: m, port}; });
+      const mac = n.macTable().map(({vlan, mac: m, port}) => ({vlan, mac: m, port}));
       out[n.name] = {mac, stp: n.stp && n.stp.started ? n.stp.describe() : null};
     } else {
       out[n.name] = {

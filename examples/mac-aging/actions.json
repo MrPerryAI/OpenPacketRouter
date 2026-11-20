@@ -1,0 +1,33 @@
+[
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "10.0.0.3"
+ },
+ {
+  "do": "macTable",
+  "switch": "SW1",
+  "keepCaches": true
+ },
+ {
+  "do": "wait",
+  "seconds": 8,
+  "keepCaches": true
+ },
+ {
+  "do": "macTable",
+  "switch": "SW1",
+  "keepCaches": true
+ },
+ {
+  "do": "macTable",
+  "switch": "SW2",
+  "keepCaches": true
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "10.0.0.3",
+  "keepCaches": true
+ }
+]
