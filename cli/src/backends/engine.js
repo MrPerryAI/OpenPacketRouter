@@ -24,7 +24,7 @@ export function portsOf(spec, device) {
   const n = spec.nodes.find(x => x.name === device); if (!n) return [];
   const cabled = [];
   for (const l of spec.links) for (const r of l.slice(0, 2)) if (typeof r === "string" && r.startsWith(device + ":")) cabled.push(r.slice(device.length + 1));
-  return n.kind === "switch" ? cabled : [...new Set([...cabled, ...Object.keys(n.ifaces || {})])];   // cable order: stable
+  return n.kind === "switch" ? [...new Set([...cabled, ...Object.keys(n.ifaces || {})])] : [...new Set([...cabled, ...Object.keys(n.ifaces || {})])];   // cable order: stable
 }
 const linkIndex = (spec, device, port) => spec.links.findIndex(l => l[0] === ref(device, port) || l[1] === ref(device, port));
 
@@ -39,6 +39,12 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
 
   if (n.kind === "switch") {
     for (const p of n.blocked || []) M.iface(m, p).config.enabled = false;
+    // a Layer 3 switch: SVIs (vlanN with an address) and static routes
+    for (const [name, a] of Object.entries(n.ifaces || {})) { const [ip, pl] = a.split("/"); M.ipv4(M.iface(m, name)).addresses.address[ip] = {config: {ip, "prefix-length": +pl}}; }
+    for (const [dst, via] of n.routes || []) {
+      const r = M.statics(m)[dst] ||= {prefix: dst, config: {prefix: dst}, "next-hops": {"next-hop": {}}};
+      r["next-hops"]["next-hop"][via] = {index: via, config: {index: via, "next-hop": via}};
+    }
     for (const [p, c] of Object.entries(n.vlans || {})) {
       const sv = M.switchedVlan(M.iface(m, p));
       if (c.trunk) { sv["interface-mode"] = "TRUNK"; sv["trunk-vlans"] = [...c.trunk]; if (c.native !== undefined) sv["native-vlan"] = c.native; }
@@ -103,7 +109,20 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const ifs = M.interfaces(m);
 
   if (old.kind === "switch") {
-    for (const p of Object.keys(ifs)) if (!ports.includes(p)) throw new Error(`${p}: a switch's ports come from its cables, and nothing is plugged into ${p}`);
+    for (const p of Object.keys(ifs)) if (!ports.includes(p) && !/^vlan\d+$/.test(p)) throw new Error(`${p}: a switch's ports come from its cables, and nothing is plugged into ${p}`);
+    const svis = {};
+    for (const [p, ifc] of Object.entries(ifs)) {
+      const addrs = M.addressesOf(ifc);
+      if (addrs.length > 1) throw new Error(`${p}: the engine keeps one address per interface`);
+      if (addrs.length) {
+        if (!/^vlan\d+$/.test(p)) throw new Error(`${p}: only a VLAN interface (vlanN) of a switch takes an address`);
+        svis[p] = `${addrs[0].ip}/${addrs[0].prefixLength}`;
+      }
+    }
+    if (Object.keys(svis).length) n.ifaces = svis;
+    const srt = [];
+    for (const r of M.staticList(m)) srt.push([r.prefix, r.nextHop]);
+    if (srt.length) n.routes = srt;
     const blocked = ports.filter(p => ifs[p] && ifs[p].config.enabled === false);
     if (blocked.length) n.blocked = blocked;
     const vl = {};

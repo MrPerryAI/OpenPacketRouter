@@ -12,7 +12,7 @@
 import {Network} from "./network.js";
 import {tcpAction} from "./tcp.js";
 import {dhcp} from "./dhcp.js";
-import {ping, traceroute, dns, udpRequest} from "./apps.js";
+import {ping, traceroute, dns, udpRequest, stackOf} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
 import {parseRate, queueStats} from "./link.js";
 
@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans"],                     // stp/vlans: engine/src/stp.js, Switch in network.js
+  switch: ["blocked", "stp", "vlans", "ifaces", "routes", "gw"],   // stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "rip"],           // rip: engine/src/rip.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
@@ -40,6 +40,7 @@ const isCidr = s => { if (typeof s !== "string") return false; const [ip, p, ...
 // address, "b" → broadcast, "m" → mtu …) can't be built by the Linux validators. Warn early.
 const IP_LINK_KEYWORDS = ["address", "broadcast", "mtu", "name", "netns", "master", "nomaster", "up", "down", "type",
   "dev", "group", "alias", "vf", "state", "arp", "multicast", "allmulticast", "promisc", "txqueuelen", "qlen", "link", "mode", "protodown", "xdp", "addrgenmode"];
+const SUBIF_RE = /^([^.]+)\.(\d+)$/;
 const ambiguousIfname = n => IP_LINK_KEYWORDS.find(k => k.startsWith(n));
 
 function checkRip(n, p, err) {
@@ -82,13 +83,38 @@ export function validateSpec(spec) {
     const dup = ifaces.has(n.name);
     if (dup) err(`${p}.name`, `duplicate node name "${n.name}"`);
     if (!KINDS.includes(n.kind)) return err(`${p}.kind`, `node "${n.name}": kind must be one of ${KINDS.join(", ")}`);
-    if (!dup) ifaces.set(n.name, {kind: n.kind, ifaces: new Set(Object.keys(isObj(n.ifaces) ? n.ifaces : {}))});
+    const names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+    // "eth0.10" is an 802.1Q subinterface of eth0: eth0 exists (and is what gets cabled) even if it has no address
+    const subifs = new Set(n.kind === "switch" ? [] : names.filter(x => SUBIF_RE.test(x)));
+    const parents = [...subifs].map(x => x.match(SUBIF_RE)[1]);
+    if (!dup) ifaces.set(n.name, {kind: n.kind, ifaces: new Set([...names.filter(x => !subifs.has(x)), ...parents]), virtual: new Set(n.kind === "switch" ? names : subifs)});
+    for (const x of subifs) {
+      const vid = +x.match(SUBIF_RE)[2];
+      if (!(vid >= 1 && vid <= 4094)) err(`${p}.ifaces.${x}`, `node "${n.name}": subinterface ${x}: VLAN ${vid} is not 1-4094`);
+      if (x.length > 15) warn(`${p}.ifaces.${x}`, `node "${n.name}": Linux interface names are at most 15 characters ("${x}")`);
+    }
+    for (const x of names) if (n.kind !== "switch" && x.includes(".") && !subifs.has(x))
+      err(`${p}.ifaces.${x}`, `node "${n.name}": "${x}": a name with a dot is a VLAN subinterface, written parent.vid like eth0.10`);
     for (const k of Object.keys(n)) if (![...NODE_KEYS.common, ...NODE_KEYS[n.kind]].includes(k))
       warn(`${p}.${k}`, `node "${n.name}" (${n.kind}): unknown key "${k}" (ignored)`);
     if (n.kind === "switch") {
       if (n.blocked !== undefined && !(Array.isArray(n.blocked) && n.blocked.every(x => typeof x === "string")))
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
-      return;
+      if (n.ifaces === undefined) {
+        for (const k of ["routes", "gw"]) if (n[k] !== undefined) err(`${p}.${k}`, `node "${n.name}": a switch needs SVIs ("ifaces": {"vlan10": ...}) before it can have ${k}`);
+        return;
+      }
+      // Layer 3 switch: every interface is an SVI named vlanN for a VLAN the switch carries
+      const carried = new Set(); for (const c of Object.values(isObj(n.vlans) ? n.vlans : {})) if (isObj(c))
+        for (const v of [c.access, ...(Array.isArray(c.trunk) ? c.trunk : []), c.native]) if (v !== undefined && v !== null) carried.add(v);
+      for (const x of names) {
+        const m = x.match(/^vlan(\d+)$/);
+        if (!m) { err(`${p}.ifaces.${x}`, `node "${n.name}": a switch's interfaces are SVIs named vlanN (like vlan10), not "${x}"`); continue; }
+        if (!(+m[1] >= 1 && +m[1] <= 4094)) err(`${p}.ifaces.${x}`, `node "${n.name}": ${x}: VLAN ${m[1]} is not 1-4094`);
+        else if (!isObj(n.vlans)) err(`${p}.ifaces.${x}`, `node "${n.name}": SVIs need a VLAN-aware switch (add "vlans")`);
+        else if (!carried.has(+m[1])) warn(`${p}.ifaces.${x}`, `node "${n.name}": no port carries VLAN ${m[1]}, so ${x} can't reach anyone`);
+        if (n.ifaces[x] === "dhcp") err(`${p}.ifaces.${x}`, `node "${n.name}": SVIs need a fixed address`);
+      }
     }
     if (n.ifaces !== undefined && !isObj(n.ifaces)) err(`${p}.ifaces`, `node "${n.name}": ifaces must map interface name to "a.b.c.d/len"`);
     const nets = [];
@@ -150,6 +176,7 @@ export function validateSpec(spec) {
       if (typeof ref !== "string" || ref.split(":").length !== 2) { err(p, `"${ref}" is not "node:iface"`); continue; }
       const [node, ifn] = ref.split(":"); const n = ifaces.get(node);
       if (!n) { err(p, `no node named "${node}"`); continue; }
+      if (n.virtual.has(ifn)) { err(p, `${node}:${ifn} is a virtual interface (${n.kind === "switch" ? "an SVI" : "a VLAN subinterface"}); cable ${n.kind === "switch" ? "a switch port" : ifn.match(SUBIF_RE)[1]} instead`); continue; }
       if (n.kind !== "switch" && !n.ifaces.has(ifn)) err(p, `${node} has no interface "${ifn}" (it has ${[...n.ifaces].join(", ") || "none"})`);
       if (n.kind === "switch" && ambiguousIfname(ifn)) warn(p, `${node}: port name "${ifn}" reads as \`ip link\` keyword "${ambiguousIfname(ifn)}": the Linux validators can't build it (use e.g. p1)`);
       if (cabled.has(ref)) err(p, `${ref} is cabled twice`);
@@ -169,7 +196,7 @@ export const ACTIONS = {
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
   udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {
-    const n = net.node(a.src); const sport = n.nextPort++; let sent = 0;
+    const n = stackOf(net, a.src); const sport = n.nextPort++; let sent = 0;
     for (let k = 0; k < a.count; k++) if (n.sendIp({dst: a.dst, ttl: 64, proto: "udp", udp: {sport, dport: a.port, payload: null, size: a.size}})) sent++;
     return {sent};
   }},
@@ -198,6 +225,8 @@ export function validateActions(actions, spec = null) {
     if (!def) return errors.push({path: `${p}.do`, message: `unknown action "${a.do}" (known: ${Object.keys(ACTIONS).join(", ")})`});
     for (const k of def.required) if (a[k] === undefined) errors.push({path: `${p}.${k}`, message: `${a.do} needs "${k}"`});
     if (spec && a.src !== undefined && !names.has(a.src)) errors.push({path: `${p}.src`, message: `no node named "${a.src}"`});
+    const sn = spec && Array.isArray(spec.nodes) && spec.nodes.find(n => n && n.name === a.src);
+    if (sn && sn.kind === "switch" && !isObj(sn.ifaces)) errors.push({path: `${p}.src`, message: `${a.src} is a switch with no IP interfaces (give it SVIs: "ifaces": {"vlan10": ...})`});
     if (a.settle !== undefined && !(typeof a.settle === "number" && a.settle >= 0)) errors.push({path: `${p}.settle`, message: "settle must be seconds ≥ 0"});
   });
   return {ok: !errors.length, errors, warnings: []};

@@ -39,6 +39,8 @@ export function formatVlanList(list) {
 const uint = (lo, hi) => ({hint: `<${lo}-${hi}>`, help: "Number", test: s => /^\d+$/.test(s) && +s >= lo && +s <= hi, normalize: s => +s});
 
 /** Interface names: a known port (exact, or a unique prefix of one), or a new name where the device allows it. */
+// VLAN interfaces (SVI vlan10) and subinterfaces (eth0.10) may be created by naming them
+const VIFNAME_RE = /^(vlan\d+|[A-Za-z][A-Za-z0-9_-]*\.\d+)$/;
 const IFNAME_RE = /^[A-Za-z][\w./-]*$/;
 function matchPort(word, ctx) {
   const ports = ctx.ports();
@@ -59,7 +61,7 @@ export const TYPES = {
   "mac": {hint: "H:H:H:H:H:H", help: "MAC address", test: s => /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(s), normalize: s => s.toLowerCase()},
   "ifname": {
     hint: "IFNAME", help: "Interface name",
-    test: (s, ctx) => matchPort(s, ctx) !== null || (ctx.canCreatePorts && IFNAME_RE.test(s)),
+    test: (s, ctx) => matchPort(s, ctx) !== null || (ctx.canCreatePorts && IFNAME_RE.test(s)) || VIFNAME_RE.test(s),
     normalize: (s, ctx) => matchPort(s, ctx) ?? s,
     complete: ctx => ctx.ports(),
   },
