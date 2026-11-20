@@ -57,7 +57,7 @@ The last four commands need root, iproute2 and `unshare`, and the DHCP check als
 
 ## Not modeled yet (engine)
 
-RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, inter-VLAN routing, DHCP relay, dynamic routing (RIP/OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
+RSTP, per-VLAN spanning tree, topology-change notices, MAC aging, dynamic routing (RIP/OSPF/BGP), IPv6, NAT, firewalls/ACLs, multi-vendor CLI. Link shaping covers only the token-bucket queue (no netem delay or loss).
 
 ## Roadmap (engine)
 
@@ -75,7 +75,7 @@ Each step counts as done only when it matches real Linux (or real FRRouting) fra
 
 1. **TCP: done** (PR #30): handshake, data echo, close, SYN retransmission, RST, validated against Linux sockets (`validate/tcp/`). Not yet: data retransmission, windows, congestion control.
 2. **DHCP relay: done:** a router relays DHCP for a subnet without a server, with server pools for relayed subnets (`services.dhcpRelay`, `services.dhcp.pools`). Modeled on and validated against dnsmasq relay mode (`validate/dhcp/`); Debian/Ubuntu busybox has no `dhcprelay`.
-3. **Inter-VLAN routing:** router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs.
+3. **Inter-VLAN routing: done** (PR #55): router-on-a-stick (802.1Q subinterfaces on one router port) and Layer 3 switch SVIs, validated against Linux 802.1Q subinterfaces and a vlan_filtering bridge with VLAN SVIs, 19/19 actions frame for frame (`validate/intervlan/`, in CI).
 4. **MAC address aging:** learned entries expire after the aging time, checked against the kernel bridge `ageing_time`.
 5. **Spanning-tree topology change notices:** TCN BPDUs, and switches flush (shorten aging on) their MAC tables after a topology change.
 6. **RIPv2**, validated against FRRouting `ripd` in namespaces.
