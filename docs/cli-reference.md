@@ -145,6 +145,10 @@ Access and trunk ports, spanning tree. Common industry syntax.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
+| `vlan VLAN` | config | switches | VLAN number |
+| `no vlan VLAN` | config | switches | VLAN number |
+| `name NAME` | vlan | all devices | Label |
+| `no name` | vlan | all devices | Remove the label |
 | `switchport mode access` | interface | switches | Carry one VLAN, untagged |
 | `switchport mode trunk` | interface | switches | Carry several VLANs, tagged |
 | `switchport access vlan VLAN` | interface | switches | VLAN number |

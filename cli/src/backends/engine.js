@@ -46,6 +46,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       const r = M.statics(m)[dst] ||= {prefix: dst, config: {prefix: dst}, "next-hops": {"next-hop": {}}};
       r["next-hops"]["next-hop"][via] = {index: via, config: {index: via, "next-hop": via}};
     }
+    for (const [id, name] of Object.entries(n.vlanNames || {})) M.vlans(m)[id] = {"vlan-id": +id, config: {"vlan-id": +id, name}};
     for (const [p, c] of Object.entries(n.vlans || {})) {
       const sv = M.switchedVlan(M.iface(m, p));
       if (c.trunk) { sv["interface-mode"] = "TRUNK"; sv["trunk-vlans"] = [...c.trunk]; if (c.native !== undefined) sv["native-vlan"] = c.native; }
@@ -102,7 +103,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "blocked", "stp", "vlans", "agingTime"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "blocked", "stp", "vlans", "agingTime", "vlanNames"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -131,6 +132,8 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       vl[p] = sv["interface-mode"] === "TRUNK" ? {trunk: [...sv["trunk-vlans"]], ...(sv["native-vlan"] !== undefined ? {native: sv["native-vlan"]} : {})} : {access: sv["access-vlan"]};
     }
     if (Object.keys(vl).length) n.vlans = vl;
+    const vn = {}; for (const [id, v] of Object.entries(M.vlans(m))) if (v.config?.name) vn[id] = v.config.name;
+    if (Object.keys(vn).length) n.vlanNames = vn;
     const g = M.stpGlobal(m), portCfg = m.stp.interfaces.interface;
     if (M.stpEnabled(m)) {
       const s = {};

@@ -20,6 +20,11 @@ export function configLines(model, {kind, ports}) {
     out.push("!");
   }
 
+  if (sw) {
+    const vl = M.vlans(model), ids = Object.keys(vl).filter(i => vl[i].config?.name).sort((a, b) => a - b);
+    for (const id of ids) out.push(`vlan ${id}`, ` name ${vl[id].config.name}`, "!");
+  }
+
   const names = [...new Set([...ports, ...Object.keys(M.interfaces(model))])];
   for (const name of names) {
     const ifc = M.iface(model, name, false);

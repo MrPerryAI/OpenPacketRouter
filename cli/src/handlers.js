@@ -114,6 +114,12 @@ export const HANDLERS = {
   "dns.host": (ctx, [name, ip]) => { const s = M.services(ctx.model); s.dns ||= {enabled: false, hosts: {}}; s.dns.hosts[name] = ip; },
   "dns.no-host": (ctx, [name]) => { const d = M.services(ctx.model).dns; need(d && name in d.hosts, `No host entry for ${name}`); delete d.hosts[name]; },
 
+  // ---- VLAN names (openconfig-network-instance vlans)
+  "vlan.select": (ctx, [id]) => { const v = M.vlans(ctx.model); v[id] ||= {"vlan-id": +id, config: {"vlan-id": +id}}; ctx.s.vlan = +id; },
+  "vlan.no-vlan": (ctx, [id]) => { delete M.vlans(ctx.model)[id]; },
+  "vlan.name": (ctx, [name]) => { need(ctx.s.vlan, "No VLAN selected"); M.vlans(ctx.model)[ctx.s.vlan].config.name = name; },
+  "vlan.no-name": ctx => { need(ctx.s.vlan, "No VLAN selected"); delete M.vlans(ctx.model)[ctx.s.vlan].config.name; },
+
   // ---- DHCP server pools
   "dhcp.pool": (ctx, [name]) => {
     const s = M.services(ctx.model); s["dhcp-server"] ||= {pools: {}};
