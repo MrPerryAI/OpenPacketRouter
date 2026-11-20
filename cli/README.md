@@ -53,6 +53,8 @@ node cli/bin/opr-cli.mjs lab.json R1 --render linux --lab-parity                
 | interface | `R1(config-if)#` | `ip address A.B.C.D/M` (or `A.B.C.D MASK`, or `dhcp`), `shutdown`, `description`, `ip helper-address`, `shape rate R burst B limit L`, `switchport mode access/trunk`, `switchport access vlan N`, `switchport trunk allowed vlan LIST`, `switchport trunk native vlan N`, `spanning-tree cost / port-priority` |
 | DHCP pool | `R1(config-dhcp)#` | `range FIRST LAST`, `default-router`, `dns-server`, `lease SECONDS`, `netmask` (for a relayed network's pool) |
 
+Inter-VLAN routing: `interface eth0.10` on a router makes an 802.1Q subinterface (the number is the VLAN), and `interface vlan10` on a VLAN-aware switch makes an SVI (a Layer 3 switch; it then also takes `ip route`, `show ip route` and `show arp`). `show vlan brief` lists each SVI beside its VLAN. See `examples/intervlan-roas` and `examples/l3-switch`.
+
 `no …` undoes each setting. In any configuration mode, `do <command>` runs a privileged command; a config-mode
 command typed in a sub-mode runs there and leaves the sub-mode. Which commands exist depends on the device:
 switching commands on switches, IP commands on routers, hosts and servers. The full reference (every command, examples, `| json` shapes) is

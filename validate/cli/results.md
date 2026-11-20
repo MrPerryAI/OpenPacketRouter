@@ -1,4 +1,4 @@
-Each device configured only by `opr-cli SPEC DEVICE --render linux --lab-parity` (782 commands across 42 devices); cabling from the spec. The rendered DNS names are served by validate/l3's stand-in server, because the engine's DNS is a simplified protocol.
+Each device configured only by `opr-cli SPEC DEVICE --render linux --lab-parity` (1159 commands across 59 devices); cabling from the spec. The rendered DNS names are served by validate/l3's stand-in server, because the engine's DNS is a simplified protocol.
 
 | Network | Action | Frames (engine = Linux, cable by cable?) | Match |
 |---|---|---|---|
@@ -14,6 +14,25 @@ Each device configured only by `opr-cli SPEC DEVICE --render linux --lab-parity`
 | fti-loop | traceroute ZFW-VOICE → 172.16.20.10 | 55 frames on 9 cable directions | ✓ |
 | fti-noreturn | ping ZFW-VOICE → 172.16.20.10 | 26 frames on 15 cable directions | ✓ |
 | fti-noreturn | traceroute ZFW-VOICE → 172.16.20.10 | 49 frames on 15 cable directions | ✓ |
+| roas | ping A → 10.0.20.12 | 20 frames on 9 cable directions | ✓ |
+| roas | ping A → 10.0.20.22 | 23 frames on 10 cable directions | ✓ |
+| roas | ping A → 10.0.10.21 | 13 frames on 7 cable directions | ✓ |
+| roas | ping N → 10.0.20.22 | 21 frames on 9 cable directions | ✓ |
+| roas | ping A → 10.0.20.1 | 10 frames on 6 cable directions | ✓ |
+| roas | traceroute C → 10.0.20.12 | 29 frames on 10 cable directions | ✓ |
+| roas | ping A → 10.0.30.23 | 10 frames on 6 cable directions | ✓ |
+| roas | ping A → 10.0.20.99 | 22 frames on 8 cable directions | ✓ |
+| roas | ping E → 10.0.10.11 | 6 frames on 2 cable directions | ✓ |
+| svi | ping A → 10.0.20.12 | 12 frames on 7 cable directions | ✓ |
+| svi | ping A → 10.0.20.22 | 15 frames on 8 cable directions | ✓ |
+| svi | ping C → 10.0.20.22 | 18 frames on 8 cable directions | ✓ |
+| svi | ping A → 10.0.10.21 | 12 frames on 6 cable directions | ✓ |
+| svi | ping D → 10.9.0.10 | 17 frames on 9 cable directions | ✓ |
+| svi | traceroute C → 10.9.0.10 | 27 frames on 9 cable directions | ✓ |
+| svi | ping SW1 → 10.9.0.10 | 8 frames on 4 cable directions | ✓ |
+| svi | ping B → 10.0.10.1 | 6 frames on 4 cable directions | ✓ |
+| svi | ping A → 10.0.20.99 | 15 frames on 6 cable directions | ✓ |
+| svi | ping A → 10.8.0.1 | 6 frames on 4 cable directions | ✓ |
 
 Example: what the CLI rendered for one router of fti-routed.
 
