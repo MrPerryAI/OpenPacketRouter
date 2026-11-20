@@ -39,11 +39,12 @@ const cmpIp = (a, b) => ipToInt(a) - ipToInt(b);
 const lsaSize = l => 20 + (l.type === 1 ? 4 + 12 * l.body.links.length : 4 + 4 * l.body.attached.length);
 
 export class Ospf {
-  /** cfg: {routerId?, networks: [ifname | "a.b.c.d/len"], interfaces?: {ifname: {type, priority, cost, hello, dead, retransmit}}} */
+  /** cfg: {routerId?, networks: [ifname | "a.b.c.d/len"], passive?: [ifname], interfaces?: {ifname: {type, priority, cost, hello, dead, retransmit}}} */
   constructor(node, cfg = {}) {
     this.node = node; this.net = node.net;
     this.networks = (cfg.networks || []).map(x => x.includes("/") ? parseCidr(x) : x);
     this.opts = cfg.interfaces || {};
+    this.passive = new Set(cfg.passive || []);
     for (const [n, o] of Object.entries(this.opts)) if (o.type !== undefined && !TYPES.includes(o.type)) throw new Error(`${node.name}: ${n} type must be one of ${TYPES.join(", ")}`);
     this.cfgRouterId = cfg.routerId || null;
     this.rid = null;
@@ -92,12 +93,14 @@ export class Ospf {
     const i = {name: ifname, ip: a.ip, mask: intToIp(a.mask), net: a.net, prefix: a.prefix, type: o.type || "broadcast",
       priority: o.priority ?? OSPF_DEFAULTS.priority, cost: o.cost ?? OSPF_DEFAULTS.cost,
       hello: o.hello ?? OSPF_DEFAULTS.hello, dead: o.dead ?? (o.hello ? o.hello * 4 : OSPF_DEFAULTS.dead), rxmt: o.retransmit ?? OSPF_DEFAULTS.retransmit,
-      state: "Down", dr: "0.0.0.0", bdr: "0.0.0.0", nbrs: new Map(), running: true, tHello: null, tWait: null, tAck: null, acks: [], changed: false};
+      passive: this.passive.has(ifname), state: "Down", dr: "0.0.0.0", bdr: "0.0.0.0", nbrs: new Map(), running: true, tHello: null, tWait: null, tAck: null, acks: [], changed: false};
     this.ifs.set(ifname, i);
     if (i.type === "point-to-point") i.state = "Point-To-Point";
     else if (i.priority === 0) i.state = "DROther";
+    else if (i.passive) i.state = "Waiting";                 // nobody to wait for: the election below needs no timer
     else { i.state = "Waiting"; i.tWait = this._after(i.dead, () => { i.tWait = null; this.log("ospf", `${ifname}: wait timer over, electing the DR`); this._elect(i); }); }
     this.log("ospf", `${ifname} (${i.ip}/${i.prefix}) starts OSPF as ${i.type}: ${i.state}, cost ${i.cost}, hello ${i.hello} s, dead ${i.dead} s`);
+    if (i.passive) { this.log("ospf", `${ifname} is passive: its subnet is advertised, but no Hellos are sent or accepted`); if (i.state === "Waiting") this._elect(i); return; }
     this._helloTick(i);                      // the first Hello goes out at once
   }
   _ifDown(i) {
@@ -133,6 +136,7 @@ export class Ospf {
     const o = p.ospf, i = this.ifs.get(ifname);
     if (!o || !i || !i.running) return;
     if (this.node.owns(p.src)) return;
+    if (i.passive) { this.log("ospf-drop", `${o.type} from ${p.src}: ${ifname} is passive`); return; }
     if (o.area !== "0.0.0.0") { this.log("ospf-drop", `${o.type} from ${p.src}: area ${o.area}, this router only runs area 0`); return; }
     if (i.type === "broadcast" && !inSubnet(p.src, i.net, ipToInt(i.mask))) { this.log("ospf-drop", `${o.type} from ${p.src}: not on ${ifname}'s subnet`); return; }
     if (o.routerId === this.routerId()) { this.log("ospf-drop", `${o.type} from ${p.src}: same router ID ${o.routerId} as mine`); return; }
@@ -329,11 +333,11 @@ export class Ospf {
       const c = mine ? this._cmp(rl, this._hdr(mine)) : 1;
       if (c > 0) {
         if (mine && !mine.self && this.net.time - mine.t0 < MIN_LS_ARRIVAL && !mine.maxAge) continue;    // MinLSArrival: too soon after the last copy
-        const back = this._flood(rl, n);
-        for (const x of this.ifs.values()) for (const m of x.nbrs.values()) m.rxmt.delete(k);
+        for (const x of this.ifs.values()) for (const m of x.nbrs.values()) m.rxmt.delete(k);       // the old instance needs no more retransmitting
         const req = n.reqList.get(k); if (req && this._cmp(rl, req) >= 0) n.reqList.delete(k);
         const self = this._isSelf(rl);
-        this._install(rl, false);
+        const inst = this._install(rl, false);
+        const back = this._flood(inst, n);
         this.log("ospf-lsa", `${this._name(rl)} from ${n.rid}: ${mine ? "newer, seq " + rl.seq.toString(16) : "new"}`);
         if (!back && !(i.state === "Backup" && n.ip !== i.dr)) this._delayAck(i, rl);
         if (self) this._fightBack(rl);
@@ -410,9 +414,10 @@ export class Ospf {
   /** >0 if a is the more recent instance (13.1). Both need seq and age. */
   _cmp(a, b) {
     if (a.seq !== b.seq) return a.seq > b.seq ? 1 : -1;
-    const am = a.age >= MAX_AGE, bm = b.age >= MAX_AGE;
+    const aa = a.age ?? this._age(a), ba = b.age ?? this._age(b);      // headers and LSUs carry an age; database entries compute it
+    const am = aa >= MAX_AGE, bm = ba >= MAX_AGE;
     if (am !== bm) return am ? 1 : -1;
-    if (Math.abs(a.age - b.age) > MAX_AGE_DIFF) return a.age < b.age ? 1 : -1;
+    if (Math.abs(aa - ba) > MAX_AGE_DIFF) return aa < ba ? 1 : -1;
     return 0;
   }
   _install(r, self) {
@@ -437,12 +442,14 @@ export class Ospf {
   }
 
   // ----- originating our LSAs (12.4) -----
-  /** Reoriginate our router LSA and the network LSAs, if anything changed (coalesced into one pass). */
-  _lsas() { if (!this.started) return; if (this.lsaPass) return; this.lsaPass = this._after(0, () => { this.lsaPass = null; this._originateAll(); }); }
-  _originateAll() {
-    this._originate(1, this.routerId(), this._routerBody());
+  /** Something happened that makes a router originate its LSAs (an interface or neighbor changed state, a DR was
+   *  elected): coalesced into one pass. Like FRRouting, and unlike RFC 2328's "when the contents change", the router
+   *  LSA (and the network LSA, as DR) gets a new instance even if its contents are the same. */
+  _lsas() { if (!this.started) return; this.lsaTrigger = true; if (this.lsaPass) return; this.lsaPass = this._after(0, () => { this.lsaPass = null; const t = this.lsaTrigger; this.lsaTrigger = false; this._originateAll(t); }); }
+  _originateAll(trigger) {
+    this._originate(1, this.routerId(), this._routerBody(), trigger);
     const seen = new Set();
-    for (const i of this.ifs.values()) if (i.type === "broadcast") { const b = this._networkBody(i.ip); if (b) { seen.add(i.ip); this._originate(2, i.ip, b); } }
+    for (const i of this.ifs.values()) if (i.type === "broadcast") { const b = this._networkBody(i.ip); if (b) { seen.add(i.ip); this._originate(2, i.ip, b, trigger); } }
     for (const l of [...this.lsdb.values()]) if (l.type === 2 && l.adv === this.routerId() && !seen.has(l.id) && !l.maxAge) {
       this.log("ospf-lsa", `${this._name(l)}: no longer the DR with neighbors: flushing it`);
       l.maxAge = true; if (l.tRefresh) l.tRefresh = this._off(l.tRefresh); this._flood(l, null); this._spf();
@@ -475,12 +482,14 @@ export class Ospf {
     if (!full.length) return null;
     return {mask: i.mask, attached: [this.routerId(), ...full].sort(cmpIp)};
   }
-  _originate(type, id, body) {
-    const k = key(type, id, this.routerId()), cur = this.lsdb.get(k), rec = this.originated.get(k) || {t: -Infinity, timer: null};
+  _originate(type, id, body, trigger) {
+    const k = key(type, id, this.routerId()), cur = this.lsdb.get(k), rec = this.originated.get(k) || {t: -Infinity, timer: null, pending: false};
     this.originated.set(k, rec);
-    if (cur && !cur.maxAge && JSON.stringify(cur.body) === JSON.stringify(body)) return;
-    const wait = rec.t + MIN_LS_INTERVAL - this.net.time;
-    if (wait > 0) { if (!rec.timer) rec.timer = this._after(wait, () => { rec.timer = null; this._lsas(); }); return; }
+    const differs = !cur || cur.maxAge || JSON.stringify(cur.body) !== JSON.stringify(body);
+    if (!(trigger || rec.pending || differs)) return;
+    const wait = rec.t + MIN_LS_INTERVAL - this.net.time;                     // MinLSInterval: at most one new instance every 5 s
+    if (wait > 0) { rec.pending = true; if (!rec.timer) rec.timer = this._after(wait, () => { rec.timer = null; this._originateAll(false); }); return; }
+    rec.pending = false;
     this._emit(type, id, body, cur ? cur.seq + 1 : INITIAL_SEQ);
     rec.t = this.net.time;
   }
@@ -570,9 +579,9 @@ export class Ospf {
       out.push({routerId: n.rid, address: n.ip, iface: i.name, state: n.state, role: i.type === "point-to-point" ? "-" : n.ip === i.dr ? "DR" : n.ip === i.bdr ? "Backup" : "DROther"});
     return out;
   }
-  /** [{iface, state, type, cost, priority, dr, bdr}]  (dr, bdr: addresses, "0.0.0.0" when none) */
+  /** [{iface, state, type, cost, priority, dr, bdr, passive}]  (dr, bdr: addresses, "0.0.0.0" when none) */
   interfaces() {
-    return [...this.ifs.values()].sort((a, b) => a.name.localeCompare(b.name)).map(i => ({iface: i.name, state: i.state, type: i.type, cost: i.cost, priority: i.priority, dr: i.dr, bdr: i.bdr}));
+    return [...this.ifs.values()].sort((a, b) => a.name.localeCompare(b.name)).map(i => ({iface: i.name, state: i.state, type: i.type, cost: i.cost, priority: i.priority, dr: i.dr, bdr: i.bdr, passive: i.passive}));
   }
   /** [{network, cost, via: [{gw, iface}]}] */
   describe() {

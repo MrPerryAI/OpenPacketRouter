@@ -11,7 +11,7 @@ const roles = (net, r) => net.node(r).ospf.interfaces().map(i => `${i.iface} ${i
 const routes = (net, r) => net.node(r).ospf.describe().map(x => `${x.network} cost ${x.cost} via ${x.via.map(v => v.gw).join(",")}`);
 
 test("ospf specs pass the spec check without warnings", () => {
-  for (const n of ["ospf-p2p", "ospf-lan", "ospf-priority"]) {
+  for (const n of ["ospf-p2p", "ospf-lan", "ospf-priority", "ospf-mixed"]) {
     const v = validateSpec(load(n));
     assert.ok(v.ok, JSON.stringify(v.errors)); assert.deepEqual(v.warnings, []);
   }
@@ -19,9 +19,9 @@ test("ospf specs pass the spec check without warnings", () => {
 
 test("the spec check catches bad ospf settings", () => {
   const s = load("ospf-p2p");
-  s.nodes[0].ospf = {routerId: "1.1.1", networks: ["eth9", "10.0.0.0/33"], interfaces: {eth7: {}, eth0: {type: "ring", priority: 300, hello: 5, dead: 5, cost: 0, bogus: 1}}, area: 1};
+  s.nodes[0].ospf = {routerId: "1.1.1", networks: ["eth9", "10.0.0.0/33"], passive: ["eth7"], interfaces: {eth7: {}, eth0: {type: "ring", priority: 300, hello: 5, dead: 5, cost: 0, bogus: 1}}, area: 1};
   const paths = validateSpec(s).errors.map(e => e.path);
-  for (const p of ["routerId", "networks[0]", "networks[1]", "interfaces.eth7", "interfaces.eth0.type", "interfaces.eth0.priority", "interfaces.eth0.cost", "interfaces.eth0.bogus", "interfaces.eth0.dead", "area"])
+  for (const p of ["routerId", "networks[0]", "networks[1]", "passive", "interfaces.eth7", "interfaces.eth0.type", "interfaces.eth0.priority", "interfaces.eth0.cost", "interfaces.eth0.bogus", "interfaces.eth0.dead", "area"])
     assert.ok(paths.includes(`$.nodes[0].ospf.${p}`), p);
 });
 
@@ -123,4 +123,35 @@ test("a router without ospf ignores OSPF multicast; hosts are not routers", () =
   at(net, 22);
   assert.deepEqual(nbrs(net, "R1"), ["2.2.2.2 Full/DR"]);
   assert.deepEqual(roles(net, "R2")[0], "eth0 DR dr=10.0.0.2 bdr=10.0.0.1");
+});
+
+test("passive interfaces: their subnet is advertised, but they send and accept no OSPF packets", () => {
+  const net = Network.fromSpec(load("ospf-p2p")); const seen = [];
+  net.taps.add((n, i, f) => { if (f.ip?.ospf) seen.push(`${n.name}:${i}`); });
+  at(net, 22);
+  assert.ok(!seen.includes("R1:eth2") && !seen.includes("R3:eth2"));
+  const i = net.node("R1").ospf.interfaces().find(x => x.iface === "eth2");
+  assert.deepEqual([i.passive, i.state, i.dr], [true, "DR", "10.1.0.1"]);       // a lone broadcast interface elects itself at once
+  assert.ok(routes(net, "R3").includes("10.1.0.0/24 cost 30 via 10.23.0.2"));   // R1's passive LAN is in everyone's table
+  assert.equal(ping(net, "H1", "10.3.0.10").ok, true);
+});
+
+test("a passive interface drops a hello that arrives on it", () => {
+  const s = load("ospf-lan");
+  s.nodes.find(n => n.name === "R1").ospf.passive = ["eth0"];       // R1's LAN port is passive: it forms no adjacencies
+  const net = Network.fromSpec(s);
+  at(net, 22);
+  assert.deepEqual(nbrs(net, "R1"), []);
+  assert.ok(net.trace.some(t => t.node === "R1" && t.event === "ospf-drop" && /passive/.test(t.detail)));
+  assert.deepEqual(nbrs(net, "R2"), ["3.3.3.3 Full/DR"]);
+});
+
+test("LSAs flood across several routers: point-to-point, then a LAN, then point-to-point again", () => {
+  const net = Network.fromSpec(load("ospf-mixed"));
+  at(net, 22);
+  const dbs = ["R1", "R2", "R3", "R4", "R5"].map(r => net.node(r).ospf.database().map(l => `${l.type} ${l.id} ${l.adv} seq ${l.seq}`).join("|"));
+  for (const d of dbs) assert.equal(d, dbs[0]);
+  assert.equal(net.node("R1").ospf.database().length, 6);                         // five router LSAs + the LAN's network LSA
+  assert.deepEqual(routes(net, "R1"), ["10.0.0.0/24 cost 25 via 10.12.0.2", "10.5.0.0/24 cost 42 via 10.12.0.2", "10.45.0.0/24 cost 32 via 10.12.0.2"]);
+  assert.equal(ping(net, "H1", "10.5.0.10").ok, true);
 });
