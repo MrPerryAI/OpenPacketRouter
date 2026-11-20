@@ -134,6 +134,8 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       if (ifc.config.enabled === false) { if (li < 0) throw new Error(`${p} has no cable to turn off`); newCut.add(li); }
       else if (li >= 0) newCut.delete(li);
     }
+    for (const p of Object.keys(old.ifaces || {})) if (!(p in ifaces) && linkIndex(spec, device, p) >= 0)
+      throw new Error(`${p} has a cable, and the engine needs an address on every cabled interface: change it with ip address (or ip address dhcp) instead of removing it`);
     if (Object.keys(ifaces).length) n.ifaces = ifaces;
     const routes = [];
     for (const r of M.staticList(m)) {
@@ -242,7 +244,7 @@ export function engineBackend(init, opts = {}) {
     kind: device => spec().nodes.find(n => n.name === device)?.kind ?? null,
     devices: () => spec().nodes.map(n => n.name),
     ports: device => portsOf(spec(), device),
-    canCreatePorts: device => spec().nodes.find(n => n.name === device)?.kind !== "switch",
+    canCreatePorts: () => false,   // a device's interfaces are the spec's: its ifaces and its cables
     getConfig(device) {
       const c = cache.get(device);
       return c && c.key === keyOf() ? clone(c.model) : modelFromSpec(spec(), device, {cut: cut()});

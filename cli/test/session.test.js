@@ -153,3 +153,11 @@ test("hosted backend: the host owns the spec and the unplugged cables (Studio's 
   ok(s, "end"); ok(s, "ping 10.1.0.53");
   assert.deepEqual(host.runs, [{do: "ping", dst: "10.1.0.53", src: "R1"}]);
 });
+
+test("interfaces are the device's own; removing a cabled interface's address says why it is refused", () => {
+  const b = routed(), s = createSession(b, "R1", {mode: "config"});
+  assert.match(s.exec("interface eth9").output, /No interface eth9 on R1 \(it has eth0, eth1\)/);
+  ok(s, "interface eth0");
+  assert.match(s.exec("no ip address").output, /^% eth0 has a cable, and the engine needs an address/);
+  assert.equal(b.spec().nodes.find(n => n.name === "R1").ifaces.eth0, "10.0.0.1/24");
+});
