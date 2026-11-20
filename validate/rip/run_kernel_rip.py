@@ -241,4 +241,8 @@ def main():
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--inner"]: inner()
-    else: sys.exit(main())
+    else:
+        try: sys.exit(main())
+        except subprocess.CalledProcessError as e:
+            l3.gh_note("error", "RIP validation crashed", f"{e}\nstdout: {(e.stdout or '')[-3000:]}\nstderr: {(e.stderr or '')[-5000:]}")
+            raise
