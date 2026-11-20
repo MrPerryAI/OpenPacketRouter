@@ -135,3 +135,21 @@ test("ping and traceroute run the engine", () => {
   ok(s, "enable");
   assert.match(ok(s, "show arp").output, /10\.0\.0\.1/);
 });
+
+test("hosted backend: the host owns the spec and the unplugged cables (Studio's shape)", () => {
+  const host = {spec: load("routed-lan-dns"), cut: new Set(), runs: []};
+  const b = engineBackend({
+    spec: () => host.spec, setSpec: s => { host.spec = s; return []; },
+    cut: () => host.cut, setCut: c => { host.cut = c; },
+    run: a => { host.runs.push(a); return {ok: true, from: a.dst, rtt_ms: 1}; },
+  });
+  const s = createSession(b, "R1", {mode: "config"});
+  ok(s, "interface eth1"); ok(s, "shutdown");
+  const i = host.spec.links.findIndex(l => l.includes("R1:eth1"));
+  assert.ok(host.cut.has(i));
+  assert.match(s.exec("do show running-config").output, /interface eth1\n ip address 10\.1\.0\.1\/24\n shutdown/);
+  host.cut = new Set();                                   // the user plugs the cable back in on the map
+  assert.doesNotMatch(s.exec("do show running-config").output, /shutdown/);
+  ok(s, "end"); ok(s, "ping 10.1.0.53");
+  assert.deepEqual(host.runs, [{do: "ping", dst: "10.1.0.53", src: "R1"}]);
+});

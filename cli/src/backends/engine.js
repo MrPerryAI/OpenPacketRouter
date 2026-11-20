@@ -4,7 +4,7 @@
 //   engineBackend({spec: () => s, setSpec})    a host that owns the spec (Studio); see the options below
 //
 // Options (all optional): spec() / setSpec(newSpec) -> errors[] (host-owned spec), cut: Set of link indexes that
-// are unplugged and setCut(set) (Studio's cable cut; `shutdown` on a router or host interface uses it), state(device),
+// are unplugged (or a function returning it) and setCut(set) (Studio's cable cut; `shutdown` on a router or host interface uses it), state(device),
 // run(action) -> result (a host that animates the run), save(spec), onRename(old, new).
 //
 // The mapping: interface addresses <-> ifaces, static routes <-> routes (0.0.0.0/0 <-> gw), switchport settings <->
@@ -235,7 +235,7 @@ export function engineBackend(init, opts = {}) {
   const cache = new Map();
   const keyOf = () => JSON.stringify(spec()) + "|" + [...cut()].sort().join(",");
   const spec = () => hosted ? o.spec() : mine;
-  const cut = () => o.cut ? new Set(o.cut) : myCut;
+  const cut = () => o.cut ? new Set(typeof o.cut === "function" ? o.cut() : o.cut) : myCut;   // a Set, or a function returning one
 
   return {
     name: "engine",
