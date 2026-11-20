@@ -289,7 +289,8 @@ def kinds(win, switches=()):
     One exception: a Link State Request on a switched LAN is recorded for the switch, not for its cables. A router that
     rejoins a LAN is adjacent to several routers at once and asks only for the LSAs it is still missing when each one's
     Database Description arrives; which neighbor's LSUs arrive first is a race in real time (ospfd skips a request
-    the other neighbor's updates already answered, and which one it skips changes between runs), so "an LS Request
+    the other neighbor's updates already answered, and which one it skips changes between runs; measured under CPU load
+    with three containers at once: ospf-lan 6 of 9 runs, ospf-mixed 2 of 12, ospf-priority too), so "an LS Request
     crossed this switch" is deterministic but "to this router" is not."""
     t, hello = {}, {}
     for p in win:
