@@ -42,7 +42,6 @@ class RipNet(l3.KernelNet):
                                   "-Z", "root", "-w", f, "udp port 520"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             self.caps.append((f"{node}:{ifn}>{peer}", f, p))
         time.sleep(1.5)
-        subprocess.run(["usermod", "-aG", "frrvty", "root"], check=False)   # FRR refuses to start as root unless root is in its vty group
         routers = [n for n in spec["nodes"] if n.get("rip")]
         for n in routers: self.frr[n["name"]] = self.write_conf(n)
         for n in routers:
@@ -54,7 +53,7 @@ class RipNet(l3.KernelNet):
         self.t0 = time.time()
         for n in routers:
             d = self.frr[n["name"]]
-            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-u", "root", "-g", "root", "-i", f"{d}/ripd.pid",
+            self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], f"{FRR}/ripd", "-i", f"{d}/ripd.pid",
                                                 "-z", f"{d}/zserv.api", "--vty_socket", d, "-P", "0"],
                                                stdout=open(f"{self.tmp}/ripd-{n['name']}.log", "w"), stderr=subprocess.STDOUT))
         time.sleep(1)
