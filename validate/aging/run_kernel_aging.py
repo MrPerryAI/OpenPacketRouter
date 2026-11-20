@@ -20,6 +20,7 @@ import run_kernel_l3 as l3  # noqa: E402
 from run_kernel_l2 import Net  # noqa: E402
 
 CASES = [("aging", "aging.steps")]
+WATCH = [("SW1", "p3")]
 
 
 def macs(k):
@@ -43,17 +44,23 @@ def table(k, sw, owner):
 
 def kernel(name, steps_name):
     spec = json.loads((HERE / f"{name}.json").read_text()); steps = json.loads((HERE / f"{steps_name}.json").read_text())
-    k = Net(spec); out = []
+    k = Net(spec); out = []; sniffers = []
     try:
         owner = macs(k)
+        for sw, port in WATCH:   # diagnostic only: what the kernel really sent on these cables (shown if a step mismatches)
+            f = f"/tmp/aging-{sw}-{port}.txt"; open(f, "w").close()
+            sniffers.append(subprocess.Popen(["ip", "netns", "exec", k.ns[sw], sys.executable, str(HERE / "sniff.py"), port, f]))
+        time.sleep(0.3)
         for s in steps:
             if s.get("flush"): k.flush()
             elif "wait" in s: time.sleep(s["wait"])
             elif "ping" in s:
                 before = k.counters(); r = k.ping(*s["ping"]); time.sleep(s.get("settle", 1)); after = k.counters()
-                out.append({"ping": s["ping"], "ok": bool(r.get("ok")), "frames": {x: after[x] - before.get(x, 0) for x in after if after[x] - before.get(x, 0)}})
+                out.append({"ping": s["ping"], "ok": bool(r.get("ok")), "wire": {f"{sw}:{p}": open(f"/tmp/aging-{sw}-{p}.txt").read().splitlines()[-40:] for sw, p in WATCH}, "frames": {x: after[x] - before.get(x, 0) for x in after if after[x] - before.get(x, 0)}})
             elif "table" in s: out.append({"table": s["table"], "tables": {sw: table(k, sw, owner) for sw in s["table"]}})
-    finally: k.close()
+    finally:
+        for p in sniffers: p.kill()
+        k.close()
     return out
 
 
@@ -73,14 +80,14 @@ def main():
     for name, steps_name in CASES:
         eng = json.loads(sh("node", str(ROOT / "engine/tools/run_aging.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{steps_name}.json")))
         for i, (e, k) in enumerate(zip(eng, kern[name])):
-            ok = e == k; ok_all &= ok
+            wire = k.pop("wire", None); ok = e == k; ok_all &= ok
             if "ping" in e:
                 label = f'ping {e["ping"][0]} → {e["ping"][1]}'
                 res = f'{"ok" if e["ok"] else "no reply"} · {sum(e["frames"].values())} frames on {len(e["frames"])} cable directions'
             else:
                 label = "MAC tables " + ", ".join(e["table"]); res = " · ".join(f'{sw}: {len(t)} entries' for sw, t in e["tables"].items())
             md.append(f'| {name} | {i + 1}. {label} | {res} | {"✓" if ok else "✗"} |')
-            if not ok: detail[f"{name} step {i + 1}: {label}"] = {"engine": e, "kernel": k}
+            if not ok: detail[f"{name} step {i + 1}: {label}"] = {"engine": e, "kernel": k, "kernel_wire": wire}
         if len(eng) != len(kern[name]): ok_all = False; detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern[name])}
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
