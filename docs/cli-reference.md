@@ -312,6 +312,38 @@ Commands that run something on the device now (ping, traceroute) instead of read
 | `ping ADDRESS` | user, privileged | routers, hosts, servers, switches | Address to ping |
 | `traceroute ADDRESS` | user, privileged | routers, hosts, servers, switches | Destination address |
 
+### Ospf
+
+OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and the show commands.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `router ospf` | config | routers | OSPF: routers learn each other's networks automatically |
+| `no router ospf` | config | routers | Turn OSPF off and forget its settings |
+| `router-id ADDRESS` | routing | routers | Router ID, written like an IPv4 address |
+| `no router-id` | routing | routers | Go back to the default router ID |
+| `network PREFIX` | routing | routers | Network, like 10.0.0.0/8 |
+| `network interface IFNAME` | routing | routers | Interface name |
+| `no network PREFIX` | routing | routers | Network, like 10.0.0.0/8 |
+| `no network interface IFNAME` | routing | routers | Interface name |
+| `ospf cost N` | interface | routers | Number |
+| `no ospf cost` | interface | routers | Go back to the default |
+| `ospf hello-interval N` | interface | routers | Number |
+| `no ospf hello-interval` | interface | routers | Go back to the default |
+| `ospf dead-interval N` | interface | routers | Number |
+| `no ospf dead-interval` | interface | routers | Go back to the default |
+| `ospf retransmit-interval N` | interface | routers | Number |
+| `no ospf retransmit-interval` | interface | routers | Go back to the default |
+| `ospf priority N` | interface | routers | Number |
+| `no ospf priority` | interface | routers | Go back to the default |
+| `ospf network point-to-point` | interface | routers | Exactly one neighbor: no designated router election |
+| `ospf network broadcast` | interface | routers | Several routers: elect a designated router |
+| `no ospf network` | interface | routers | Go back to the default (broadcast) |
+| `show ip ospf neighbor` | user, privileged | routers | Routers this one has met through OSPF |
+| `show ip ospf interface` | user, privileged | routers | OSPF state of each interface |
+| `show ip ospf database` | user, privileged | routers | The link-state database: what every router announced |
+| `show ip ospf route` | user, privileged | routers | Networks OSPF has computed |
+
 ## Examples
 
 ### Look at a router: addresses, routes, neighbours, `| json`

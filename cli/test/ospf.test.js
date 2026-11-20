@@ -1,0 +1,72 @@
+// OSPF in the CLI: router ospf, network, interface settings, running-config round trip, show commands.
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {createSession} from "../src/index.js";
+import {engineBackend} from "../src/backends/engine.js";
+import {frrConfig} from "../src/backends/frr.js";
+import {ROOT} from "./helpers.js";
+
+const spec = () => ({nodes: [{name: "R1", kind: "router", ifaces: {eth0: "10.0.0.1/24"}}, {name: "R2", kind: "router", ifaces: {eth0: "10.0.0.2/24"}}], links: [["R1:eth0", "R2:eth0"]]});
+const run = (s, cmds) => cmds.map(c => s.exec(c));
+const ok = rs => rs.forEach(r => assert.doesNotMatch(r.output, /%/, r.output));
+
+test("router ospf + network + interface settings land in the spec", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "router-id 1.1.1.1", "network 10.0.0.0/8", "exit", "interface eth0",
+    "ospf cost 5", "ospf hello-interval 1", "ospf dead-interval 4", "ospf network point-to-point", "ospf priority 0", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf, {routerId: "1.1.1.1", networks: ["10.0.0.0/8"],
+    interfaces: {eth0: {type: "point-to-point", priority: 0, cost: 5, hello: 1, dead: 4}}});
+  const cfg = s.exec("show running-config").output;
+  assert.match(cfg, /router ospf\n router-id 1\.1\.1\.1\n network 10\.0\.0\.0\/8/);
+  assert.match(cfg, / ospf network point-to-point\n ospf cost 5\n ospf priority 0\n ospf hello-interval 1\n ospf dead-interval 4/);
+});
+
+test("no router ospf removes it; settings before a network stay pending", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf"]));
+  assert.equal(b.spec().nodes[0].ospf, undefined, "no network yet: not in the spec");
+  ok(run(s, ["network interface eth0", "exit"]));
+  assert.deepEqual(b.spec().nodes[0].ospf, {networks: ["eth0"]});
+  ok(run(s, ["no router ospf", "end"]));
+  assert.equal(b.spec().nodes[0].ospf, undefined);
+  assert.doesNotMatch(s.exec("show running-config").output, /router ospf/);
+});
+
+test("ospf commands are for routers, and need router ospf first", () => {
+  const s = createSession(engineBackend(spec()), "R1"); s.exec("enable"); s.exec("configure terminal");
+  s.exec("interface eth0");
+  assert.match(s.exec("ospf cost 5").output, /OSPF is not running/);
+});
+
+test("show ip ospf ... print text and | json, also with OSPF off", () => {
+  const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf/ospf-p2p.net"), "utf8"));
+  const s = createSession(engineBackend(sp), "R1"); s.exec("enable");
+  for (const c of ["neighbor", "interface", "route", "database"]) {
+    const r = s.exec(`show ip ospf ${c} | json`); assert.ok(Array.isArray(r.json), c);
+    assert.ok(s.exec(`show ip ospf ${c}`).output.length > 0);
+  }
+  const h = createSession(engineBackend(sp), "H1"); h.exec("enable");
+  assert.match(h.exec("show ip ospf neighbor").output, /%|Unknown|Invalid|Incomplete/i);
+});
+
+test("every OSPF spec in validate/ spells out the same configuration through the CLI", () => {
+  for (const name of ["ospf-p2p", "ospf-lan", "ospf-priority"]) {
+    const sp = JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ospf", name + ".net"), "utf8"));
+    const b = engineBackend(sp);
+    for (const dev of b.devices().filter(d => b.kind(d) === "router")) {
+      const s = createSession(b, dev); s.exec("enable");
+      const cfg = s.exec("show running-config").output;
+      assert.match(cfg, /router ospf/, `${name} ${dev}`);
+    }
+  }
+});
+
+test("the FRR renderer writes router ospf, networks and interface settings", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "router-id 1.1.1.1", "network interface eth0", "exit", "interface eth0", "ospf cost 5", "ospf hello-interval 1", "end"]));
+  const f = frrConfig(b.getConfig("R1"), {ports: ["eth0"]});
+  assert.match(f, /interface eth0\n ip address 10\.0\.0\.1\/24\n ip ospf cost 5\n ip ospf hello-interval 1\nexit/);
+  assert.match(f, /router ospf\n ospf router-id 1\.1\.1\.1\n network 10\.0\.0\.0\/24 area 0\nexit/);
+});
