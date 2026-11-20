@@ -51,3 +51,8 @@ jobs:
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: TCP vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
+      - name: RIPv2 vs FRRouting ripd (tables and packets on every cable)
+        run: |
+          sudo apt-get install -y --no-install-recommends frr >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends frr >/dev/null)
+          sudo systemctl stop frr || true
+          sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/rip/run_kernel_rip.py
