@@ -1,0 +1,1 @@
+[{"wait": 22}, {"snapshot": "converged: R3 DR, R4 BDR"}, {"ping": ["H1", "10.5.0.10"]}, {"linkDown": "SW:p1"}, {"wait": 25}, {"snapshot": "R2 cut from the LAN"}, {"ping": ["H1", "10.5.0.10"]}, {"linkUp": "SW:p1"}, {"wait": 25}, {"snapshot": "R2 back as DROther"}, {"ping": ["H1", "10.5.0.10"]}]

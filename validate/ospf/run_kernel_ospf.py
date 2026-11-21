@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-lan", "ospf-priority"]
+SPECS = ["ospf-p2p", "ospf-lan", "ospf-priority", "ospf-mixed"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
@@ -86,6 +86,7 @@ class OspfNet(l3.KernelNet):
                      f" ip ospf priority {c['priority']}", f" ip ospf retransmit-interval {c['retransmit']}", "!"]
         conf += ["router ospf"]
         if o.get("routerId"): conf += [f" ospf router-id {o['routerId']}"]
+        conf += [f" passive-interface {x}" for x in o.get("passive", [])]
         for x in o["networks"]:
             if "/" not in x: x = str(__import__("ipaddress").ip_interface(n["ifaces"][x]).network)
             conf += [f" network {x} area 0"]
@@ -166,7 +167,7 @@ def parse_interfaces(js):
     for name, i in js.get("interfaces", js).items():
         if not i.get("ospfEnabled") or not i.get("ifUp"): continue
         out.append({"iface": name, "state": i["state"], "type": "point-to-point" if i["networkType"] == "POINTOPOINT" else "broadcast",
-                    "cost": i["cost"], "priority": i["priority"], "dr": i.get("drAddress", "0.0.0.0"), "bdr": i.get("bdrAddress", "0.0.0.0")})
+                    "cost": i["cost"], "priority": i["priority"], "dr": i.get("drAddress", "0.0.0.0"), "bdr": i.get("bdrAddress", "0.0.0.0"), "passive": bool(i.get("timerPassiveIface"))})
     return sorted(out, key=lambda i: i["iface"])
 
 
@@ -200,7 +201,7 @@ def canon_router(r, kernel):
     db = r["database"] if kernel else engine_database(r["database"])
     for l in db:
         if "links" in l: l["links"] = sorted(l["links"], key=lambda x: (x["type"], ip2int(x["id"]), x["data"], x["metric"]))
-    return {"neighbors": r["neighbors"], "interfaces": [{k: i[k] for k in ("iface", "state", "type", "cost", "priority", "dr", "bdr")} for i in r["interfaces"]],
+    return {"neighbors": r["neighbors"], "interfaces": [{k: i[k] for k in ("iface", "state", "type", "cost", "priority", "dr", "bdr", "passive")} for i in r["interfaces"]],
             "routes": [{"network": x["network"], "cost": x["cost"], "via": x["via"]} for x in r["routes"]], "database": db}
 
 
@@ -224,6 +225,14 @@ def read_pcap(path):
             pk.update({"mask": ip4(b[0:4]), "helloInterval": struct.unpack("!H", b[4:6])[0], "options": b[6], "priority": b[7],
                        "deadInterval": struct.unpack("!I", b[8:12])[0], "dr": ip4(b[12:16]), "bdr": ip4(b[16:20]),
                        "neighbors": sorted(ip4(b[k:k + 4]) for k in range(20, len(b) - 3, 4))})
+        if typ in ("lsu", "ack", "dd"):   # LSA headers (for debugging a mismatch; only `type` is compared)
+            b = o[24:]; hs = []
+            if typ == "lsu": cnt = struct.unpack("!I", b[:4])[0]; b = b[4:]
+            if typ == "dd": b = b[8:]
+            while len(b) >= 20 and (typ != "lsu" or len(hs) < cnt):
+                ln = struct.unpack("!H", b[18:20])[0] if typ == "lsu" else 20
+                hs.append(f"{b[3]}:{ip4(b[4:8])}/{ip4(b[8:12])}#{struct.unpack('!I', b[12:16])[0] & 0xff:x}"); b = b[ln:]
+            pk["lsas"] = hs
         out.append(pk)
     return out
 
@@ -243,6 +252,7 @@ def kernel_run(name):
             elif "snapshot" in s:
                 out.append({"t": time.time() - k.t0, "snapshot": s["snapshot"], "routers": {n["name"]: k.state(n["name"]) for n in spec["nodes"] if n.get("ospf")}})
         packets = k.packets()
+        if os.environ.get("OSPF_RAW"): print(f"=== {name} packets", json.dumps([p for p in packets if p["type"] != "hello"]), file=open(os.environ["OSPF_RAW"], "a"))
     finally:
         k.close()
     return {"steps": out, "packets": packets}
@@ -273,11 +283,20 @@ def last_hellos(pkts):
     return last
 
 
-def kinds(win):
+def kinds(win, switches=()):
     """Which packet types other than Hello crossed every cable direction (when a Hello went out depends on when a ping or a
-    cable cut happened, and the last Hello on every cable is compared separately), and how many Hellos."""
+    cable cut happened, and the last Hello on every cable is compared separately), and how many Hellos.
+    One exception: a Link State Request on a switched LAN is recorded for the switch, not for its cables. A router that
+    rejoins a LAN is adjacent to several routers at once and asks only for the LSAs it is still missing when each one's
+    Database Description arrives; which neighbor's LSUs arrive first is a race in real time (ospfd skips a request
+    the other neighbor's updates already answered, and which one it skips changes between runs; measured under CPU load
+    with three containers at once: ospf-lan 6 of 9 runs, ospf-mixed 2 of 12, ospf-priority too), so "an LS Request
+    crossed this switch" is deterministic but "to this router" is not."""
     t, hello = {}, {}
     for p in win:
+        if p["type"] == "lsr":
+            sw = next((n for n in switches if f"{n}:" in p["cable"]), None)
+            if sw: t.setdefault(f"{sw}:*", set()).add("lsr"); continue
         if p["type"] != "hello": t.setdefault(p["cable"], set()).add(p["type"])
         if p["type"] == "hello": hello[p["cable"]] = hello.get(p["cable"], 0) + 1
     return {c: sorted(v) for c, v in t.items()}, hello
@@ -298,13 +317,14 @@ def main():
         steps_spec = json.loads((HERE / f"{name}.steps.json").read_text())
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_ospf.mjs"), str(netfile(name)), str(HERE / f"{name}.steps.json")))
         kr = kern[name]
+        switches = [n["name"] for n in json.loads(netfile(name).read_text())["nodes"] if n.get("kind") == "switch"]
         wants = [s.get("lastHello", True) for s in steps_spec if "snapshot" in s]
         for (es, ewin, eupto), (ks, kwin, kupto), want in zip(phases(eng, steps_spec), phases(kr, steps_spec), wants):
             ec = {r: canon_router(v, False) for r, v in es["routers"].items()}; kc = {r: canon_router(v, True) for r, v in ks["routers"].items()}
             checks = {}
             for part in ("neighbors", "interfaces", "routes", "database"): checks[part] = all(ec[r][part] == kc[r][part] for r in ec)
             if want: checks["last hello on every cable"] = last_hellos(eupto) == last_hellos(kupto)
-            et, eh = kinds(ewin); kt, kh = kinds(kwin)
+            et, eh = kinds(ewin, switches); kt, kh = kinds(kwin, switches)
             checks["packet types on every cable"] = et == kt
             ok = all(checks.values())
             rows.append((name, es["snapshot"], "; ".join(f"{r}: {nbr_text(v)}" for r, v in es["routers"].items()),

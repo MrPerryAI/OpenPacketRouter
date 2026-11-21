@@ -48,10 +48,12 @@ const OSPF_IF_KEYS = {type: v => ["broadcast", "point-to-point"].includes(v), pr
 function checkOspf(n, p, err) {
   const o = n.ospf, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
   if (!isObj(o)) return err(`${p}.ospf`, `node "${n.name}": ospf must be an object like {"networks": ["10.0.0.0/8"]}`);
-  for (const k of Object.keys(o)) if (!["routerId", "networks", "interfaces"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, interfaces)`);
+  for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces)`);
   if (o.routerId !== undefined && !isIp(o.routerId)) err(`${p}.ospf.routerId`, `node "${n.name}": routerId "${o.routerId}" is not like 1.1.1.1`);
   if (!Array.isArray(o.networks) || !o.networks.length) err(`${p}.ospf.networks`, `node "${n.name}": ospf needs networks: interface names or prefixes like 10.0.0.0/8`);
   else o.networks.forEach((x, j) => { if (!(isCidr(x) || names.includes(x))) err(`${p}.ospf.networks[${j}]`, `node "${n.name}": "${x}" is neither one of its interfaces nor a prefix like 10.0.0.0/8`); });
+  if (o.passive !== undefined && !(Array.isArray(o.passive) && o.passive.every(x => names.includes(x))))
+    err(`${p}.ospf.passive`, `node "${n.name}": passive must list some of its interfaces (${names.join(", ")})`);
   if (o.interfaces !== undefined) {
     if (!isObj(o.interfaces)) return err(`${p}.ospf.interfaces`, `node "${n.name}": ospf.interfaces maps interface names to {type, priority, cost, hello, dead, retransmit}`);
     for (const [ifn, c] of Object.entries(o.interfaces)) {

@@ -20,6 +20,8 @@ net.taps.add((n, i, f) => {
   const p = {t, cable, src: f.ip.src, dst: f.ip.dst, ttl: f.ip.ttl, type: o.type, routerId: o.routerId};
   if (o.type === "hello") Object.assign(p, {mask: o.mask, helloInterval: o.helloInterval, deadInterval: o.deadInterval, options: o.options,
     priority: o.priority, dr: o.dr, bdr: o.bdr, neighbors: [...o.neighbors].sort()});
+  if (o.type === "lsu") p.lsas = o.lsas.map(l => `${l.type}:${l.id}/${l.adv}#${(l.seq & 0xff).toString(16)}`);   // for debugging a mismatch; only `type` is compared
+  if (o.type === "ack") p.lsas = o.headers.map(l => `${l.type}:${l.id}/${l.adv}#${(l.seq & 0xff).toString(16)}`);
   packets.push(p);
 });
 for (const s of steps) {
