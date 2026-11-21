@@ -45,6 +45,7 @@
             "type": {"enum": ["broadcast", "point-to-point"]}, "priority": {"type": "integer", "minimum": 0, "maximum": 255},
             "cost": {"type": "integer", "minimum": 1, "maximum": 65535}, "hello": {"type": "integer", "minimum": 1},
             "dead": {"type": "integer", "minimum": 1}, "retransmit": {"type": "integer", "minimum": 1}}}}}},
+        "lldp": {"type": "object", "description": "LLDP (engine/src/lldp.js)", "additionalProperties": false, "properties": {"txInterval": {"type": "integer", "minimum": 1, "maximum": 3600}, "holdMultiplier": {"type": "integer", "minimum": 1, "maximum": 100}, "description": {"type": "string"}}},
         "services": {
           "type": "object",
           "properties": {
@@ -96,6 +97,7 @@
       "allOf": [
         {"if": {"properties": {"kind": {"const": "switch"}}}, "then": {"properties": {
           "blocked": {"type": "array", "items": {"type": "string"}},
+          "forwardLldp": {"type": "boolean", "description": "true: the switch forwards LLDP frames (bridge group_fwd_mask 0x4000); default false, as in Linux"},
           "agingTime": {"type": "number", "exclusiveMinimum": 0, "description": "MAC table aging time in seconds (default 300). Like a Linux bridge's ageing_time."},
           "stp": {"type": "object", "properties": {
             "priority": {"type": "integer", "minimum": 0, "maximum": 65535}, "mac": {"type": "string"},
