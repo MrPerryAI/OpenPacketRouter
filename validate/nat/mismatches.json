@@ -1,1 +1,31 @@
-{}
+{
+ "nat-lab: tcp B \u2192 203.0.113.50 port 81": {
+  "engine": {
+   "ok": false,
+   "error": "refused",
+   "from": "203.0.113.50",
+   "wire": [
+    "out S",
+    "in RA"
+   ]
+  },
+  "linux": {
+   "ok": false,
+   "error": "refused",
+   "from": "203.0.113.50",
+   "wire": [
+    "out S",
+    "in RA"
+   ]
+  },
+  "frame_diffs": {},
+  "new_flows_engine": {
+   "R": [
+    "{\"orig\": [\"10.1.0.11\", \"*\", \"203.0.113.50\", 81], \"proto\": \"tcp\", \"reply\": [\"203.0.113.50\", 81, \"203.0.113.1\", \"*\"]}"
+   ]
+  },
+  "new_flows_linux": {
+   "R": []
+  }
+ }
+}
