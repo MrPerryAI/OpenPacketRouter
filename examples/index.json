@@ -129,6 +129,14 @@
    "spec": "acl-lab/spec.json",
    "actions": "acl-lab/actions.json",
    "readme": "acl-lab/README.md"
+  },
+  {
+   "id": "nat-lab",
+   "name": "NAT on a router",
+   "about": "Private hosts behind a router share its public address (overload), one host has a fixed public address, and the outside reaches an inside web server through a forwarded port. Connection tracking brings the replies home.",
+   "spec": "nat-lab/spec.json",
+   "actions": "nat-lab/actions.json",
+   "readme": "nat-lab/README.md"
   }
  ]
 }

@@ -30,6 +30,7 @@ import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./ad
 import {shape} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
+import {Nat} from "./nat.js";
 import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
 
 class Heap {
@@ -183,7 +184,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, nat = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -197,6 +198,7 @@ export class IpNode extends Device {
     this.ospf = ospf ? new Ospf(this, ospf) : null;   // OSPFv2 (ospf.js)
     this.rip = rip ? new Rip(this, rip) : null;   // RIPv2 (rip.js)
     this.acl = acl ? new Acl(acl) : null;         // access lists (acl.js)
+    this.nat = nat ? new Nat(this, nat) : null;   // address translation (nat.js)
   }
   start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); }
   linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); }
@@ -217,7 +219,7 @@ export class IpNode extends Device {
     super.send(ifname, f);
   }
   owns(ip) { return Object.values(this.ifaces).some(i => i.ip === ip); }
-  flush() { this.arp.clear(); this.pending.clear(); }
+  flush() { this.arp.clear(); this.pending.clear(); }   // conntrack (nat.js) survives, like Linux
 
   /** Longest-prefix match over connected subnets and static routes. */
   route(dst) {
@@ -251,11 +253,16 @@ export class IpNode extends Device {
   onArp(ifname, a) {
     const i = this.ifaces[ifname];
     if (a.op === "request") {
+      if (a.tpa !== i.ip && this.nat && this.nat.proxies(ifname, a.tpa)) {   // a static outside address: answer as if it were ours (Linux: a secondary address on the interface)
+        this.learn(a.spa, a.sha, ifname);
+        this.log("arp-reply", `${a.spa} asked who has ${a.tpa} (NAT static address): answering with ${i.mac}`);
+        return this.send(ifname, {src: i.mac, dst: a.sha, type: "arp", arp: {op: "reply", sha: i.mac, spa: a.tpa, tha: a.sha, tpa: a.spa}});
+      }
       if (a.tpa !== i.ip) { if (this.arp.has(a.spa)) this.learn(a.spa, a.sha, ifname); return; }
       this.learn(a.spa, a.sha, ifname);
       this.log("arp-reply", `${a.spa} asked who has ${i.ip}: answering with ${i.mac}`);
       this.send(ifname, {src: i.mac, dst: a.sha, type: "arp", arp: {op: "reply", sha: i.mac, spa: i.ip, tha: a.sha, tpa: a.spa}});
-    } else if (a.op === "reply" && (a.tpa === i.ip || this.owns(a.tpa))) this.learn(a.spa, a.sha, ifname);
+    } else if (a.op === "reply" && (a.tpa === i.ip || this.owns(a.tpa) || (this.nat && this.nat.proxies(ifname, a.tpa)))) this.learn(a.spa, a.sha, ifname);
   }
   learn(ip, mac, ifname) {
     this.arp.set(ip, {mac, iface: ifname});
@@ -265,6 +272,8 @@ export class IpNode extends Device {
 
   onIp(ifname, p) {
     if (this.acl && !this.aclAllows("in", ifname, p)) return;
+    let ct = null;
+    if (this.nat) ({p, ct} = this.nat.pre(ifname, p));
     if (this.owns(p.dst) || p.dst === "255.255.255.255") return this.deliver(ifname, p);
     if (p.dst === OSPF_ALL_SPF || p.dst === OSPF_ALL_DR) { if (this.ospf && this.ospf.joined(ifname, p.dst)) this.ospf.receive(ifname, p); return; }   // link-local multicast: never routed
     if (p.dst === RIP_GROUP) { if (this.rip && this.rip.joined(ifname)) this.deliver(ifname, p); return; }   // link-local multicast: never routed
@@ -274,6 +283,7 @@ export class IpNode extends Device {
     if (!r) { this.log("no-route", `no route to ${p.dst}`); return this.icmpError(p, 3, 0); }
     if (this.acl && !this.aclAllows("out", r.iface, p)) return;
     this.log("route", `${p.src} → ${p.dst}: ${r.why} (TTL ${p.ttl} → ${p.ttl - 1})`);
+    if (this.nat) p = this.nat.post(ct, ifname, r.iface, p);
     this.out(r, {...p, ttl: p.ttl - 1}, true);
   }
 
@@ -336,7 +346,7 @@ export class IpNode extends Device {
     if (q) { q.frames.push(p); return; }
     // The ARP request names the packet's own source address when it is one of ours (Linux arp_announce 0), else the
     // address of the outgoing interface: a relay sending from its client-side address asks "who-has X tell <that address>".
-    const spa = !forwarded && p.src && this.owns(p.src) ? p.src : this.ifaces[r.iface].ip;
+    const spa = p.src && ((!forwarded && this.owns(p.src)) || (this.nat && this.nat.proxies(r.iface, p.src))) ? p.src : this.ifaces[r.iface].ip;   // a NAT static outside address counts as ours
     q = {iface: r.iface, frames: [p], tries: 0, forwarded, spa};
     this.pending.set(r.nextHop, q);
     this.arpRequest(r.nextHop, q);
@@ -426,7 +436,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

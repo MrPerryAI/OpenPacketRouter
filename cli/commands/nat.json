@@ -1,0 +1,249 @@
+{
+ "feature": "nat",
+ "about": "Address translation on routers: mark interfaces ip nat inside / ip nat outside; share the outside address with ip nat inside source overload; pin hosts or single ports with ip nat inside source static. Flows are tracked, so replies find their way back. See `show ip nat translations`.",
+ "commands": [
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside",
+   "handler": "nat.side:inside",
+   "help": {
+    "ip": "IPv4 settings of this interface",
+    "nat": "Address translation",
+    "inside": "This interface faces the private network (its hosts get translated)"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat outside",
+   "handler": "nat.side:outside",
+   "help": {
+    "ip": "IPv4 settings of this interface",
+    "nat": "Address translation",
+    "outside": "This interface faces the public side (translated traffic leaves here)"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ip nat",
+   "handler": "nat.no-side",
+   "help": {
+    "no": "Undo a setting",
+    "ip": "IPv4 settings of this interface",
+    "nat": "Stop treating this interface as inside or outside"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside source overload",
+   "handler": "nat.overload",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "overload": "Let all inside hosts share the address of the outside interface (ports tell them apart)"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside source overload PREFIX",
+   "args": {
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "nat.overload",
+   "help": {
+    "PREFIX": "Only hosts in this network are translated"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ip nat inside source overload",
+   "handler": "nat.no-overload",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "no": "Undo a setting",
+    "overload": "Stop sharing the outside address"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside source static INSIDE OUTSIDE",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "OUTSIDE": "ipv4-address"
+   },
+   "handler": "nat.static",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "static": "One inside host always appears under one fixed outside address (works in both directions)",
+    "INSIDE": "The inside host's real address",
+    "OUTSIDE": "The address the outside world uses for it"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "INPORT": "port",
+    "OUTSIDE": "ipv4-address",
+    "OUTPORT": "port"
+   },
+   "handler": "nat.static-port:tcp",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "static": "Fixed mapping",
+    "tcp": "Forward one TCP port",
+    "INPORT": "Port on the inside host",
+    "OUTSIDE": "Outside address that receives the connections",
+    "OUTPORT": "Port on the outside address",
+    "INSIDE": "The inside host's real address"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "INPORT": "port",
+    "OUTSIDE": "ipv4-address",
+    "OUTPORT": "port"
+   },
+   "handler": "nat.static-port:udp",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "static": "Fixed mapping",
+    "udp": "Forward one UDP port"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ip nat inside source static INSIDE OUTSIDE",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "OUTSIDE": "ipv4-address"
+   },
+   "handler": "nat.no-static",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "no": "Undo a setting",
+    "static": "Remove a fixed mapping"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "INPORT": "port",
+    "OUTSIDE": "ipv4-address",
+    "OUTPORT": "port"
+   },
+   "handler": "nat.no-static-port:tcp",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "no": "Undo a setting",
+    "static": "Remove a fixed mapping",
+    "tcp": "TCP port forward"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT",
+   "args": {
+    "INSIDE": "ipv4-address",
+    "INPORT": "port",
+    "OUTSIDE": "ipv4-address",
+    "OUTPORT": "port"
+   },
+   "handler": "nat.no-static-port:udp",
+   "help": {
+    "ip": "IPv4 settings",
+    "nat": "Address translation",
+    "inside": "Traffic from inside hosts",
+    "source": "Rewrite the source address of that traffic",
+    "no": "Undo a setting",
+    "static": "Remove a fixed mapping",
+    "udp": "UDP port forward"
+   }
+  }
+ ]
+}

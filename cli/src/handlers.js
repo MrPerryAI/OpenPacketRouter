@@ -14,6 +14,19 @@ const cidrOf = (args) => {   // [prefix] or [ip, mask]
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
 const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
 const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
+const natSame = (a, b) => ["proto", "inside", "insidePort", "outside", "outsidePort"].every(k => a[k] === b[k]);
+function natStatic(ctx, e) {
+  const n = (M.services(ctx.model).nat ||= {}), list = (n.static ||= []);
+  need(!list.some(x => natSame(x, e)), "That mapping already exists");
+  need(!list.some(x => x.proto === e.proto && x.outside === e.outside && x.outsidePort === e.outsidePort), `${e.outside}${e.outsidePort ? ":" + e.outsidePort : ""} is already mapped to another host`);
+  need(e.proto || !list.some(x => !x.proto && x.inside === e.inside), `${e.inside} already has a fixed outside address`);
+  list.push(e);
+}
+function natUnstatic(ctx, e) {
+  const n = M.services(ctx.model).nat, i = n && n.static ? n.static.findIndex(x => natSame(x, e)) : -1;
+  need(i >= 0, "No such fixed mapping");
+  n.static.splice(i, 1); if (!n.static.length) delete n.static; if (!n.static && !n.overload) delete M.services(ctx.model).nat;
+}
 const pool = ctx => { need(ctx.s.pool, "No DHCP pool selected"); return M.services(ctx.model)["dhcp-server"].pools[ctx.s.pool]; };
 const STP_LEAVES = {"bridge-priority": 1, "hello-time": 1, "max-age": 1, "forwarding-delay": 1, "openpacketrouter:bridge-address": 1};
 
@@ -187,6 +200,16 @@ export const HANDLERS = {
     const i = curIface(ctx); need(i["openpacketrouter:acl"]?.[dir], `No ${dir}bound access list on this interface`);
     delete i["openpacketrouter:acl"][dir]; if (!Object.keys(i["openpacketrouter:acl"]).length) delete i["openpacketrouter:acl"];
   },
+
+  // ---- NAT (services.nat = {overload, static}, shaped like the spec's nat key; inside/outside is a flag on the interface)
+  "nat.side": (ctx, args, side) => { curIface(ctx)["openpacketrouter:nat"] = side; },
+  "nat.no-side": ctx => { const i = curIface(ctx); need(i["openpacketrouter:nat"], "This interface is neither inside nor outside"); delete i["openpacketrouter:nat"]; },
+  "nat.overload": (ctx, [prefix]) => { const s = M.services(ctx.model); (s.nat ||= {}).overload = prefix ? {src: prefix} : true; },
+  "nat.no-overload": ctx => { const n = M.services(ctx.model).nat; need(n && n.overload, "Overload is not configured"); delete n.overload; if (!n.static) delete M.services(ctx.model).nat; },
+  "nat.static": (ctx, [inside, outside]) => { natStatic(ctx, {inside, outside}); },
+  "nat.static-port": (ctx, [inside, insidePort, outside, outsidePort], proto) => { natStatic(ctx, {proto, inside, insidePort, outside, outsidePort}); },
+  "nat.no-static": (ctx, [inside, outside]) => { natUnstatic(ctx, {inside, outside}); },
+  "nat.no-static-port": (ctx, [inside, insidePort, outside, outsidePort], proto) => { natUnstatic(ctx, {proto, inside, insidePort, outside, outsidePort}); },
 
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },

@@ -23,7 +23,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js
+  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
 };
@@ -105,6 +105,34 @@ function checkAcl(n, p, err) {
         else if (!(l in lists)) err(`${bp}.${d}`, `node "${n.name}": ${ifn} ${d}: no list named "${l}"`);
       }
     }
+  }
+}
+
+const NAT_STATIC_KEYS = ["proto", "inside", "outside", "insidePort", "outsidePort"];
+function checkNat(n, p, err) {
+  const a = n.nat, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+  if (!isObj(a)) return err(`${p}.nat`, `node "${n.name}": nat must be an object like {"inside": ["eth0"], "outside": ["eth1"], "overload": true}`);
+  for (const k of Object.keys(a)) if (!["inside", "outside", "overload", "static"].includes(k)) err(`${p}.nat.${k}`, `node "${n.name}": unknown nat key "${k}" (inside, outside, overload, static)`);
+  for (const side of ["inside", "outside"]) {
+    if (!Array.isArray(a[side]) || !a[side].every(x => names.includes(x))) err(`${p}.nat.${side}`, `node "${n.name}": nat.${side} lists some of its interfaces (it may be empty) (${names.join(", ")})`);
+  }
+  if (Array.isArray(a.inside) && Array.isArray(a.outside) && a.inside.some(x => a.outside.includes(x))) err(`${p}.nat`, `node "${n.name}": an interface cannot be both inside and outside`);
+  if (a.overload !== undefined && a.overload !== true && !(isObj(a.overload) && Object.keys(a.overload).every(k => k === "src") && (a.overload.src === undefined || isAddrOrAny(a.overload.src))))
+    err(`${p}.nat.overload`, `node "${n.name}": overload is true or {"src": "10.1.0.0/24"}`);
+  if (a.static !== undefined) {
+    if (!Array.isArray(a.static)) return err(`${p}.nat.static`, `node "${n.name}": nat.static is an array of {"inside": ip, "outside": ip}`);
+    a.static.forEach((s, j) => {
+      const sp = `${p}.nat.static[${j}]`;
+      if (!isObj(s)) return err(sp, `node "${n.name}": a static entry is an object like {"inside": "10.1.0.10", "outside": "203.0.113.10"}`);
+      for (const k of Object.keys(s)) if (!NAT_STATIC_KEYS.includes(k)) err(`${sp}.${k}`, `node "${n.name}": unknown static key "${k}" (${NAT_STATIC_KEYS.join(", ")})`);
+      for (const k of ["inside", "outside"]) if (!(typeof s[k] === "string" && isIp(s[k]))) err(`${sp}.${k}`, `node "${n.name}": static ${k} is an IPv4 address`);
+      if (s.proto !== undefined && !["tcp", "udp"].includes(s.proto)) err(`${sp}.proto`, `node "${n.name}": static proto is tcp or udp (leave it out for 1:1)`);
+      for (const k of ["insidePort", "outsidePort"]) {
+        if (s[k] !== undefined && !(Number.isInteger(s[k]) && s[k] > 0 && s[k] <= 65535)) err(`${sp}.${k}`, `node "${n.name}": ${k} is a port number`);
+        if (s[k] !== undefined && s.proto === undefined) err(`${sp}.${k}`, `node "${n.name}": ${k} needs proto tcp or udp`);
+      }
+      if ((s.insidePort === undefined) !== (s.outsidePort === undefined)) err(sp, `node "${n.name}": give both insidePort and outsidePort, or neither`);
+    });
   }
 }
 
@@ -229,6 +257,7 @@ export function validateSpec(spec) {
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
     if (n.acl !== undefined) checkAcl(n, p, err);
+    if (n.nat !== undefined) checkNat(n, p, err);
     if (n.services !== undefined) {
       if (!isObj(n.services)) err(`${p}.services`, `node "${n.name}": services must be an object`);
       else if (n.services.dns !== undefined && !(isObj(n.services.dns) && Object.values(n.services.dns).every(isIp)))
