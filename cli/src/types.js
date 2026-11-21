@@ -40,7 +40,7 @@ const uint = (lo, hi) => ({hint: `<${lo}-${hi}>`, help: "Number", test: s => /^\
 
 /** Interface names: a known port (exact, or a unique prefix of one), or a new name where the device allows it. */
 // VLAN interfaces (SVI vlan10) and subinterfaces (eth0.10) may be created by naming them
-const VIFNAME_RE = /^(vlan\d+|[A-Za-z][A-Za-z0-9_-]*\.\d+)$/;
+const VIFNAME_RE = /^(vlan\d+|Po\d+|[A-Za-z][A-Za-z0-9_-]*\.\d+)$/;
 const IFNAME_RE = /^[A-Za-z][\w./-]*$/;
 function matchPort(word, ctx) {
   const ports = ctx.ports();

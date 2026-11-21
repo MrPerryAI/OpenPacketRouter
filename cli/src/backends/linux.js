@@ -41,9 +41,15 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     out.push(br.join(" "));
     if (stp && g["openpacketrouter:bridge-address"]) out.push(`ip link set br0 address ${g["openpacketrouter:bridge-address"]}`);
     out.push("ip link set br0 up");
-    for (const p of ports) {
+    // port-channels: a bond in 802.3ad mode is the bridge port; its member cables are enslaved to it (their MAC becomes the bond's)
+    const bonds = [...new Set(ports.map(p => ifs[p] && M.lagOf(ifs[p])).filter(Boolean))];
+    for (const b of bonds) {
+      out.push(`ip link add ${b} type bond mode 802.3ad lacp_rate ${M.lacpInterval(model, b, false)?.interval === "FAST" ? "fast" : "slow"} xmit_hash_policy layer2 miimon 100`, `ip link set ${b} master br0`, `ip link set ${b} up`);
+      if (labParity) out.push(...parity(b));
+    }
+    for (const p of [...ports.filter(p => !(ifs[p] && M.lagOf(ifs[p]))), ...bonds]) {   // bridge ports: plain ports and channels
       const ifc = ifs[p];
-      out.push(`ip link set ${p} master br0`);
+      if (!bonds.includes(p)) out.push(`ip link set ${p} master br0`);
       const sp = M.stpPort(model, p, false);
       // Always set the cost: the engine's default is 19 (802.1D, 100 Mbit/s), the kernel's depends on the link speed.
       // The kernel's port priority is 6 bits shifted by 10 in the port ID, the model's 8 bits shifted by 8: 128 -> 32.
@@ -59,8 +65,9 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
         }
       }
       pushShaper(out, p, ifc);
-      out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
+      if (!bonds.includes(p)) out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
     }
+    for (const p of ports) if (ifs[p] && M.lagOf(ifs[p])) out.push(`ip link set ${p} master ${M.lagOf(ifs[p])}`, `ip link set ${p} up`);
     // Layer 3 switch: each SVI is a VLAN device on the bridge itself (the bridge must carry that VLAN "self").
     if (svis.length) out.push("sysctl -w net.ipv4.ip_forward=1");
     for (const p of svis) {

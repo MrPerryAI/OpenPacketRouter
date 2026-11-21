@@ -1,0 +1,92 @@
+{
+ "version": 1,
+ "name": "LACP: three cables as one port-channel",
+ "about": "Hosts A and C on SW1, B and D on SW2. SW1:p3-p5 and SW2:p3-p5 are bundled into port-channel Po1 (802.3ad). Each frame leaves over one member cable, chosen by the MAC-address hash; cut a cable and the others carry on.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "channels": {
+    "Po1": {
+     "ports": [
+      "p3",
+      "p4",
+      "p5"
+     ]
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "channels": {
+    "Po1": {
+     "ports": [
+      "p3",
+      "p4",
+      "p5"
+     ],
+     "rate": "fast"
+    }
+   }
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.3/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "D",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.4/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW1:p1"
+  ],
+  [
+   "C:eth0",
+   "SW1:p2"
+  ],
+  [
+   "B:eth0",
+   "SW2:p1"
+  ],
+  [
+   "D:eth0",
+   "SW2:p2"
+  ],
+  [
+   "SW1:p3",
+   "SW2:p3"
+  ],
+  [
+   "SW1:p4",
+   "SW2:p4"
+  ],
+  [
+   "SW1:p5",
+   "SW2:p5"
+  ]
+ ]
+}
