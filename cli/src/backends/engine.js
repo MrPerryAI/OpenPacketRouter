@@ -105,6 +105,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       const o = M.ospf(m, true);
       if (n.ospf.routerId) o.global.config["router-id"] = n.ospf.routerId;
       o["openpacketrouter:networks"].push(...n.ospf.networks);
+      for (const p of n.ospf.passive || []) M.ospfIf(m, p).config.passive = true;
       for (const [p, c] of Object.entries(n.ospf.interfaces || {})) {
         const e = M.ospfIf(m, p), t = e.timers.config;
         if (c.type) e.config["network-type"] = c.type === "point-to-point" ? "POINT_TO_POINT_NETWORK" : "BROADCAST_NETWORK";
@@ -240,7 +241,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (o && o["openpacketrouter:networks"].length) {
       const sp = {networks: [...o["openpacketrouter:networks"]]};
       if (o.global.config["router-id"]) sp.routerId = o.global.config["router-id"];
-      const ifc = {};
+      const ifc = {}, pas = [];
       for (const [p, e] of Object.entries(o.areas.area["0"].interfaces.interface)) {
         const c = e.config, t = e.timers.config, r = {};
         if (c["network-type"]) r.type = c["network-type"] === "POINT_TO_POINT_NETWORK" ? "point-to-point" : "broadcast";
@@ -249,8 +250,10 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
         if (t["hello-interval"] !== undefined) r.hello = t["hello-interval"];
         if (t["dead-interval"] !== undefined) r.dead = t["dead-interval"];
         if (t["retransmission-interval"] !== undefined) r.retransmit = t["retransmission-interval"];
+        if (c.passive) pas.push(p);
         if (Object.keys(r).length) ifc[p] = r;
       }
+      if (pas.length) sp.passive = pas;
       if (Object.keys(ifc).length) sp.interfaces = ifc;
       n.ospf = sp;
     }

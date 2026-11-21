@@ -136,6 +136,8 @@ export const HANDLERS = {
   "ospf.remove": ctx => { M.ospfDelete(ctx.model); },
   "ospf.router-id": (ctx, [id]) => { ospfG(ctx).global.config["router-id"] = id; },
   "ospf.no-router-id": ctx => { delete ospfG(ctx).global.config["router-id"]; },
+  "ospf.passive": (ctx, [i]) => { need(M.iface(ctx.model, i, false), `No interface named ${i}`); M.ospfIf(ctx.model, i).config.passive = true; },
+  "ospf.no-passive": (ctx, [i]) => { const e = M.ospfIf(ctx.model, i, false); if (e) delete e.config.passive; },
   "ospf.network": (ctx, [p]) => { const l = ospfG(ctx)["openpacketrouter:networks"]; if (!l.includes(p)) l.push(p); },
   "ospf.network-if": (ctx, [p]) => { const l = ospfG(ctx)["openpacketrouter:networks"]; if (!l.includes(p)) l.push(p); },
   "ospf.no-network": (ctx, [p]) => { const g = ospfG(ctx), l = g["openpacketrouter:networks"]; need(l.includes(p), `OSPF is not running on ${p}`); g["openpacketrouter:networks"] = l.filter(x => x !== p); },
