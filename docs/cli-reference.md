@@ -101,8 +101,8 @@ Moving between modes, the device name, saving.
 | `enable` | user | all devices | Go to privileged mode (configuration and every show command) |
 | `disable` | privileged | all devices | Go back to user mode |
 | `configure terminal` | privileged | all devices | Type the changes here, one command per line |
-| `exit` | user, privileged, config, interface, routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
-| `end` | config, interface, routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
+| `exit` | user, privileged, config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
+| `end` | config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
 | `write` | privileged | all devices | Save the configuration |
 | `write memory` | privileged | all devices | Save it where it is loaded from at start |
 | `hostname NAME` | config | all devices | New name (letters, digits, - and _) |
@@ -320,12 +320,14 @@ OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and
 |---|---|---|---|
 | `router ospf` | config | routers | OSPF: routers learn each other's networks automatically |
 | `no router ospf` | config | routers | Turn OSPF off and forget its settings |
-| `router-id ADDRESS` | routing | routers | Router ID, written like an IPv4 address |
-| `no router-id` | routing | routers | Go back to the default router ID |
-| `network PREFIX` | routing | routers | Network, like 10.0.0.0/8 |
-| `network interface IFNAME` | routing | routers | Interface name |
-| `no network PREFIX` | routing | routers | Network, like 10.0.0.0/8 |
-| `no network interface IFNAME` | routing | routers | Interface name |
+| `router-id ADDRESS` | OSPF routing | routers | Router ID, written like an IPv4 address |
+| `no router-id` | OSPF routing | routers | Go back to the default router ID |
+| `network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
+| `passive-interface IFNAME` | OSPF routing | routers | Interface name |
+| `no passive-interface IFNAME` | OSPF routing | routers | Interface name |
+| `network interface IFNAME` | OSPF routing | routers | Interface name |
+| `no network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
+| `no network interface IFNAME` | OSPF routing | routers | Interface name |
 | `ospf cost N` | interface | routers | Number |
 | `no ospf cost` | interface | routers | Go back to the default |
 | `ospf hello-interval N` | interface | routers | Number |
