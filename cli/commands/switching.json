@@ -27,6 +27,15 @@
     {"modes": ["config-if"], "kinds": ["switch"], "syntax": "no switchport mode", "handler": "switchport.remove",
      "help": {"mode": "Forget this port's VLAN settings"}},
 
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "channel-group NUMBER mode active", "args": {"NUMBER": "uint:1-64"}, "handler": "lag.join",
+     "help": {"channel-group": "Bundle this port with others into a port-channel (LACP, 802.3ad)", "NUMBER": "Channel number: makes interface Po<NUMBER>", "mode": "How the channel is negotiated", "active": "Send LACPDUs (the only mode the engine models)"}},
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "no channel-group", "handler": "lag.leave",
+     "help": {"no": "Undo a setting", "channel-group": "Take this port out of its port-channel"}},
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "lacp rate fast", "handler": "lag.rate:fast",
+     "help": {"lacp": "LACP settings of a port-channel", "rate": "How often the peer should send LACPDUs", "fast": "Every second (default: every 30 seconds)"}},
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "lacp rate slow", "handler": "lag.rate:slow",
+     "help": {"lacp": "LACP settings of a port-channel", "rate": "How often the peer should send LACPDUs", "slow": "Every 30 seconds (the default)"}},
+
     {"modes": ["config"], "kinds": ["switch"], "syntax": "spanning-tree", "handler": "stp.enable",
      "help": {"spanning-tree": "Spanning tree (802.1D): blocks ports that would make a loop"}},
     {"modes": ["config"], "kinds": ["switch"], "syntax": "no spanning-tree", "handler": "stp.disable",

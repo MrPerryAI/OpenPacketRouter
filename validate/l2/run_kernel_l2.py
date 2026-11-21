@@ -28,6 +28,7 @@ STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
 
 
 class Net:
+    MACS = {}          # "node:iface" -> MAC to give that interface (validators that hash on MACs, like LACP, need the engine's addresses)
     DEFER_UP = False   # validators that compare timers (aging, topology change) bring the bridges up themselves, all at once, at step 0
 
     def __init__(self, spec):
@@ -48,8 +49,13 @@ class Net:
                             "max_age", str(int(s.get("maxAge", 20) * 100)), "forward_delay", str(int(s.get("forwardDelay", 15) * 100))]
                 if n.get("agingTime") is not None: cmd += ["ageing_time", str(int(n["agingTime"] * 100))]
                 sh(*cmd)
+                for cn, c in (n.get("channels") or {}).items():   # port-channel: a bond in 802.3ad mode, itself a bridge port (enslaved below, brought up with the bridge)
+                    sh("ip", "-n", ns, "link", "add", cn, "type", "bond", "mode", "802.3ad", "lacp_rate", c.get("rate", "slow"), "xmit_hash_policy", "layer2", "miimon", "100")
+                    sh("ip", "-n", ns, "link", "set", cn, "master", "br0"); no_ipv6(ns, cn)
+                    if not self.DEFER_UP: sh("ip", "-n", ns, "link", "set", cn, "up")
                 if n.get("stp"): sh("ip", "-n", ns, "link", "set", "br0", "address", n["stp"]["mac"])
                 if n.get("vlans"): sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "vlan_filtering", "1")
+                for cn in (n.get("channels") or {}): self.vlan(ns, n["name"], cn)
                 no_ipv6(ns, "br0")
                 if not self.DEFER_UP: sh("ip", "-n", ns, "link", "set", "br0", "up")
         for k, (a, b, *_r) in enumerate(spec["links"]):
@@ -57,7 +63,10 @@ class Net:
             for tmp, ref in ((ta, a), (tb, b)):
                 node, ifn = ref.split(":"); ns = self.ns[node]
                 sh("ip", "link", "set", tmp, "netns", ns, "name", ifn); no_ipv6(ns, ifn)
-                if self.kind[node] == "switch":
+                if f"{node}:{ifn}" in self.MACS: sh("ip", "-n", ns, "link", "set", ifn, "address", self.MACS[f"{node}:{ifn}"])
+                bond = next((cn for cn, c in (self.node[node].get("channels") or {}).items() if ifn in c["ports"]), None)
+                if bond: sh("ip", "-n", ns, "link", "set", ifn, "master", bond)   # a channel member belongs to the bond, not the bridge
+                elif self.kind[node] == "switch":
                     sh("ip", "-n", ns, "link", "set", ifn, "master", "br0")
                     cost = ((self.node[node].get("stp") or {}).get("cost") or {}).get(ifn, 19)
                     if self.node[node].get("stp"): sh("ip", "-n", ns, "link", "set", ifn, "type", "bridge_slave", "cost", str(cost))

@@ -51,6 +51,14 @@
    "readme": "l3-switch/README.md"
   },
   {
+   "id": "lacp-channel",
+   "name": "LACP: three cables as one port-channel",
+   "about": "Hosts A and C on SW1, B and D on SW2. SW1:p3-p5 and SW2:p3-p5 are bundled into port-channel Po1 (802.3ad). Each frame leaves over one member cable, chosen by the MAC-address hash; cut a cable and the others carry on.",
+   "spec": "lacp-channel/spec.json",
+   "actions": "lacp-channel/actions.json",
+   "readme": "lacp-channel/README.md"
+  },
+  {
    "id": "loop-no-stp",
    "name": "Switch triangle, no spanning tree",
    "about": "Three switches cabled in a ring, with no spanning tree. One broadcast (the ARP request inside a ping) goes round and round. Watch the frame counts.",

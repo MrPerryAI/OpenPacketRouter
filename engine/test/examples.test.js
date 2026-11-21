@@ -95,6 +95,18 @@ test("mac-aging: SW1 forgets after 5 s and floods; SW2 (12 s) still forwards", (
   assert.equal(second.frames["SW2:p1>SW1:p3"], 1);
 });
 
+test("lacp-channel: members bundle, frames take one cable each, a cut cable leaves the channel working", () => {
+  const [, up, p1, p2, mt, , , down, p3] = run("lacp-channel");
+  assert.deepEqual(up.result.channels[0].members.map(m => m.aggregated), [true, true, true]);
+  assert.equal(p1.result.ok, true); assert.equal(p2.result.ok, true);
+  assert.equal(mt.result.entries.find(e => e.port === "Po1") !== undefined, true);   // B and D live behind the channel
+  const cables = f => Object.keys(f).filter(k => /^SW[12]:p[345]>/.test(k) && f[k]);
+  assert.ok(cables(p1.frames).length >= 2, "ARP broadcast, request and reply spread over more than one cable");
+  assert.deepEqual(down.result.channels[0].members.map(m => [m.up, m.aggregated]), [[false, false], [true, true], [true, true]]);
+  assert.equal(p3.result.ok, true);
+  assert.equal(cables(p3.frames).some(k => k.includes(":p3>")), false, "nothing crosses the cut cable");
+});
+
 test("rip-chain: route poisoned on the cut, gone after garbage collection, back after repair", () => {
   const r = run("rip-chain");
   const m = n => r.filter(a => a.action.do === "ripRoute")[n].result.routers.R1;

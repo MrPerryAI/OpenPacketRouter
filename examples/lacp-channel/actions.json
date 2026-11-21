@@ -1,0 +1,48 @@
+[
+ {
+  "do": "wait",
+  "seconds": 6,
+  "keepCaches": true
+ },
+ {
+  "do": "lacp",
+  "switch": "SW1",
+  "keepCaches": true
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "10.0.0.2"
+ },
+ {
+  "do": "ping",
+  "src": "C",
+  "dst": "10.0.0.4"
+ },
+ {
+  "do": "macTable",
+  "switch": "SW1",
+  "keepCaches": true
+ },
+ {
+  "do": "link",
+  "end": "SW1:p3",
+  "up": false
+ },
+ {
+  "do": "wait",
+  "seconds": 2,
+  "keepCaches": true
+ },
+ {
+  "do": "lacp",
+  "switch": "SW1",
+  "keepCaches": true
+ },
+ {
+  "do": "ping",
+  "src": "D",
+  "dst": "10.0.0.1",
+  "keepCaches": true
+ }
+]

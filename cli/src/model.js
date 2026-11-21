@@ -51,6 +51,18 @@ export const vlans = m => ni(m).vlans.vlan;
 /** MAC table settings (openconfig-network-instance fdb): config["mac-aging-time"] in seconds; absent = the default (300). */
 export const fdb = m => (ni(m).fdb ||= {config: {}}).config;
 
+/** Link aggregation (openconfig-if-aggregate / openconfig-lacp): a member port has ethernet.config["aggregate-id"] = "Po1";
+ *  the port-channel is an interface of its own (type ieee8023adLag); its LACP interval (FAST/SLOW) lives under lacp.interfaces. */
+export const lagOf = ifc => ifc?.ethernet?.config?.["aggregate-id"];
+export const setLag = (ifc, id) => { own(own(ifc, "ethernet", {}), "config", {})["aggregate-id"] = id; };
+export const clearLag = ifc => { if (ifc?.ethernet?.config) delete ifc.ethernet.config["aggregate-id"]; };
+export const isLagName = n => /^Po\d+$/.test(n);
+export const lacpInterval = (m, name, make = true) => {
+  const all = ((m.lacp ||= {interfaces: {interface: {}}}).interfaces.interface);
+  if (!all[name]) { if (!make) return null; all[name] = {name, config: {name}}; }
+  return all[name].config;
+};
+
 export const stpGlobal = m => m.stp.global.config;
 export const stpEnabled = m => (stpGlobal(m)["enabled-protocol"] || []).length > 0;
 export const stpPort = (m, p, make = true) => {

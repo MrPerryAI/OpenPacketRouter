@@ -38,6 +38,8 @@ export function configLines(model, {kind, ports}) {
       for (const a of M.addressesOf(ifc)) out.push(` ip address ${a.ip}/${a.prefixLength}`);
       if (M.dhcpClientOf(ifc)) out.push(" ip address dhcp");
       for (const h of M.relayHelpers(model, name, false)) out.push(` ip helper-address ${h}`);
+      if (M.lagOf(ifc)) out.push(` channel-group ${M.lagOf(ifc).slice(2)} mode active`);
+      if (M.lacpInterval(model, name, false)?.interval === "FAST") out.push(" lacp rate fast");
       const sv = M.switchedVlan(ifc, false);
       if (sv && sv["interface-mode"] === "ACCESS") {
         out.push(" switchport mode access");

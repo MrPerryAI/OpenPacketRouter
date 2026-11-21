@@ -56,6 +56,15 @@ export const SHOWS = {
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 
+  "show.etherchannel": ctx => {
+    const ch = ctx.state().lacp || [];
+    if (!ch.length) return {json: [], text: "No port-channels on this switch (channel-group N mode active on two or more ports makes one)"};
+    // flags: P = bundled (collecting and distributing), w = waiting to be bundled, D = down
+    const flag = m => !m.up ? "D" : m.aggregated ? "P" : "w";
+    const rows = ch.map(c => [c.name, "LACP", c.rate, c.members.map(m => `${m.port}(${flag(m)})`).join(" ")]);
+    return {json: ch, text: "Flags: P bundled, w waiting, D down\n" + table(["Channel", "Protocol", "Rate", "Ports"], rows)};
+  },
+
   "show.spanning-tree": ctx => {
     const d = ctx.state().stp;
     if (!d) return {json: null, text: "Spanning tree is off on this switch"};

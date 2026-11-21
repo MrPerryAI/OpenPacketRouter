@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
@@ -169,6 +169,24 @@ export function validateSpec(spec) {
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
       if (n.agingTime !== undefined && !(typeof n.agingTime === "number" && Number.isFinite(n.agingTime) && n.agingTime > 0))
         err(`${p}.agingTime`, `node "${n.name}": agingTime must be a number of seconds above 0 (default 300; Linux bridges treat 0 as "expire at once", which is not modeled)`);
+      if (n.channels !== undefined) {   // port-channels (LACP): {"Po1": {"ports": ["p3", "p4"], "rate": "slow"|"fast"}}; engine/src/lacp.js
+        const cabled = new Set((Array.isArray(spec.links) ? spec.links : []).flatMap(l => Array.isArray(l) ? l.slice(0, 2) : []).filter(e => typeof e === "string" && e.startsWith(n.name + ":")).map(e => e.slice(n.name.length + 1)));
+        const used = new Set();
+        if (!isObj(n.channels)) err(`${p}.channels`, `node "${n.name}": channels must be an object like {"Po1": {"ports": ["p3", "p4"]}}`);
+        else for (const [cn, c] of Object.entries(n.channels)) {
+          const q = `${p}.channels.${cn}`;
+          if (!isObj(c) || !Array.isArray(c.ports) || !c.ports.length || !c.ports.every(x => typeof x === "string")) { err(q, `node "${n.name}": channel ${cn} needs "ports": a list of port names`); continue; }
+          if (c.rate !== undefined && !["slow", "fast"].includes(c.rate)) err(`${q}.rate`, `node "${n.name}": channel ${cn}: rate must be "slow" (LACPDU every 30 s) or "fast" (every 1 s)`);
+          for (const k of Object.keys(c)) if (!["ports", "rate"].includes(k)) warn(`${q}.${k}`, `node "${n.name}": channel ${cn}: unknown key "${k}" (ignored)`);
+          if (cabled.has(cn)) err(q, `node "${n.name}": channel name "${cn}" is also a cabled port`);
+          for (const x of c.ports) {
+            if (!cabled.has(x)) err(`${q}.ports`, `node "${n.name}": channel ${cn}: port ${x} has no cable`);
+            if (used.has(x)) err(`${q}.ports`, `node "${n.name}": port ${x} is in two channels`);
+            used.add(x);
+          }
+        }
+        if (n.stp !== undefined) err(`${p}.channels`, `node "${n.name}": spanning tree over a port-channel is not modeled yet`);
+      }
       if (n.ifaces === undefined) {
         for (const k of ["routes", "gw"]) if (n[k] !== undefined) err(`${p}.${k}`, `node "${n.name}": a switch needs SVIs ("ifaces": {"vlan10": ...}) before it can have ${k}`);
         return;
@@ -276,6 +294,11 @@ export const ACTIONS = {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
     return {switch: a.switch, entries: n.macTable()};
   }},
+  // The port-channels of a switch right now: each channel's members with their LACP state bytes and whether they carry traffic.
+  lacp: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
+    return {switch: a.switch, channels: [...n.channels.values()].map(c => c.describe())};
+  }},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
   udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {
@@ -342,7 +365,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
-    net.settle(a.settle ?? (["wait", "macTable", "stp"].includes(a.do) ? 0 : 1));
+    net.settle(a.settle ?? (["wait", "macTable", "stp", "lacp"].includes(a.do) ? 0 : 1));
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }

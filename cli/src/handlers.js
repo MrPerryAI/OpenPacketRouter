@@ -93,6 +93,20 @@ export const HANDLERS = {
   "stp.port.set": (ctx, [v], leaf) => { M.stpPort(ctx.model, curIface(ctx).config.name)[leaf] = v; },
   "stp.port.unset": (ctx, args, leaf) => { const c = M.stpPort(ctx.model, curIface(ctx).config.name, false); if (c) delete c[leaf]; },
 
+  // ---- link aggregation (LACP): channel-group N mode active on a member port makes interface PoN
+  "lag.join": (ctx, [n]) => {
+    const ifc = curIface(ctx); need(!M.isLagName(ifc.config.name), "A port-channel cannot join a channel");
+    const id = `Po${n}`; const po = M.iface(ctx.model, id); po.config.type = "ieee8023adLag"; po.aggregation = {config: {"lag-type": "LACP"}};
+    M.setLag(ifc, id);
+  },
+  "lag.leave": ctx => {
+    const ifc = curIface(ctx), id = M.lagOf(ifc); M.clearLag(ifc);
+    if (id && !Object.values(M.interfaces(ctx.model)).some(i => M.lagOf(i) === id)) { delete M.interfaces(ctx.model)[id]; if (ctx.model.lacp) delete ctx.model.lacp.interfaces.interface[id]; }
+  },
+  "lag.rate": (ctx, args, rate) => {
+    const ifc = curIface(ctx); need(M.isLagName(ifc.config.name), "lacp rate is set on a port-channel (interface Po1)");
+    if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
+  },
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

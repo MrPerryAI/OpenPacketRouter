@@ -7,6 +7,7 @@ export function describeResult(a, r) {
   if (a.do === "wait") return `wait ${a.seconds} s (now ${+r.time.toFixed(3)} s)`;
   if (a.do === "macTable") return `MAC table of ${r.switch}: ` + (r.entries.map(e => `vlan ${e.vlan} ${e.mac} on ${e.port} (age ${e.age} s)`).join("; ") || "empty");
   if (a.do === "stp") return `spanning tree on ${r.switch}: root ${r.root}${r.isRoot ? " (this switch)" : ""}, ` + Object.entries(r.ports).map(([n, p]) => `${n} ${p.role}/${p.state}`).join(" ") + (r.topologyChange ? ", topology change in progress" : "");
+  if (a.do === "lacp") return `port-channels on ${r.switch}: ` + (r.channels.map(c => `${c.name} (${c.rate}) ` + c.members.map(m => `${m.port} ${!m.up ? "down" : m.aggregated ? "bundled" : "waiting"}`).join(", ")).join("; ") || "none");
   if (a.do === "link") return `cable at ${a.end} ${r.up ? "restored" : "cut"}`;
   if (a.do === "ripTable") return `RIP table of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.routes.map(x => `${x.type} ${x.network}${x.type === "R" ? " via " + x.nextHop : ""} metric ${x.metric}`).join(", ") || "empty");
   if (a.do === "ripRoute") return `${a.network} at ${+r.t.toFixed(3)} s: ` + Object.entries(r.routers).map(([n, x]) =>

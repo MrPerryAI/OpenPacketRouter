@@ -157,6 +157,10 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no switchport access vlan` | interface | switches | Put the port back in VLAN 1 |
 | `no switchport trunk native vlan` | interface | switches | Use the default native VLAN again |
 | `no switchport mode` | interface | switches | Forget this port's VLAN settings |
+| `channel-group NUMBER mode active` | interface | switches | Send LACPDUs (the only mode the engine models) |
+| `no channel-group` | interface | switches | Take this port out of its port-channel |
+| `lacp rate fast` | interface | switches | Every second (default: every 30 seconds) |
+| `lacp rate slow` | interface | switches | Every 30 seconds (the default) |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
@@ -271,6 +275,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show access-lists NAME` | user, privileged | routers | One list |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
+| `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
 | `show vlan id VLAN` | user, privileged | switches | VLAN number, 1-4094 |

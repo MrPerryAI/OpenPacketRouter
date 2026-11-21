@@ -23,6 +23,7 @@
 // Every decision is written to `net.trace` with a plain-English reason.
 
 import {Stp} from "./stp.js";
+import {Channel, LACP_MAC} from "./lacp.js";
 import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput, tcpIcmpError} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
@@ -70,7 +71,7 @@ export class Switch extends Device {
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
   constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300} = {}) {
-    super(net, name, "switch"); this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
+    super(net, name, "switch"); this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -82,6 +83,16 @@ export class Switch extends Device {
     }
   }
   /** The SVI for a VLAN, if this is a Layer 3 switch with one. */
+  /** Bundle cabled ports into a port-channel (LACP, lacp.js): call after the cables exist. The channel is a port named `name`. */
+  addChannel(name, ports, opts = {}) {
+    if (this.stp) throw new Error(`${this.name}: spanning tree over a port-channel is not modeled`);
+    for (const p of ports) { if (!this.ifaces[p]) throw new Error(`${this.name}: channel ${name}: no port ${p} (cable it first)`); if (this.memberOf.has(p)) throw new Error(`${this.name}: port ${p} is already in a channel`); }
+    const ch = new Channel(this, name, ports, opts); this.channels.set(name, ch); for (const p of ports) this.memberOf.set(p, ch);
+    return ch;
+  }
+  /** Ports the bridge itself sees: every interface except the cables that belong to a channel (the channel stands for them). */
+  bridgePorts() { return Object.keys(this.ifaces).filter(p => !this.memberOf.has(p)); }
+  send(ifname, frame) { const ch = this.channels.get(ifname); if (ch) return ch.transmit(frame); super.send(ifname, frame); }
   svi(vid) { return this.l3 ? Object.values(this.l3.ifaces).find(i => i.vid === vid) : null; }
   /** {pvid, member: Set, untagged: Set} for a port of a VLAN-aware switch. */
   vcfg(port) {
@@ -126,13 +137,16 @@ export class Switch extends Device {
   fromStack(vid, f) {
     const out = f.dst === BROADCAST_MAC ? null : this.table.get(vid + "|" + f.dst);
     if (out) { if (this._fwd(out)) this._emit(out, f, vid); return; }
-    const ports = Object.keys(this.ifaces).filter(p => this._fwd(p) && this.ifaces[p].link && this.vcfg(p).member.has(vid));
+    const ports = this.bridgePorts().filter(p => this._fwd(p) && this.ifaces[p].link && this.vcfg(p).member.has(vid));
     for (const p of ports) this._emit(p, f, vid);
   }
-  linkChange(ifname, up) { if (this.stp) this.stp.linkChange(ifname, up); }
-  start() { if (this.stp) this.stp.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
+  linkChange(ifname, up) { const ch = this.memberOf.get(ifname); if (ch) ch.linkChange(ifname, up); if (this.stp) this.stp.linkChange(ifname, up); }
+  start() { if (this.stp) this.stp.start(); for (const c of this.channels.values()) c.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
 
   receive(ifname, f) {
+    const ch = this.memberOf.get(ifname);
+    if (ch) { if (f.type === "lacpdu") return ch.receivePdu(ifname, f); if (!ch.collecting(ifname)) return; ifname = ch.name; }   // a collecting member delivers as the channel
+    else if (f.type === "lacpdu") return;   // slow-protocol frames are never bridged
     if (this.blocked.has(ifname)) return;
     if (this.stp && f.type === "bpdu") {   // STP-enabled bridges consume BPDUs; others flood them like any multicast
       const state = this.stp.ports.get(ifname)?.state;   // Linux still learns the sender's MAC from a BPDU (br_handle_local_finish), in the port's VLAN
@@ -160,7 +174,7 @@ export class Switch extends Device {
     const vtag = this.vlans ? ` [VLAN ${vid}]` : "";
     if (out && !this._fwd(out)) { this.log("filter", `drop: ${f.dst} is learned on ${out}, which is not forwarding`); return; }   // Linux drops these; it does not flood them
     if (out && this._fwd(out)) { if (emit(out)) this.log("forward", `${describe(f)}${vtag}: ${f.dst} learned on ${out}`); else this.log("vlan-drop", `${describe(f)}: VLAN ${vid} not allowed out ${out}`); return; }
-    const ports = Object.keys(this.ifaces).filter(p => p !== ifname && this._fwd(p) && this.ifaces[p].link && (!this.vlans || this.vcfg(p).member.has(vid)));
+    const ports = this.bridgePorts().filter(p => p !== ifname && this._fwd(p) && this.ifaces[p].link && (!this.vlans || this.vcfg(p).member.has(vid)));
     this.log("flood", `${describe(f)}${vtag}: ${f.dst === BROADCAST_MAC ? "broadcast" : "unknown destination " + f.dst} → ${ports.join(", ") || "nowhere"}`);
     for (const p of ports) emit(p);
     if (svi && f.dst === BROADCAST_MAC) { const g = {...f}; delete g.vlan; this.l3.receive(svi.name, g); }   // and up to the SVI
@@ -412,7 +426,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {
@@ -420,6 +434,7 @@ export class Network {
       if (opts && opts.shape) shape(net, a, opts.shape);                      // egress of the first end (link.js)
       if (opts && opts.shapeBack) shape(net, b, opts.shapeBack);              // egress of the second end
     }
+    for (const n of spec.nodes) if (n.kind === "switch") for (const [name, c] of Object.entries(n.channels || {})) net.node(n.name).addChannel(name, c.ports, {rate: c.rate});
     return net;
   }
 }
