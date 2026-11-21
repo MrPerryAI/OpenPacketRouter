@@ -1,0 +1,82 @@
+{
+ "version": 1,
+ "name": "LLDP across switches",
+ "about": "R1 and R2 on SW1, which forwards LLDP (forwardLldp, bridge group_fwd_mask 0x4000), so they see each other across it; R4 and R5 on SW2, an ordinary switch that does not, so their tables stay empty. LLDP every 5 s, hold multiplier 2 (TTL 10 s). R2's cable to SW1 is cut: R2 loses carrier and clears its table at once, R1 keeps R2 until its TTL runs out (about 10 s after R2's last frame). Restored, R2's first frame leaves 1 s later and R1 learns R2 again.",
+ "nodes": [
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.1.0.1/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.1.0.2/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "forwardLldp": true
+  },
+  {
+   "name": "R4",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.4.0.4/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "R5",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.4.0.5/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch"
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "SW1:p1",
+   1
+  ],
+  [
+   "R2:eth0",
+   "SW1:p2",
+   1
+  ],
+  [
+   "R4:eth0",
+   "SW2:p1",
+   1
+  ],
+  [
+   "R5:eth0",
+   "SW2:p2",
+   1
+  ]
+ ]
+}

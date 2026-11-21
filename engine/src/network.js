@@ -30,6 +30,7 @@ import {shape} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
+import {Lldp, LLDP_MAC} from "./lldp.js";
 
 class Heap {
   constructor() { this.a = []; }
@@ -47,7 +48,7 @@ class Heap {
 }
 
 const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
-const describe = f => f.type === "bpdu" ? (f.bpdu.tcn ? "STP TCN" : `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}${f.bpdu.tc ? " [topology change]" : ""}${f.bpdu.tca ? " [TC ack]" : ""}`) : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
+const describe = f => f.type === "lldp" ? `LLDP from ${f.lldp.sysName} (${f.lldp.portDescr})` : f.type === "bpdu" ? (f.bpdu.tcn ? "STP TCN" : `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}${f.bpdu.tc ? " [topology change]" : ""}${f.bpdu.tca ? " [TC ack]" : ""}`) : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
   : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : f.ip.proto === "tcp" ? `TCP ${f.ip.tcp.sport}→${f.ip.tcp.dport} ${tcpName(f.ip.tcp)}${f.ip.tcp.len ? ` ${f.ip.tcp.len}B` : ""}` : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable", 13: "administratively prohibited"}[i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
@@ -69,8 +70,10 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300} = {}) {
-    super(net, name, "switch"); this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false} = {}) {
+    super(net, name, "switch");
+    this.forwardLldp = forwardLldp;   // true: group_fwd_mask 0x4000, the bridge forwards LLDP frames like other multicast
+    this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -134,6 +137,12 @@ export class Switch extends Device {
 
   receive(ifname, f) {
     if (this.blocked.has(ifname)) return;
+    if (f.type === "lldp" && !this.forwardLldp) {   // link-local: never forwarded (Linux still learns the sender, br_handle_local_finish)
+      const state = this.stp && this.stp.ports.get(ifname) ? this.stp.ports.get(ifname).state : "forwarding";
+      const vid = this.vlans ? this.vcfg(ifname).pvid : 0;
+      if ((state === "learning" || state === "forwarding") && vid !== null) { this.table.set(vid + "|" + f.src, ifname); this.seen.set(vid + "|" + f.src, this.net.time); }
+      return;
+    }
     if (this.stp && f.type === "bpdu") {   // STP-enabled bridges consume BPDUs; others flood them like any multicast
       const state = this.stp.ports.get(ifname)?.state;   // Linux still learns the sender's MAC from a BPDU (br_handle_local_finish), in the port's VLAN
       const vid = this.vlans ? this.vcfg(ifname).pvid : 0;
@@ -169,7 +178,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, lldp = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -183,9 +192,10 @@ export class IpNode extends Device {
     this.ospf = ospf ? new Ospf(this, ospf) : null;   // OSPFv2 (ospf.js)
     this.rip = rip ? new Rip(this, rip) : null;   // RIPv2 (rip.js)
     this.acl = acl ? new Acl(acl) : null;         // access lists (acl.js)
+    this.lldp = lldp ? new Lldp(this, lldp) : null;   // LLDP (lldp.js)
   }
-  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); }
+  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
+  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
@@ -222,6 +232,7 @@ export class IpNode extends Device {
   }
 
   receive(ifname, f) {
+    if (f.type === "lldp") { if (this.lldp && f.vlan === undefined) this.lldp.receive(ifname, f); return; }   // link-local, untagged only
     if (f.vlan !== undefined) {                       // 802.1Q tagged: only a subinterface for that VLAN takes it
       const sub = Object.values(this.ifaces).find(s => s.parent === ifname && s.vid === f.vlan);
       if (!sub) { this.log("vlan-drop", `${describe(f)}: tagged VLAN ${f.vlan}, no subinterface ${ifname}.${f.vlan}`); return; }
@@ -412,7 +423,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

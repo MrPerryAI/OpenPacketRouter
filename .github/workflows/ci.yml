@@ -83,3 +83,12 @@ jobs:
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; grep -E 'pid|/run' "$f" | head -5 || true; sudo apparmor_parser -R "$f"; fi
           sudo aa-status 2>/dev/null | grep -iE 'ospfd' && { echo "ospfd profile still loaded"; exit 1; } || true
           validate/docker/run.sh ospf
+      - name: LLDP vs lldpd (neighbor tables, LLDPDU contents and counts on every cable)
+        # Runs in the project's privileged container (validate/docker/Dockerfile has lldpd), like `run.sh lldp` locally.
+        run: |
+          # The runner's AppArmor may confine a host "lldpd" profile onto the container's lldpd (as it does for ripd and
+          # ospfd); lldpd needs its control socket and /run dirs. Unload it for this job; the comparison is unchanged.
+          sudo aa-status 2>/dev/null | grep -iE 'lldpd' || true
+          f=$(grep -lE '^ *(profile +)?[^ ]*lldpd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
+          if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f" || true; fi
+          validate/docker/run.sh lldp

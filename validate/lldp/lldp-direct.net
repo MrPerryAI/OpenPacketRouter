@@ -1,0 +1,53 @@
+{
+ "version": 1,
+ "name": "LLDP on direct cables",
+ "about": "R1 - R2 - H3 in a row, all cabled directly, LLDP every 5 s with hold multiplier 2 (TTL 10 s). Every neighbor table has one entry per cable. R1-R2 is cut (carrier lost at both ends, so both drop the neighbor at once) and restored (the first LLDPDU leaves 1 s after carrier returns).",
+ "nodes": [
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.1/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.2/24",
+    "eth1": "10.23.0.2/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  },
+  {
+   "name": "H3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.23.0.3/24"
+   },
+   "lldp": {
+    "txInterval": 5,
+    "holdMultiplier": 2
+   }
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "R2:eth0",
+   1
+  ],
+  [
+   "R2:eth1",
+   "H3:eth0",
+   1
+  ]
+ ]
+}
