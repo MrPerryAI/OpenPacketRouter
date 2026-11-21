@@ -15,9 +15,10 @@ export const MAX_STEPS = 4000;
 const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"][i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
 
-/** Short kind used for colors: arp, icmp, tcp, udp, dhcp, dns, bpdu. */
+/** Short kind used for colors: arp, icmp, tcp, udp, dhcp, dns, bpdu, lacp. */
 export function frameKind(f) {
   if (f.type === "bpdu") return "bpdu";
+  if (f.type === "lacpdu") return "lacp";
   if (f.type === "arp") return "arp";
   const p = f.ip;
   if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : "udp"; }
@@ -28,6 +29,7 @@ export function frameKind(f) {
 export function describeFrame(f) {
   const tag = f.vlan !== undefined ? ` [VLAN ${f.vlan}]` : "";
   if (f.type === "bpdu") return f.bpdu.tcn ? `STP topology change notice${tag}` : `STP BPDU: root ${f.bpdu.root[1]}, cost ${f.bpdu.cost}${f.bpdu.tc ? ", topology change" : ""}${f.bpdu.tca ? ", change acknowledged" : ""}${tag}`;
+  if (f.type === "lacpdu") return `LACPDU: port ${f.lacpdu.actor.port} state 0x${f.lacpdu.actor.state.toString(16)}, partner state 0x${f.lacpdu.partner.state.toString(16)}${tag}`;
   if (f.type === "arp") return (f.arp.op === "request" ? `ARP: who has ${f.arp.tpa}? tell ${f.arp.spa}` : `ARP: ${f.arp.spa} is at ${f.arp.sha}`) + tag;
   const p = f.ip;
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}`
@@ -39,6 +41,7 @@ export function describeFrame(f) {
 export function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
+  for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
   return t;
 }
 

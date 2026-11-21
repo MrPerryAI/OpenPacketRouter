@@ -1,6 +1,6 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --ink: #1d2433; --muted: #667085; --line: #d0d5dd; --accent: #2563eb;
-  --arp: #d97706; --icmp: #2563eb; --tcp: #059669; --udp: #7c3aed; --dhcp: #db2777; --dns: #0891b2; --bpdu: #64748b;
+  --arp: #d97706; --icmp: #2563eb; --tcp: #059669; --udp: #7c3aed; --dhcp: #db2777; --dns: #0891b2; --bpdu: #64748b; --lacp: #0d9488;
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg);
 }
 * { box-sizing: border-box; }
