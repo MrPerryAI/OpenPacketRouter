@@ -6,6 +6,12 @@
 | ospf-p2p | ping H1 → 10.3.0.10 at 22 s | ok from 10.3.0.10 | result | ✓ |
 | ospf-p2p | ping H1 → 10.3.0.10 at 47 s | ok from 10.3.0.10 | result | ✓ |
 | ospf-p2p | ping H1 → 10.3.0.10 at 72 s | ok from 10.3.0.10 | result | ✓ |
+| ospf-timers | converged: R1-R2 are not neighbors (dead interval 4 vs 8) | R1: eth1: 3.3.3.3 Full/-; R2: eth1: 3.3.3.3 Full/-; R3: eth0: 1.1.1.1 Full/-, eth1: 2.2.2.2 Full/- | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 116 (Linux 113) | ✓ |
+| ospf-timers | R2-R3 cut: R2 has no neighbors | R1: eth1: 3.3.3.3 Full/-; R2: no neighbors; R3: eth0: 1.1.1.1 Full/- | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 100 (Linux 103) | ✓ |
+| ospf-timers | R2-R3 restored (hello 2 s / dead 8 s) | R1: eth1: 3.3.3.3 Full/-; R2: eth1: 3.3.3.3 Full/-; R3: eth0: 1.1.1.1 Full/-, eth1: 2.2.2.2 Full/- | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 126 (Linux 126) | ✓ |
+| ospf-timers | ping H1 → 10.3.0.10 at 22 s | ok from 10.3.0.10 | result | ✓ |
+| ospf-timers | ping H1 → 10.3.0.10 at 47 s | ok from 10.3.0.10 | result | ✓ |
+| ospf-timers | ping H1 → 10.3.0.10 at 72 s | ok from 10.3.0.10 | result | ✓ |
 | ospf-lan | converged: R3 is DR, R2 BDR | R1: eth0: 2.2.2.2 Full/Backup, eth0: 3.3.3.3 Full/DR; R2: eth0: 1.1.1.1 Full/DROther, eth0: 3.3.3.3 Full/DR; R3: eth0: 1.1.1.1 Full/DROther, eth0: 2.2.2.2 Full/Backup | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 247 (Linux 242) | ✓ |
 | ospf-lan | R3 cut: R2 is DR, R1 BDR | R1: eth0: 2.2.2.2 Full/DR; R2: eth0: 1.1.1.1 Full/Backup; R3: no neighbors | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 156 (Linux 161) | ✓ |
 | ospf-lan | R3 back as DROther (no preemption) | R1: eth0: 2.2.2.2 Full/DR, eth0: 3.3.3.3 Full/DROther; R2: eth0: 1.1.1.1 Full/Backup, eth0: 3.3.3.3 Full/DROther; R3: eth0: 1.1.1.1 Full/Backup, eth0: 2.2.2.2 Full/DR | neighbors ✓, interfaces ✓, routes ✓, database ✓, last hello on every cable ✓, packet types on every cable ✓ · hellos 276 (Linux 275) | ✓ |
