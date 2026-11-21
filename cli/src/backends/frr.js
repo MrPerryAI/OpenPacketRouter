@@ -37,6 +37,7 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
       const ifc = M.iface(model, x, false);
       for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area 0`);
     }
+    for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
     out.push("exit");
   }
   out.push("!", "end");

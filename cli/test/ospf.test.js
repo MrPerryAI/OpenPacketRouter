@@ -89,3 +89,13 @@ test("the FRR renderer writes router ospf, networks and interface settings", () 
   assert.match(f, /interface eth0\n ip address 10\.0\.0\.1\/24\n ip ospf cost 5\n ip ospf hello-interval 1\nexit/);
   assert.match(f, /router ospf\n ospf router-id 1\.1\.1\.1\n network 10\.0\.0\.0\/24 area 0\nexit/);
 });
+
+test("passive-interface lands in the spec, running-config and FRR config", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "network 10.0.0.0/8", "passive-interface eth0", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf.passive, ["eth0"]);
+  assert.match(s.exec("show running-config").output, /router ospf\n network 10\.0\.0\.0\/8\n passive-interface eth0/);
+  assert.match(frrConfig(b.getConfig("R1")), /passive-interface eth0/);
+  ok(run(s, ["configure terminal", "router ospf", "no passive-interface eth0", "end"]));
+  assert.equal(b.spec().nodes[0].ospf.passive, undefined);
+});

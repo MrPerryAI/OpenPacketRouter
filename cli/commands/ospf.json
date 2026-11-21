@@ -84,6 +84,41 @@
    "kinds": [
     "router"
    ],
+   "syntax": "passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ospf.passive",
+   "help": {
+    "passive-interface": "Announce this interface's network but send no OSPF packets on it",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ospf.no-passive",
+   "help": {
+    "no": "Undo a setting",
+    "passive-interface": "Speak OSPF on this interface again",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
    "syntax": "network interface IFNAME",
    "args": {
     "IFNAME": "ifname"
