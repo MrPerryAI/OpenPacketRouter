@@ -1,0 +1,1 @@
+[{"wait": 12}, {"snapshot": "converged: R1 and R2 see each other across SW1, R4 and R5 see nothing"}, {"linkDown": "SW1:p2"}, {"wait": 2}, {"snapshot": "R2 cut, R1 still holds R2 (within TTL)"}, {"wait": 8}, {"snapshot": "R1 has aged R2 out"}, {"linkUp": "SW1:p2"}, {"wait": 2.5}, {"snapshot": "R2 restored, R1 learned it again"}]

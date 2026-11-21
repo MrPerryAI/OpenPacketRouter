@@ -1,0 +1,1 @@
+[{"wait": 12}, {"snapshot": "converged: three nodes, two cables"}, {"linkDown": "R1:eth0"}, {"wait": 2}, {"snapshot": "R1-R2 cut"}, {"linkUp": "R1:eth0"}, {"wait": 10}, {"snapshot": "R1-R2 restored"}]

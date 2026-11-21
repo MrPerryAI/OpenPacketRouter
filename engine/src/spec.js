@@ -22,10 +22,10 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
-  host: ["ifaces", "routes", "gw", "services"],
-  server: ["ifaces", "routes", "gw", "services"],
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
+  host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
+  server: ["ifaces", "routes", "gw", "services", "lldp"],
 };
 /** Features add their node keys here: registerNodeKeys("switch", ["stp", "vlans"]). */
 export function registerNodeKeys(kind, keys) { (NODE_KEYS[kind] ||= []).push(...keys); }
@@ -136,6 +136,14 @@ function checkNat(n, p, err) {
   }
 }
 
+function checkLldp(n, p, err) {
+  const l = n.lldp;
+  if (!isObj(l)) return err(`${p}.lldp`, `node "${n.name}": lldp must be an object like {} or {"txInterval": 30, "holdMultiplier": 4}`);
+  for (const k of Object.keys(l)) if (!["txInterval", "holdMultiplier", "description"].includes(k)) err(`${p}.lldp.${k}`, `node "${n.name}": unknown lldp key "${k}" (txInterval, holdMultiplier, description)`);
+  if (l.txInterval !== undefined && !(Number.isInteger(l.txInterval) && l.txInterval >= 1 && l.txInterval <= 3600)) err(`${p}.lldp.txInterval`, `node "${n.name}": txInterval is whole seconds, 1 to 3600`);
+  if (l.holdMultiplier !== undefined && !(Number.isInteger(l.holdMultiplier) && l.holdMultiplier >= 1 && l.holdMultiplier <= 100)) err(`${p}.lldp.holdMultiplier`, `node "${n.name}": holdMultiplier is a whole number, 1 to 100`);
+  if (l.description !== undefined && typeof l.description !== "string") err(`${p}.lldp.description`, `node "${n.name}": description is text`);
+}
 function checkRip(n, p, err) {
   const r = n.rip, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
   if (!isObj(r)) return err(`${p}.rip`, `node "${n.name}": rip must be an object like {"networks": ["10.0.0.0/8"]}`);
@@ -191,6 +199,7 @@ export function validateSpec(spec) {
     for (const k of Object.keys(n)) if (![...NODE_KEYS.common, ...NODE_KEYS[n.kind]].includes(k))
       warn(`${p}.${k}`, `node "${n.name}" (${n.kind}): unknown key "${k}" (ignored)`);
     if (n.kind === "switch") {
+      if (n.forwardLldp !== undefined && typeof n.forwardLldp !== "boolean") err(`${p}.forwardLldp`, `node "${n.name}": forwardLldp is true or false`);
       if (n.vlanNames !== undefined && !(isObj(n.vlanNames) && Object.entries(n.vlanNames).every(([id, v]) => /^\d+$/.test(id) && +id >= 1 && +id <= 4094 && typeof v === "string" && v)))
         err(`${p}.vlanNames`, `node "${n.name}": vlanNames must map VLAN numbers (1-4094) to non-empty names, like {"10": "sales"}`);
       if (n.blocked !== undefined && !(Array.isArray(n.blocked) && n.blocked.every(x => typeof x === "string")))
@@ -256,6 +265,7 @@ export function validateSpec(spec) {
     }
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
+    if (n.lldp !== undefined) checkLldp(n, p, err);
     if (n.acl !== undefined) checkAcl(n, p, err);
     if (n.nat !== undefined) checkNat(n, p, err);
     if (n.services !== undefined) {
@@ -339,6 +349,8 @@ export const ACTIONS = {
 // Time and cables, for protocols that need them (RIP): advance the clock; cut or restore a cable (both ends lose
 // carrier); read a router's RIP table.
 ACTIONS.link = {required: ["end", "up"], run: (net, a) => { net.setLink(a.end, !!a.up); return {end: a.end, up: !!a.up}; }};
+// A node's LLDP neighbor table: {t, neighbors: [{iface, chassisId, portId, portDescr, sysName, sysDescr, caps, ttl}]}
+ACTIONS.lldpNeighbors = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, neighbors: n.lldp ? n.lldp.neighbors() : []}; }};
 ACTIONS.ripTable = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, routes: n.rip ? n.rip.describe() : []}; }};
 // One network across every RIP router: {t, routers: {R1: {metric, nextHop, type} | null}}
 ACTIONS.ripRoute = {required: ["network"], run: (net, a) => {
