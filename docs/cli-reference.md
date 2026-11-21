@@ -101,8 +101,8 @@ Moving between modes, the device name, saving.
 | `enable` | user | all devices | Go to privileged mode (configuration and every show command) |
 | `disable` | privileged | all devices | Go back to user mode |
 | `configure terminal` | privileged | all devices | Type the changes here, one command per line |
-| `exit` | user, privileged, config, interface, routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
-| `end` | config, interface, routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
+| `exit` | user, privileged, config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
+| `end` | config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
 | `write` | privileged | all devices | Save the configuration |
 | `write memory` | privileged | all devices | Save it where it is loaded from at start |
 | `hostname NAME` | config | all devices | New name (letters, digits, - and _) |
@@ -311,6 +311,40 @@ Commands that run something on the device now (ping, traceroute) instead of read
 |---|---|---|---|
 | `ping ADDRESS` | user, privileged | routers, hosts, servers, switches | Address to ping |
 | `traceroute ADDRESS` | user, privileged | routers, hosts, servers, switches | Destination address |
+
+### Ospf
+
+OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and the show commands.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `router ospf` | config | routers | OSPF: routers learn each other's networks automatically |
+| `no router ospf` | config | routers | Turn OSPF off and forget its settings |
+| `router-id ADDRESS` | OSPF routing | routers | Router ID, written like an IPv4 address |
+| `no router-id` | OSPF routing | routers | Go back to the default router ID |
+| `network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
+| `passive-interface IFNAME` | OSPF routing | routers | Interface name |
+| `no passive-interface IFNAME` | OSPF routing | routers | Interface name |
+| `network interface IFNAME` | OSPF routing | routers | Interface name |
+| `no network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
+| `no network interface IFNAME` | OSPF routing | routers | Interface name |
+| `ospf cost N` | interface | routers | Number |
+| `no ospf cost` | interface | routers | Go back to the default |
+| `ospf hello-interval N` | interface | routers | Number |
+| `no ospf hello-interval` | interface | routers | Go back to the default |
+| `ospf dead-interval N` | interface | routers | Number |
+| `no ospf dead-interval` | interface | routers | Go back to the default |
+| `ospf retransmit-interval N` | interface | routers | Number |
+| `no ospf retransmit-interval` | interface | routers | Go back to the default |
+| `ospf priority N` | interface | routers | Number |
+| `no ospf priority` | interface | routers | Go back to the default |
+| `ospf network point-to-point` | interface | routers | Exactly one neighbor: no designated router election |
+| `ospf network broadcast` | interface | routers | Several routers: elect a designated router |
+| `no ospf network` | interface | routers | Go back to the default (broadcast) |
+| `show ip ospf neighbor` | user, privileged | routers | Routers this one has met through OSPF |
+| `show ip ospf interface` | user, privileged | routers | OSPF state of each interface |
+| `show ip ospf database` | user, privileged | routers | The link-state database: what every router announced |
+| `show ip ospf route` | user, privileged | routers | Networks OSPF has computed |
 
 ## Examples
 

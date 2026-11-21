@@ -101,6 +101,21 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     if (n.rip) { const {networks, passive, timers, splitHorizon, triggered} = n.rip;
       out.rip = {networks: [...networks], ...(passive ? {passive: [...passive]} : {}), ...(timers ? {timers: {...timers}} : {}),
         ...(splitHorizon !== undefined ? {splitHorizon} : {}), ...(triggered !== undefined ? {triggered} : {})}; }
+    if (n.ospf) {
+      const o = M.ospf(m, true);
+      if (n.ospf.routerId) o.global.config["router-id"] = n.ospf.routerId;
+      o["openpacketrouter:networks"].push(...n.ospf.networks);
+      for (const p of n.ospf.passive || []) M.ospfIf(m, p).config.passive = true;
+      for (const [p, c] of Object.entries(n.ospf.interfaces || {})) {
+        const e = M.ospfIf(m, p), t = e.timers.config;
+        if (c.type) e.config["network-type"] = c.type === "point-to-point" ? "POINT_TO_POINT_NETWORK" : "BROADCAST_NETWORK";
+        if (c.cost !== undefined) e.config.metric = c.cost;
+        if (c.priority !== undefined) e.config.priority = c.priority;
+        if (c.hello !== undefined) t["hello-interval"] = c.hello;
+        if (c.dead !== undefined) t["dead-interval"] = c.dead;
+        if (c.retransmit !== undefined) t["retransmission-interval"] = c.retransmit;
+      }
+    }
   }
   spec.links.forEach(l => {
     const o = l[3] || {};
@@ -120,7 +135,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "nat", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -221,6 +236,27 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:nat"]) sides[ifc["openpacketrouter:nat"]].push(ifn);
     if (s.nat || sides.inside.length || sides.outside.length) n.nat = {inside: sides.inside, outside: sides.outside, ...(s.nat ? JSON.parse(JSON.stringify(s.nat)) : {})};
     if (Object.keys(svc).length) n.services = svc;
+    const o = M.ospf(m);
+    // OSPF reaches the spec once it has a network (until then `router ospf` is pending in the model)
+    if (o && o["openpacketrouter:networks"].length) {
+      const sp = {networks: [...o["openpacketrouter:networks"]]};
+      if (o.global.config["router-id"]) sp.routerId = o.global.config["router-id"];
+      const ifc = {}, pas = [];
+      for (const [p, e] of Object.entries(o.areas.area["0"].interfaces.interface)) {
+        const c = e.config, t = e.timers.config, r = {};
+        if (c["network-type"]) r.type = c["network-type"] === "POINT_TO_POINT_NETWORK" ? "point-to-point" : "broadcast";
+        if (c.priority !== undefined) r.priority = c.priority;
+        if (c.metric !== undefined) r.cost = c.metric;
+        if (t["hello-interval"] !== undefined) r.hello = t["hello-interval"];
+        if (t["dead-interval"] !== undefined) r.dead = t["dead-interval"];
+        if (t["retransmission-interval"] !== undefined) r.retransmit = t["retransmission-interval"];
+        if (c.passive) pas.push(p);
+        if (Object.keys(r).length) ifc[p] = r;
+      }
+      if (pas.length) sp.passive = pas;
+      if (Object.keys(ifc).length) sp.interfaces = ifc;
+      n.ospf = sp;
+    }
   }
 
   out.nodes[i] = n;
@@ -247,6 +283,11 @@ function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
+  // OSPF: adjacencies need a few dead intervals (broadcast networks wait one for the DR election), then SPF runs
+  for (const n of spec.nodes || []) if (n.ospf) {
+    const dead = Math.max(1, ...Object.keys(n.ifaces || {}).map(p => { const c = n.ospf.interfaces?.[p] || {}; return c.dead ?? 4 * (c.hello ?? 10); }));
+    t = Math.max(t, Math.ceil(1.5 * dead) + 10);
+  }
   return t;
 }
 function freshNet(spec, cut) {
@@ -264,6 +305,7 @@ function routesOf(n) {
     const out = Object.values(n.ifaces).find(i => i.ip && inSubnet(r.via, i.net, i.mask));
     routes.push({prefix: r.cidr || `${intToIp(r.net)}/${r.prefix}`, protocol: "static", nextHop: r.via, interface: out ? out.name : null});
   }
+  if (n.ospf) for (const r of n.ospf.fib()) routes.push({prefix: r.cidr, protocol: "ospf", nextHop: r.gw, interface: r.iface, metric: r.metric});
   return routes;
 }
 
@@ -291,6 +333,7 @@ export function stateOf(net, device, spec) {
     routes,
     arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface})),
     ...(n.nat ? {nat: {translations: n.nat.translations(), hits: n.nat.hits, misses: n.nat.misses}} : {}),
+    ospf: n.ospf ? {routerId: n.ospf.routerId(), neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), database: n.ospf.database()} : null,
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }

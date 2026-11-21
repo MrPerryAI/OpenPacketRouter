@@ -35,11 +35,11 @@ export const SHOWS = {
 
   "show.ip-route": ctx => {
     const rows = ctx.state().routes || [];
-    const code = r => r.protocol === "connected" ? "C" : "S";
-    const lines = ["Legend: C = connected network, S = static route", ""];
+    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : "S";
+    const lines = [`Legend: C = connected network, S = static route${rows.some(r => r.protocol === "ospf") ? ", O = learned through OSPF" : ""}`, ""];
     for (const r of rows) lines.push(r.protocol === "connected"
       ? `C  ${r.prefix} on ${r.interface} (directly connected)`
-      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
+      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.metric !== undefined ? ` (cost ${r.metric})` : ""}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
     if (!rows.length) lines.push("(no routes)");
     return {json: rows, text: lines.join("\n")};
   },
@@ -196,6 +196,23 @@ export const SHOWS = {
       ...(r.helperAddresses ? [`  DHCP relay to ${r.helperAddresses.join(", ")}`] : []),
     ].join("\n")).join("\n\n");
     return {json: values && values[0] ? rows[0] : rows, text};
+  },
+
+  "show.ospf-neighbor": ctx => {
+    const o = ctx.state().ospf; if (!o) return {json: null, text: "OSPF is not running on this router"};
+    return {json: o.neighbors, text: o.neighbors.length ? table(["Neighbor ID", "State", "Role", "Address", "Interface"], o.neighbors.map(n => [n.routerId, n.state, n.role, n.address, n.iface])) : "No OSPF neighbors yet"};
+  },
+  "show.ospf-interface": ctx => {
+    const o = ctx.state().ospf; if (!o) return {json: null, text: "OSPF is not running on this router"};
+    return {json: o.interfaces, text: o.interfaces.length ? table(["Interface", "State", "Type", "Cost", "Priority", "DR", "BDR"], o.interfaces.map(i => [i.iface, i.state, i.type, i.cost, i.priority, i.dr, i.bdr])) : "OSPF is running on no interface yet"};
+  },
+  "show.ospf-route": ctx => {
+    const o = ctx.state().ospf; if (!o) return {json: null, text: "OSPF is not running on this router"};
+    return {json: o.routes, text: o.routes.length ? table(["Network", "Cost", "Via"], o.routes.map(r => [r.network, r.cost, r.via.map(v => `${v.gw} (${v.iface})`).join(", ")])) : "OSPF has computed no routes yet"};
+  },
+  "show.ospf-database": ctx => {
+    const o = ctx.state().ospf; if (!o) return {json: null, text: "OSPF is not running on this router"};
+    return {json: o.database, text: o.database.length ? table(["Type", "Link ID", "Advertised by", "Seq"], o.database.map(l => [l.type, l.id, l.adv, l.seq])) : "The link-state database is empty"};
   },
 
   "show.dhcp-binding": ctx => {
