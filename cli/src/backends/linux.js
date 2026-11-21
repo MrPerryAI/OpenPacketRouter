@@ -98,6 +98,7 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
   for (const r of M.staticList(model)) out.push(`ip route add ${r.prefix === "0.0.0.0/0" ? "default" : r.prefix} via ${r.nextHop}`);
 
   pushAcl(out, model);
+  pushNat(out, model);
   const s = M.services(model);
   if (s.dns?.enabled) out.push(["dnsmasq --no-resolv --no-hosts", ...Object.entries(s.dns.hosts).map(([n, ip]) => `--host-record=${n},${ip}`)].join(" "));
   const pools = Object.values(s["dhcp-server"]?.pools || {}).filter(p => p.range);
@@ -153,6 +154,29 @@ function pushAcl(out, model) {
     "nft 'add chain ip opr_acl acl_out { type filter hook forward priority 0; policy accept; }'",
     "nft add rule ip opr_acl acl_in ip daddr 224.0.0.0/4 accept", "nft add rule ip opr_acl acl_in ip daddr 255.255.255.255 accept");
   for (const [c, rules] of Object.entries(chains)) for (const r of rules) out.push(`nft add rule ip opr_acl ${c} ${r}`);
+}
+
+/** nftables for NAT (same translation validate/nat/run_kernel_nat.py checks against the engine): static entries -> dnat in prerouting
+ *  and snat in postrouting, overload -> masquerade; the static outside addresses become secondary addresses on the outside interface (the engine answers ARP for them). */
+function pushNat(out, model) {
+  const nat = M.services(model).nat, ifs = M.interfaces(model); if (!nat) return;
+  const side = s => Object.keys(ifs).filter(n => ifs[n]["openpacketrouter:nat"] === s);
+  const ins = side("inside"), outs = side("outside"); if (!ins.length || !outs.length) return;
+  const set = xs => `{ ${xs.map(x => `"${x}"`).join(", ")} }`;
+  const pre = [], post = [];
+  for (const s of nat.static || []) {
+    if (s.proto) pre.push(`iifname ${set(outs)} ip daddr ${s.outside} ${s.proto} dport ${s.outsidePort} dnat to ${s.inside}:${s.insidePort}`);
+    else { pre.push(`iifname ${set(outs)} ip daddr ${s.outside} dnat to ${s.inside}`); post.push(`iifname ${set(ins)} oifname ${set(outs)} ip saddr ${s.inside} snat to ${s.outside}`); }
+  }
+  if (nat.overload) post.push(`iifname ${set(ins)} oifname ${set(outs)} ${nat.overload.src ? `ip saddr ${nat.overload.src} ` : ""}masquerade`);
+  out.push("nft add table ip opr_nat",
+    "nft 'add chain ip opr_nat pre { type nat hook prerouting priority -100; policy accept; }'",
+    "nft 'add chain ip opr_nat post { type nat hook postrouting priority 100; policy accept; }'");
+  for (const r of pre) out.push(`nft add rule ip opr_nat pre ${r}`);
+  for (const r of post) out.push(`nft add rule ip opr_nat post ${r}`);
+  const own = new Set(Object.values(ifs).flatMap(i => M.addressesOf(i).map(a => a.ip)));
+  const plen = M.addressesOf(ifs[outs[0]])[0]?.prefixLength ?? 24;
+  for (const ip of new Set((nat.static || []).map(s => s.outside))) if (!own.has(ip)) out.push(`ip addr add ${ip}/${plen} dev ${outs[0]}`);
 }
 
 function pushShaper(out, p, ifc) {

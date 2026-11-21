@@ -121,6 +121,26 @@ export const SHOWS = {
     return {json: {accessLists: lists}, text};
   },
 
+  // NAT: the fixed mappings and every tracked flow (engine state), and a summary.
+  "show.nat-translations": ctx => {
+    const rows = (ctx.state().nat || {}).translations || [];
+    const json = {translations: rows};
+    if (!rows.length) return {json, text: "No translations"};
+    const text = table(["Proto", "Inside global", "Inside local", "Outside local", "Outside global", "Expires in"],
+      rows.map(r => [r.proto, r.insideGlobal, r.insideLocal, r.outsideLocal, r.outsideGlobal, r.static ? "never" : `${r.secondsLeft}s`]));
+    return {json, text};
+  },
+  "show.nat-statistics": ctx => {
+    const nat = M.services(ctx.model).nat, ifs = M.interfaces(ctx.model), st = ctx.state().nat || {};
+    const side = s => Object.entries(ifs).filter(([, i]) => i["openpacketrouter:nat"] === s).map(([n]) => n);
+    const json = {inside: side("inside"), outside: side("outside"), overload: nat?.overload ? (nat.overload === true ? "any" : nat.overload.src) : null,
+      static: (nat?.static || []).length, translations: (st.translations || []).filter(r => !r.static).length, hits: st.hits ?? 0, misses: st.misses ?? 0};
+    const text = [`Inside interfaces:  ${json.inside.join(", ") || "none"}`, `Outside interfaces: ${json.outside.join(", ") || "none"}`,
+      `Overload: ${json.overload ?? "off"}   Fixed mappings: ${json.static}`,
+      `Flows being translated: ${json.translations}   Table hits: ${json.hits}   Misses: ${json.misses}`].join("\n");
+    return {json, text};
+  },
+
   "show.vlan-brief": ctx => {
     const by = new Map(), trunks = [];
     const svis = [];

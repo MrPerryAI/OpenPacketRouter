@@ -256,6 +256,25 @@ IPv4 access lists on routers: ip access-list NAME with permit/deny rules, applie
 | `deny tcp SRC DST established` | config-acl | routers | Only segments with ACK or RST set (not the first SYN) |
 | `deny udp SRC DST` | config-acl | routers | Receiver, written the same way |
 
+### Nat
+
+Address translation on routers: mark interfaces ip nat inside / ip nat outside; share the outside address with ip nat inside source overload; pin hosts or single ports with ip nat inside source static. Flows are tracked, so replies find their way back. See `show ip nat translations`.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `ip nat inside` | interface | routers | This interface faces the private network (its hosts get translated) |
+| `ip nat outside` | interface | routers | This interface faces the public side (translated traffic leaves here) |
+| `no ip nat` | interface | routers | Stop treating this interface as inside or outside |
+| `ip nat inside source overload` | config | routers | Let all inside hosts share the address of the outside interface (ports tell them apart) |
+| `ip nat inside source overload PREFIX` | config | routers | Only hosts in this network are translated |
+| `no ip nat inside source overload` | config | routers | Stop sharing the outside address |
+| `ip nat inside source static INSIDE OUTSIDE` | config | routers | The address the outside world uses for it |
+| `ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Port on the outside address |
+| `ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Forward one UDP port |
+| `no ip nat inside source static INSIDE OUTSIDE` | config | routers | Remove a fixed mapping |
+| `no ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | TCP port forward |
+| `no ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | UDP port forward |
+
 ### Show
 
 Show commands. Every one also takes | json, | include WORD and | exclude WORD.
@@ -273,6 +292,8 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | One list |
+| `show ip nat translations` | user, privileged | routers | The fixed mappings and the flows being translated now |
+| `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
 | `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |

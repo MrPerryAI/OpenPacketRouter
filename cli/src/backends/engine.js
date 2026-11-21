@@ -89,6 +89,11 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     }
     if (sv.dhcpRelay) for (const c of sv.dhcpRelay.clients || Object.keys(n.ifaces || {})) M.relayHelpers(m, c).push(sv.dhcpRelay.server);
     if (sv.tcp) out.tcp = {...sv.tcp};
+    if (n.nat) {
+      out.nat = {...(n.nat.overload ? {overload: n.nat.overload === true ? true : {...n.nat.overload}} : {}), ...(n.nat.static?.length ? {static: n.nat.static.map(x => ({...x}))} : {})};
+      if (!Object.keys(out.nat).length) delete out.nat;
+      for (const side of ["inside", "outside"]) for (const ifn of n.nat[side] || []) M.iface(m, ifn)["openpacketrouter:nat"] = side;
+    }
     if (n.acl) {
       out.acl = {lists: JSON.parse(JSON.stringify(n.acl.lists || {}))};
       for (const [ifn, b] of Object.entries(n.acl.bind || {})) M.iface(m, ifn)["openpacketrouter:acl"] = {...b};
@@ -115,7 +120,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "nat", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -212,6 +217,9 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:acl"]) bind[ifn] = {...ifc["openpacketrouter:acl"]};
       n.acl = {lists: JSON.parse(JSON.stringify(s.acl.lists)), ...(Object.keys(bind).length ? {bind} : {})};
     }
+    const sides = {inside: [], outside: []};
+    for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:nat"]) sides[ifc["openpacketrouter:nat"]].push(ifn);
+    if (s.nat || sides.inside.length || sides.outside.length) n.nat = {inside: sides.inside, outside: sides.outside, ...(s.nat ? JSON.parse(JSON.stringify(s.nat)) : {})};
     if (Object.keys(svc).length) n.services = svc;
   }
 
@@ -282,6 +290,7 @@ export function stateOf(net, device, spec) {
       status: !i.link ? "down" : i.link.up === false ? "admin-down" : "up"})),
     routes,
     arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface})),
+    ...(n.nat ? {nat: {translations: n.nat.translations(), hits: n.nat.hits, misses: n.nat.misses}} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }

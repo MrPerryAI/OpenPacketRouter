@@ -29,6 +29,13 @@ export function configLines(model, {kind, ports}) {
   const acls = M.services(model).acl;
   if (acls) for (const [name, rules] of Object.entries(acls.lists)) out.push(`ip access-list ${name}`, ...rules.map(r => ` ${ruleText(r)}`), "!");
 
+  const nat = M.services(model).nat;
+  if (nat) {
+    if (nat.overload) out.push(`ip nat inside source overload${nat.overload.src ? " " + nat.overload.src : ""}`);
+    for (const s of nat.static || []) out.push(`ip nat inside source static ${s.proto ? `${s.proto} ${s.inside} ${s.insidePort} ${s.outside} ${s.outsidePort}` : `${s.inside} ${s.outside}`}`);
+    out.push("!");
+  }
+
   const names = [...new Set([...ports, ...Object.keys(M.interfaces(model))])];
   for (const name of names) {
     const ifc = M.iface(model, name, false);
@@ -51,6 +58,7 @@ export function configLines(model, {kind, ports}) {
       const sp = M.stpPort(model, name, false);
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
+      if (ifc["openpacketrouter:nat"]) out.push(` ip nat ${ifc["openpacketrouter:nat"]}`);
       for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
       const sh = ifc["openpacketrouter:shaper"];
       if (sh) out.push(` shape rate ${sh.rate} burst ${sh.burst} limit ${sh.limit}`);

@@ -86,7 +86,9 @@ comparable = tcpv.comparable
 
 def main():
     if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "nft")):
-        print("Needs root, unshare, iproute2 and nftables. Skipping."); return 0
+        print("Needs root, unshare, iproute2 and nftables.")
+        if os.environ.get("GITHUB_ACTIONS"): print("This check is required in CI: failing instead of skipping."); return 1   # run.sh passes GITHUB_ACTIONS into the container
+        print("Skipping."); return 0
     kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=600).stdout)
     rows, detail = [], {}
     for name in SPECS:
