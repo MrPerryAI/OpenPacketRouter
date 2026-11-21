@@ -76,6 +76,14 @@ class OspfNet(l3.KernelNet):
         """Config files go in a temp dir; every runtime path (pid files, zserv.api, vty sockets) goes in a per-router dir
         under /run/frr, the only place a host AppArmor profile confining the FRR daemons lets them write. Returns the latter."""
         d = self.conf_dir(n["name"]); os.makedirs(d)
+        if os.environ.get("OSPF_RENDER") == "cli":   # ospfd's config comes only from the device CLI: the model -> FRR rendering
+            sf = f"{self.tmp}/spec.json"; Path(sf).write_text(json.dumps(self.spec))
+            out = subprocess.run(["node", str(Path(__file__).resolve().parents[2] / "cli/bin/opr-cli.mjs"), sf, n["name"], "--render", "frr"], capture_output=True, text=True, check=True).stdout
+            # addresses, routes and "end" belong to zebra/the namespace setup, not to ospfd's own config
+            keep = [l for l in out.splitlines() if not l.strip().startswith(("ip address", "ip route", "end", "shutdown")) and l.strip()]
+            Path(f"{d}/ospfd.conf").write_text("\n".join(keep) + "\n")
+            Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
+            return self._finish_conf(n, d)
         o = n["ospf"]; ifc = o.get("interfaces") or {}
         conf = [f"hostname {n['name']}"]
         for ifn in n["ifaces"]:
@@ -93,6 +101,9 @@ class OspfNet(l3.KernelNet):
         conf += ["!"]
         Path(f"{d}/ospfd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
+        return self._finish_conf(n, d)
+
+    def _finish_conf(self, n, d):
         shutil.chown(d, "frr", "frr")   # the daemons run as their usual user "frr"
         for f in os.listdir(d): shutil.chown(f"{d}/{f}", "frr", "frr"); os.chmod(f"{d}/{f}", 0o666)
         os.chmod(d, 0o777)

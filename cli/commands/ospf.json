@@ -11,7 +11,7 @@
    ],
    "syntax": "router ospf",
    "handler": "ospf.enter",
-   "enter": "config-router",
+   "enter": "config-ospf",
    "help": {
     "router": "Routing protocols",
     "ospf": "OSPF: routers learn each other's networks automatically"
@@ -32,7 +32,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
@@ -49,7 +49,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
@@ -62,7 +62,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
@@ -79,7 +79,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
@@ -97,7 +97,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
@@ -114,7 +114,7 @@
   },
   {
    "modes": [
-    "config-router"
+    "config-ospf"
    ],
    "kinds": [
     "router"
