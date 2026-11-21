@@ -64,11 +64,13 @@ class NatNet(tcpv.TcpNet):
 
 
 def read_conntrack(text):
-    """/proc/net/nf_conntrack -> [{proto, orig, reply}] for translated flows only (reply != reverse of orig)."""
+    """`conntrack -L` output -> [{proto, orig, reply}] for translated flows only (reply != reverse of orig)."""
     rows = []
     for line in text.splitlines():
         f = line.split()
-        if len(f) < 4 or f[2] not in ("tcp", "udp", "icmp"): continue
+        proto = next((w for w in f[:4] if w in ("tcp", "udp", "icmp")), None)   # `conntrack -L` starts with the protocol name, the /proc form with "ipv4 2"
+        if proto is None: continue
+        f = [None, None, proto]
         groups, cur = [], None
         for w in f[4:]:
             if "=" not in w: continue
@@ -93,7 +95,7 @@ def kernel_run(name):
     try:
         for a in actions:
             k.flush(); before = k.counters(); r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
-            nat = {n["name"]: read_conntrack(l3.nsx(k.ns[n["name"]], "cat", "/proc/net/nf_conntrack")) for n in spec["nodes"] if n.get("nat")}
+            nat = {n["name"]: read_conntrack(l3.nsx(k.ns[n["name"]], "conntrack", "-L", check=False)) for n in spec["nodes"] if n.get("nat")}
             out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}, "nat": nat})
     finally:
         k.close()
@@ -136,11 +138,14 @@ def new_entries(runs):
 
 
 def main():
-    if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "nft")):
-        print("Needs root, unshare, iproute2 and nftables.")
+    if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "nft", "conntrack")):
+        print("Needs root, unshare, iproute2, nftables and conntrack-tools.")
         if os.environ.get("GITHUB_ACTIONS"): print("This check is required in CI: failing instead of skipping."); return 1   # run.sh passes GITHUB_ACTIONS into the container
         print("Skipping."); return 0
-    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=600).stdout)
+    child = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=600)
+    if child.returncode:
+        print(child.stderr[-3000:]); print("inner run failed"); return 1   # keep the child's traceback visible in CI
+    kern = json.loads(child.stdout)
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
