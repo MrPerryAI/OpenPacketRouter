@@ -70,7 +70,7 @@ def read_conntrack(text):
         f = line.split()
         proto = next((w for w in f[:4] if w in ("tcp", "udp", "icmp")), None)   # `conntrack -L` starts with the protocol name, the /proc form with "ipv4 2"
         if proto is None: continue
-        f = [None, None, proto]
+        f = [None, None, proto, None] + f[next(i for i, w in enumerate(f) if w == proto) + 1:]   # fields after the protocol name
         groups, cur = [], None
         for w in f[4:]:
             if "=" not in w: continue
