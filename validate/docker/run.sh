@@ -7,6 +7,7 @@
 #   validate/docker/run.sh tcp        # just the TCP check (python sockets)
 #   validate/docker/run.sh dhcp       # just the DHCP check (dnsmasq + udhcpc)
 #   validate/docker/run.sh ospf       # just the OSPFv2 check (FRRouting ospfd)
+#   validate/docker/run.sh lldp       # just the LLDP check (lldpd)
 #   validate/docker/run.sh rip        # just the RIPv2 check (FRRouting ripd)
 #   validate/docker/run.sh acl        # just the access-list check (nftables)
 #   validate/docker/run.sh nat        # just the NAT check (nftables masquerade/snat/dnat)
@@ -31,13 +32,14 @@ tcp='python3 validate/tcp/run_kernel_tcp.py'
 cli='python3 validate/cli/run_kernel_cli.py'
 intervlan='python3 validate/intervlan/run_kernel_intervlan.py'
 ospf='python3 validate/ospf/run_kernel_ospf.py'
+lldp='python3 validate/lldp/run_kernel_lldp.py'
 aging='python3 validate/aging/run_kernel_aging.py'
 rip='python3 validate/rip/run_kernel_rip.py'
 tcn='python3 validate/tcn/run_kernel_tcn.py'
 acl='python3 validate/acl/run_kernel_acl.py'
 lacp='python3 validate/lacp/run_kernel_lacp.py'
 nat='python3 validate/nat/run_kernel_nat.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; ('"$storm"')'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$lldp"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
@@ -49,16 +51,17 @@ case "${1:-all}" in
   cli)   cmd="$cli" ;;
   intervlan) cmd="$intervlan" ;;
   ospf)  cmd="$ospf" ;;
+  lldp)  cmd="$lldp" ;;
   aging) cmd="$aging" ;;
   rip)   cmd="$rip" ;;
   tcn)   cmd="$tcn" ;;
   acl)   cmd="$acl" ;;
   lacp)  cmd="$lacp" ;;
   nat)   cmd="$nat" ;;
-  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $aging; $rip; $tcn; $acl; $lacp; $nat; ($storm)" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|aging|rip|tcn|acl|lacp|nat|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
