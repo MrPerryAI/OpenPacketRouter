@@ -24,3 +24,19 @@ Timers are short (hello 1 s, dead 4 s) so a full run takes about five minutes. o
 the comparison is of states after convergence, not of exact send times: Hello counts are shown in the table, and
 which packet types crossed each cable (other than Hello) is compared, not how many.
 One exception: a Link State Request on a switched LAN is compared per switch ("one crossed SW"), not per cable. A router that rejoins a LAN is adjacent to two or more routers at once and asks each only for the LSAs still missing when that neighbor's Database Description arrives; which neighbor's updates arrive first is a race in real time, so ospfd skips the request to one of them in some runs (seen in 6 of 9 runs of `ospf-lan` under CPU load). The engine asks both.
+
+## Acknowledgments on point-to-point cables, and the retry
+
+Which Acknowledgment packets ospfd sends is not one fixed behavior when the same LSA reaches a router over two paths
+at about the same time (a triangle, as in `ospf-p2p` after the R1-R2 cable returns). In passing runs ospfd sent a
+delayed ack about 1 s after the Updates (49.9 s in one capture), or none until both sides retransmitted 5 s later and
+answered with a direct ack (52.9 s). In two failing runs (2 of 24 runs of `ospf-p2p` under CPU load, always "cable
+restored", `R2:eth0>R1:eth0`) R2 never acknowledged R1's router LSA, R1 never retransmitted it, and R3's copy of the
+same LSA reached R2 eight seconds after R1's direct one; R2 then sent that LSA back to R1 twice and R1 acknowledged
+the second. Which copy arrives first decides it, so the engine (delayed ack after 1 s, implied ack, direct ack of a
+duplicate, as RFC 2328 13.5) cannot match every run.
+
+The comparison stays strict. If a network's only differences are Acknowledgments on point-to-point cables, its Linux
+side is run again in fresh namespaces, up to two more times, and the network passes if one real ospfd run matches the
+engine on every row; the results table then says "matched on run N of 3". Any other difference (another packet type,
+a cable on a switch, neighbors, routes, database, Hellos) fails at once with no retry.
