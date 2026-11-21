@@ -49,6 +49,10 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/aging/run_kernel_aging.py
       - name: STP topology change notices vs real Linux bridges (flags, aging, MAC tables)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcn/run_kernel_tcn.py
+      - name: LACP port-channels vs real Linux bonds (802.3ad, states, LACPDUs, hash per cable)
+        run: |
+          sudo modprobe bonding || true
+          sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/lacp/run_kernel_lacp.py
       - name: Link shaping vs real Linux tbf (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)

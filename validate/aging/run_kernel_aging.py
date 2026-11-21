@@ -48,6 +48,8 @@ def table(k, sw, owner, fresh=False):
 def kernel(name, steps_name, here=HERE):
     spec = json.loads((here / f"{name}.json").read_text()); steps = json.loads((here / f"{steps_name}.json").read_text())
     Net.DEFER_UP = True
+    if any(n.get("channels") for n in spec["nodes"]):   # LACP hashes on MAC addresses: give every kernel interface the engine's
+        Net.MACS = json.loads(sh("node", str(ROOT / "engine/tools/run_aging.mjs"), "--macs", str(here / f"{name}.json")))
     k = Net(spec); out = []; sniffers = []
     try:
         owner = macs(k)
@@ -56,7 +58,9 @@ def kernel(name, steps_name, here=HERE):
                 if l["ifname"] != "lo": nsx(k.ns[n["name"]], "sh", "-c", f"echo 100000 > /proc/sys/net/ipv4/neigh/{l['ifname']}/delay_first_probe_time")
         time.sleep(1.0)
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
-            if n["kind"] == "switch": sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "up")
+            if n["kind"] == "switch":
+                sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "up")
+                for cn in (n.get("channels") or {}): sh("ip", "-n", k.ns[n["name"]], "link", "set", cn, "up")   # the bond's 802.3ad clock starts here, as the engine's does at step 0
         for sw, port in WATCH:   # diagnostic only: what the kernel really sent on these cables (shown if a step mismatches)
             f = f"/tmp/aging-{sw}-{port}.txt"; open(f, "w").close()
             sniffers.append(subprocess.Popen(["ip", "netns", "exec", k.ns[sw], sys.executable, str(HERE / "sniff.py"), port, f]))
@@ -91,6 +95,18 @@ def kernel(name, steps_name, here=HERE):
                     p = lambda f: int(k.sysfs(k.ns[sw], "/sys/class/net/br0/bridge/" + f))
                     b[sw] = {"topologyChange": p("topology_change"), "topologyChangeDetected": p("topology_change_detected"), "agingTime": p("ageing_time") / 100}
                 out.append({"tc": s["tc"], "bridges": b})
+            elif "lacp" in s:   # each member's LACP state as the bonding driver reports it
+                ch = {}
+                for sw in s["lacp"]:
+                    ch[sw] = {}
+                    for cn, c in (k.node[sw].get("channels") or {}).items():
+                        mem = {}
+                        for p in c["ports"]:
+                            d = json.loads(sh("ip", "-n", k.ns[sw], "-d", "-j", "link", "show", p))[0]["linkinfo"]["info_slave_data"]
+                            up = d["mii_status"] == "UP"
+                            mem[p] = {"up": up, "state": d["ad_actor_oper_port_state"] if up else None, "partnerState": d["ad_partner_oper_port_state"] if up else None}
+                        ch[sw][cn] = mem
+                out.append({"lacp": s["lacp"], "channels": ch})
             elif "table" in s: out.append({"table": s["table"], "tables": {sw: table(k, sw, owner, s.get("fresh", False)) for sw in s["table"]}})
     finally:
         for p in sniffers: p.kill()
@@ -122,6 +138,8 @@ def main(here=HERE, cases=CASES, script=__file__):
                 res = f'{"ok" if e["ok"] else "no reply"}' + (f' · {sum(e["frames"].values())} frames on {len(e["frames"])} cable directions' if "frames" in e else "")
             elif "bpdus" in e:
                 label = "BPDU kinds per cable direction"; res = f'{len(e["kinds"])} cable directions with BPDUs'
+            elif "lacp" in e:
+                label = "LACP " + ", ".join(e["lacp"]); res = " · ".join(f'{sw}/{cn}: ' + ",".join(f'{p}={m["state"]}' for p, m in mem.items()) for sw, chs in e["channels"].items() for cn, mem in chs.items())
             elif "tc" in e:
                 label = "topology change " + ", ".join(e["tc"]); res = " · ".join(f'{sw}: tc={b["topologyChange"]} aging={b["agingTime"]:g}s' for sw, b in e["bridges"].items())
             else:

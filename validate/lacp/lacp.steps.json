@@ -1,0 +1,149 @@
+[
+ {
+  "wait": 6
+ },
+ {
+  "lacp": [
+   "SW1",
+   "SW2"
+  ]
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 8
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 30
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "C",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.4"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "C",
+   "10.0.0.4"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "B",
+   "10.0.0.3"
+  ],
+  "frames": "data"
+ },
+ {
+  "table": [
+   "SW1",
+   "SW2"
+  ],
+  "fresh": true
+ },
+ {
+  "link": {
+   "end": "SW1:p3",
+   "up": false
+  }
+ },
+ {
+  "wait": 2
+ },
+ {
+  "lacp": [
+   "SW1",
+   "SW2"
+  ]
+ },
+ {
+  "flush": true
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "C",
+   "10.0.0.4"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "D",
+   "10.0.0.1"
+  ],
+  "frames": "data"
+ },
+ {
+  "link": {
+   "end": "SW1:p3",
+   "up": true
+  }
+ },
+ {
+  "wait": 6
+ },
+ {
+  "lacp": [
+   "SW1",
+   "SW2"
+  ]
+ },
+ {
+  "flush": true
+ },
+ {
+  "ping": [
+   "A",
+   "10.0.0.2"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "C",
+   "10.0.0.4"
+  ],
+  "frames": "data"
+ },
+ {
+  "ping": [
+   "D",
+   "10.0.0.1"
+  ],
+  "frames": "data"
+ }
+]

@@ -52,6 +52,11 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       if (c.trunk) { sv["interface-mode"] = "TRUNK"; sv["trunk-vlans"] = [...c.trunk]; if (c.native !== undefined) sv["native-vlan"] = c.native; }
       else { sv["interface-mode"] = "ACCESS"; sv["access-vlan"] = c.access ?? 1; }
     }
+    for (const [cn, c] of Object.entries(n.channels || {})) {   // port-channels: members point at the channel, the channel is an interface (Po1)
+      const po = M.iface(m, cn); po.config.type = "ieee8023adLag"; po.aggregation = {config: {"lag-type": "LACP"}};
+      for (const p of c.ports) M.setLag(M.iface(m, p), cn);
+      if (c.rate === "fast") M.lacpInterval(m, cn).interval = "FAST";
+    }
     if (n.stp) {
       const g = M.stpGlobal(m); g["enabled-protocol"] = ["STP"];
       const map = {priority: "bridge-priority", hello: "hello-time", maxAge: "max-age", forwardDelay: "forwarding-delay", mac: "openpacketrouter:bridge-address"};
@@ -110,12 +115,12 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "blocked", "stp", "vlans", "agingTime", "vlanNames"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
   if (old.kind === "switch") {
-    for (const p of Object.keys(ifs)) if (!ports.includes(p) && !/^vlan\d+$/.test(p)) throw new Error(`${p}: a switch's ports come from its cables, and nothing is plugged into ${p}`);
+    for (const p of Object.keys(ifs)) if (!ports.includes(p) && !/^vlan\d+$/.test(p) && !M.isLagName(p)) throw new Error(`${p}: a switch's ports come from its cables, and nothing is plugged into ${p}`);
     const svis = {};
     for (const [p, ifc] of Object.entries(ifs)) {
       const addrs = M.addressesOf(ifc);
@@ -132,8 +137,12 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     const blocked = ports.filter(p => ifs[p] && ifs[p].config.enabled === false);
     if (blocked.length) n.blocked = blocked;
     if (M.fdb(m)["mac-aging-time"] !== undefined) n.agingTime = M.fdb(m)["mac-aging-time"];
+    const channels = {};   // members in cable order; the channel's rate is slow unless `lacp rate fast`
+    for (const p of ports) { const id = ifs[p] && M.lagOf(ifs[p]); if (id) (channels[id] ||= {ports: []}).ports.push(p); }
+    for (const [id, c] of Object.entries(channels)) if (M.lacpInterval(m, id, false)?.interval === "FAST") c.rate = "fast";
+    if (Object.keys(channels).length) n.channels = channels;
     const vl = {};
-    for (const p of ports) {
+    for (const p of [...ports, ...Object.keys(channels)]) {
       const sv = ifs[p] && M.switchedVlan(ifs[p], false);
       if (!sv || !sv["interface-mode"]) continue;
       vl[p] = sv["interface-mode"] === "TRUNK" ? {trunk: [...sv["trunk-vlans"]], ...(sv["native-vlan"] !== undefined ? {native: sv["native-vlan"]} : {})} : {access: sv["access-vlan"]};
@@ -229,6 +238,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
 function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
+  for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
   return t;
 }
 function freshNet(spec, cut) {
@@ -261,6 +271,7 @@ export function stateOf(net, device, spec) {
         ...svis.map(i => ({name: i.name, address: i.ip ? `${i.ip}/${i.prefix}` : null, mac: i.mac, status: sviUp(i) ? "up" : "down"}))],
       mac: n.macTable().map(e => ({...e, vlan: e.vlan || 1})),
       stp: n.stp && n.stp.started ? n.stp.describe() : null,
+      lacp: [...n.channels.values()].map(c => c.describe()),
     };
     if (!n.l3) return base;
     return {...base, routes: routesOf(n.l3), arp: [...n.l3.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface}))};

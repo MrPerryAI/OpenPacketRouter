@@ -11,7 +11,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp"];
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
 const vlanColor = v => v === 1 ? "#98a2b3" : VLAN_COLORS[(v * 7) % VLAN_COLORS.length];
 const HALF = {switch: [34, 16], router: [24, 24], server: [24, 22], host: [28, 18]};   // half width/height of each device shape
