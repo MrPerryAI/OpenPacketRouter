@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-lan", "ospf-priority", "ospf-mixed"]
+SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}

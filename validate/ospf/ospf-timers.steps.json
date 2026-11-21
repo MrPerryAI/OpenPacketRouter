@@ -1,0 +1,1 @@
+[{"wait": 22}, {"snapshot": "converged: R1-R2 are not neighbors (dead interval 4 vs 8)"}, {"ping": ["H1", "10.3.0.10"]}, {"linkDown": "R2:eth1"}, {"wait": 25}, {"snapshot": "R2-R3 cut: R2 has no neighbors"}, {"ping": ["H1", "10.3.0.10"]}, {"linkUp": "R2:eth1"}, {"wait": 25}, {"snapshot": "R2-R3 restored (hello 2 s / dead 8 s)"}, {"ping": ["H1", "10.3.0.10"]}]
