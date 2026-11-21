@@ -166,20 +166,6 @@
   }
  },
  {
-  "wait": 13
- },
- {
-  "tc": [
-   "SW1",
-   "SW2",
-   "SW3",
-   "SW4"
-  ]
- },
- {
-  "bpdus": true
- },
- {
   "wait": 10
  },
  {
@@ -189,6 +175,32 @@
    "SW3",
    "SW4"
   ]
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 5
+ },
+ {
+  "bpdus": true
+ },
+ {
+  "wait": 8
+ },
+ {
+  "tc": [
+   "SW1",
+   "SW2",
+   "SW3",
+   "SW4"
+  ]
+ },
+ {
+  "bpdus": "mark"
+ },
+ {
+  "wait": 5
  },
  {
   "bpdus": true
