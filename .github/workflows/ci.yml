@@ -63,7 +63,7 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
       - name: Access lists vs Linux nftables (frames, pings, UDP and TCP connects)
         run: validate/docker/run.sh acl
-      - name: NAT vs Linux nftables (masquerade, snat, dnat: frames, pings, TCP and UDP)
+      - name: NAT vs Linux nftables (masquerade, snat and dnat; frames, pings, TCP and UDP)
         run: validate/docker/run.sh nat
       - name: RIPv2 vs FRRouting ripd (tables and packets on every cable)
         # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh rip` locally.
