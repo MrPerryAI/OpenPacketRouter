@@ -90,6 +90,7 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
   }
   for (const r of M.staticList(model)) out.push(`ip route add ${r.prefix === "0.0.0.0/0" ? "default" : r.prefix} via ${r.nextHop}`);
 
+  pushAcl(out, model);
   const s = M.services(model);
   if (s.dns?.enabled) out.push(["dnsmasq --no-resolv --no-hosts", ...Object.entries(s.dns.hosts).map(([n, ip]) => `--host-record=${n},${ip}`)].join(" "));
   const pools = Object.values(s["dhcp-server"]?.pools || {}).filter(p => p.range);
@@ -115,6 +116,36 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
   }
   for (const [port, app] of Object.entries(s.tcp || {})) if (app === "echo") out.push(`socat TCP-LISTEN:${port},fork,reuseaddr EXEC:cat`);
   return out;
+}
+
+/** nftables commands for the access lists (same translation validate/acl/run_kernel_acl.py checks against the engine):
+ *  in lists -> prerouting (iifname), out lists -> forward (oifname); permit = accept, deny and the implicit deny = reject admin-prohibited. */
+function pushAcl(out, model) {
+  const acl = M.services(model).acl; if (!acl) return;
+  const bound = Object.entries(M.interfaces(model)).filter(([, i]) => i["openpacketrouter:acl"]);
+  if (!bound.length) return;
+  const REJECT = "reject with icmp type admin-prohibited";
+  const match = r => {
+    const w = [], proto = r.proto || "ip";
+    if (r.src) w.push(`ip saddr ${r.src}`); if (r.dst) w.push(`ip daddr ${r.dst}`);
+    if (proto === "tcp" || proto === "udp") {
+      if (r.sport !== undefined) w.push(`${proto} sport ${r.sport}`); if (r.dport !== undefined) w.push(`${proto} dport ${r.dport}`);
+      if (!w.some(x => x.startsWith(proto))) w.unshift(`meta l4proto ${proto}`);
+      if (r.established) w.push("tcp flags & (ack | rst) != 0");
+    } else if (proto === "icmp") w.unshift(r.icmpType !== undefined ? `icmp type ${r.icmpType}` : "meta l4proto icmp");
+    return w.join(" ");
+  };
+  const chains = {acl_in: [], acl_out: []};
+  for (const [ifn, ifc] of bound) for (const [d, chain, sel] of [["in", "acl_in", "iifname"], ["out", "acl_out", "oifname"]]) {
+    const name = ifc["openpacketrouter:acl"][d]; if (!name) continue;
+    for (const r of acl.lists[name] || []) chains[chain].push(`${sel} "${ifn}" ${match(r)} ${r.action === "permit" ? "accept" : REJECT}`.replace(/  +/g, " "));
+    chains[chain].push(`${sel} "${ifn}" ${REJECT}`);
+  }
+  out.push("nft add table ip opr_acl",
+    "nft 'add chain ip opr_acl acl_in { type filter hook prerouting priority -150; policy accept; }'",
+    "nft 'add chain ip opr_acl acl_out { type filter hook forward priority 0; policy accept; }'",
+    "nft add rule ip opr_acl acl_in ip daddr 224.0.0.0/4 accept", "nft add rule ip opr_acl acl_in ip daddr 255.255.255.255 accept");
+  for (const [c, rules] of Object.entries(chains)) for (const r of rules) out.push(`nft add rule ip opr_acl ${c} ${r}`);
 }
 
 function pushShaper(out, p, ifc) {

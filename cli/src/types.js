@@ -36,6 +36,20 @@ export function formatVlanList(list) {
   return out.join(",");
 }
 
+/** "any", "10.0.0.5", "10.0.0.0/24", each optionally followed by ":80" or ":8000-9100" -> {addr, port} | null. */
+export function aclEndpoint(s) {
+  const m = /^([^:]+)(?::(\d+(?:-\d+)?))?$/.exec(s); if (!m) return null;
+  const [, a, p] = m;
+  if (a !== "any" && !isIp(a) && !isPrefix(a)) return null;
+  let port;
+  if (p !== undefined) {
+    const [lo, hi = lo] = p.split("-").map(Number);
+    if (lo > 65535 || hi > 65535 || lo > hi) return null;
+    port = p.includes("-") ? p : +p;
+  }
+  return {addr: a === "any" ? undefined : a, port};
+}
+
 const uint = (lo, hi) => ({hint: `<${lo}-${hi}>`, help: "Number", test: s => /^\d+$/.test(s) && +s >= lo && +s <= hi, normalize: s => +s});
 
 /** Interface names: a known port (exact, or a unique prefix of one), or a new name where the device allows it. */
@@ -65,6 +79,7 @@ export const TYPES = {
     normalize: (s, ctx) => matchPort(s, ctx) ?? s,
     complete: ctx => ctx.ports(),
   },
+  "acl-endpoint": {hint: "any|HOST|PREFIX[:PORT]", help: "who: any, one address, or a prefix; tcp/udp may add :PORT or :LOW-HIGH", test: s => aclEndpoint(s) !== null},
   "port": {...uint(1, 65535), help: "Port number"},
   "seconds": {...uint(1, 31536000), help: "Seconds"},
   "bytes": {...uint(1, 1e9), help: "Bytes"},

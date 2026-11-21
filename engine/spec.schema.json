@@ -72,6 +72,20 @@
         "triggered": {"type": "boolean"}
       }
     },
+    "acl": {
+      "type": "object", "description": "IPv4 access lists on a router (engine/src/acl.js)", "additionalProperties": false,
+      "properties": {
+        "lists": {"type": "object", "additionalProperties": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["action"],
+          "properties": {
+            "action": {"enum": ["permit", "deny"]}, "proto": {"enum": ["ip", "icmp", "tcp", "udp"]},
+            "src": {"type": "string"}, "dst": {"type": "string"},
+            "sport": {"type": ["integer", "string"]}, "dport": {"type": ["integer", "string"]},
+            "icmpType": {"type": "integer", "minimum": 0, "maximum": 255}, "established": {"type": "boolean"}}}}},
+        "bind": {"type": "object", "additionalProperties": {"type": "object", "additionalProperties": false,
+          "properties": {"in": {"type": "string"}, "out": {"type": "string"}}}}
+      }
+    },
     "node": {
       "type": "object", "required": ["name", "kind"],
       "properties": {
@@ -95,7 +109,7 @@
           "routes": {"$ref": "#/$defs/ipNode/properties/routes"}
         }}},
         {"if": {"properties": {"kind": {"enum": ["router", "host", "server"]}}}, "then": {"$ref": "#/$defs/ipNode"}},
-        {"if": {"properties": {"kind": {"const": "router"}}}, "then": {"properties": {"rip": {"$ref": "#/$defs/rip"}}}}
+        {"if": {"properties": {"kind": {"const": "router"}}}, "then": {"properties": {"rip": {"$ref": "#/$defs/rip"}, "acl": {"$ref": "#/$defs/acl"}}}}
       ]
     }
   }

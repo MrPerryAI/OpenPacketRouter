@@ -14,7 +14,7 @@ def icmp_sock():
     return socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
 
 
-ERR = {11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable"}}
+ERR = {11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable", 13: "administratively prohibited"}}
 err_name = lambda t, c: ERR[11] if t == 11 else ERR[3].get(c, "unreachable")
 
 

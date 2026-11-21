@@ -101,8 +101,8 @@ Moving between modes, the device name, saving.
 | `enable` | user | all devices | Go to privileged mode (configuration and every show command) |
 | `disable` | privileged | all devices | Go back to user mode |
 | `configure terminal` | privileged | all devices | Type the changes here, one command per line |
-| `exit` | user, privileged, config, interface, routing, vlan, DHCP pool | all devices | Leave this mode (in user or privileged mode: close the session) |
-| `end` | config, interface, routing, vlan, DHCP pool | all devices | Finish configuring and go back to privileged mode |
+| `exit` | user, privileged, config, interface, routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
+| `end` | config, interface, routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
 | `write` | privileged | all devices | Save the configuration |
 | `write memory` | privileged | all devices | Save it where it is loaded from at start |
 | `hostname NAME` | config | all devices | New name (letters, digits, - and _) |
@@ -226,6 +226,32 @@ RIPv2 in FRRouting's style: router rip, then network, passive-interface and time
 | `triggered-updates` | routing | routers | Send changes at once (the default) |
 | `no triggered-updates` | routing | routers | Wait for the update timer (a teaching setting, not in FRR) |
 
+### Acl
+
+IPv4 access lists on routers: ip access-list NAME with permit/deny rules, applied with ip access-group NAME in|out. First match wins; a packet no rule matches is denied. A denied packet is dropped and the sender gets ICMP administratively prohibited. Multicast and broadcast are never filtered.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `ip access-list NAME` | config | routers | Name of the list (made if new) |
+| `no ip access-list NAME` | config | routers | List to delete |
+| `no rule NUMBER` | config-acl | routers | Position of the rule, as `show access-lists` numbers them |
+| `ip access-group NAME in` | interface | routers | Packets arriving on this interface (checked before routing) |
+| `ip access-group NAME out` | interface | routers | Packets this router forwards out of this interface |
+| `no ip access-group in` | interface | routers | The inbound list |
+| `no ip access-group out` | interface | routers | The outbound list |
+| `permit ip SRC DST` | config-acl | routers | Receiver, written the same way |
+| `permit icmp SRC DST` | config-acl | routers | Receiver, written the same way |
+| `permit icmp SRC DST type TYPE` | config-acl | routers | ICMP type number (8 = echo request, 0 = echo reply) |
+| `permit tcp SRC DST` | config-acl | routers | Receiver, written the same way |
+| `permit tcp SRC DST established` | config-acl | routers | Only segments with ACK or RST set (not the first SYN) |
+| `permit udp SRC DST` | config-acl | routers | Receiver, written the same way |
+| `deny ip SRC DST` | config-acl | routers | Receiver, written the same way |
+| `deny icmp SRC DST` | config-acl | routers | Receiver, written the same way |
+| `deny icmp SRC DST type TYPE` | config-acl | routers | ICMP type number (8 = echo request, 0 = echo reply) |
+| `deny tcp SRC DST` | config-acl | routers | Receiver, written the same way |
+| `deny tcp SRC DST established` | config-acl | routers | Only segments with ACK or RST set (not the first SYN) |
+| `deny udp SRC DST` | config-acl | routers | Receiver, written the same way |
+
 ### Show
 
 Show commands. Every one also takes | json, | include WORD and | exclude WORD.
@@ -241,6 +267,8 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
+| `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
+| `show access-lists NAME` | user, privileged | routers | One list |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |

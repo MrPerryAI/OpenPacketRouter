@@ -7,6 +7,7 @@ import switching from "./switching.json" with {type: "json"};
 import services from "./services.json" with {type: "json"};
 import rip from "./rip.json" with {type: "json"};
 import show from "./show.json" with {type: "json"};
+import acl from "./acl.json" with {type: "json"};
 import exec from "./exec.json" with {type: "json"};
 
-export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, show, exec];
+export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, acl, show, exec];

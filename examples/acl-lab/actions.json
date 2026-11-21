@@ -1,0 +1,14 @@
+[
+ {"do": "ping", "src": "A", "dst": "10.2.0.10"},
+ {"do": "dns", "src": "A", "server": "10.2.0.10", "name": "srv.lab"},
+ {"do": "udp", "src": "A", "dst": "10.2.0.10", "port": 8000},
+ {"do": "udp", "src": "A", "dst": "10.2.0.10", "port": 9000},
+ {"do": "udp", "src": "A", "dst": "10.2.0.10", "port": 5000},
+ {"do": "ping", "src": "A", "dst": "10.1.0.1"},
+ {"do": "ping", "src": "A", "dst": "10.2.0.99"},
+ {"do": "ping", "src": "S", "dst": "10.1.0.10"},
+ {"do": "traceroute", "src": "A", "dst": "10.2.0.10"},
+ {"do": "tcp", "src": "A", "dst": "10.2.0.10", "port": 80, "size": 100},
+ {"do": "tcp", "src": "A", "dst": "10.2.0.10", "port": 7, "size": 1},
+ {"do": "tcp", "src": "A", "dst": "10.2.0.10", "port": 8080, "size": 1}
+]
