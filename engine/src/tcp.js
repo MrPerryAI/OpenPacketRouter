@@ -40,6 +40,19 @@ export function tcpInput(node, p) {
   node.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "tcp", tcp: {sport: t.dport, dport: t.sport, flags: "R", seq: t.ack, ack: 0, len: 0}});
 }
 
+/** An ICMP "destination unreachable" about one of our segments: a connection still in SYN_SENT fails at once, like
+ *  Linux (tcp_v4_err). The error is the errno Linux maps the code to: 111 (refused) for codes 2 and 3, 101 for
+ *  net unreachable, 113 for host unreachable and administratively prohibited (13). */
+export function tcpIcmpError(node, p) {
+  const o = p.icmp.orig; if (!o || o.proto !== "tcp" || p.icmp.type !== 3) return;
+  const conn = table(node).get(key(o.sport, o.dst, o.dport));
+  if (!conn || conn.state !== "SYN_SENT") return;
+  node.log("tcp", `ICMP unreachable (code ${p.icmp.code}) from ${p.src}: connection to ${o.dst}:${o.dport} fails`);
+  drop(conn);
+  if (conn.onEvent) conn.onEvent("icmp", p.icmp.code);
+}
+const ICMP_ERRNO = {0: 101, 1: 113, 2: 111, 3: 111, 4: 90, 5: 113, 6: 101, 7: 113, 8: 113, 9: 13, 10: 13, 11: 101, 12: 113, 13: 113, 14: 113, 15: 113};
+
 function newConn(node, laddr, lport, raddr, rport, state) {
   const c = {node, laddr, lport, raddr, rport, state, snd: 1000, rcv: 0, dead: false};
   table(node).set(key(lport, raddr, rport), c); return c;
@@ -90,6 +103,7 @@ export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5} = 
     else if (ev === "data") { done({ok: true, from: dst, bytes: n}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
     else if (ev === "refused") done({ok: false, error: "refused", from: dst});
     else if (ev === "reset") done({ok: false, error: "reset", from: dst});
+    else if (ev === "icmp") done({ok: false, error: ICMP_ERRNO[n] === 111 ? "refused" : `os error ${ICMP_ERRNO[n]}`});
   };
   // SYN with retransmissions: 1 s, then doubling
   const syn = (rto, gen) => {

@@ -1,0 +1,370 @@
+{
+  "feature": "acl",
+  "about": "IPv4 access lists on routers: ip access-list NAME with permit/deny rules, applied with ip access-group NAME in|out. First match wins; a packet no rule matches is denied. A denied packet is dropped and the sender gets ICMP administratively prohibited. Multicast and broadcast are never filtered.",
+  "commands": [
+    {
+      "modes": [
+        "config"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "ip access-list NAME",
+      "args": {
+        "NAME": "word"
+      },
+      "handler": "acl.enter",
+      "enter": "config-acl",
+      "help": {
+        "ip": "IPv4 settings",
+        "access-list": "A packet filter: rules checked top to bottom, then an implicit deny",
+        "NAME": "Name of the list (made if new)"
+      }
+    },
+    {
+      "modes": [
+        "config"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "no ip access-list NAME",
+      "args": {
+        "NAME": "word"
+      },
+      "handler": "acl.remove",
+      "help": {
+        "no": "Undo a setting",
+        "ip": "IPv4 settings",
+        "access-list": "Delete a list (it must not be applied to an interface)",
+        "NAME": "List to delete"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "no rule NUMBER",
+      "args": {
+        "NUMBER": "uint:1-9999"
+      },
+      "handler": "acl.no-rule",
+      "help": {
+        "no": "Undo a setting",
+        "rule": "Delete one rule of this list",
+        "NUMBER": "Position of the rule, as `show access-lists` numbers them"
+      }
+    },
+    {
+      "modes": [
+        "config-if"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "ip access-group NAME in",
+      "args": {
+        "NAME": "word"
+      },
+      "handler": "acl.group:in",
+      "help": {
+        "ip": "IPv4 settings of this interface",
+        "access-group": "Filter packets with an access list",
+        "NAME": "List to apply",
+        "in": "Packets arriving on this interface (checked before routing)"
+      }
+    },
+    {
+      "modes": [
+        "config-if"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "ip access-group NAME out",
+      "args": {
+        "NAME": "word"
+      },
+      "handler": "acl.group:out",
+      "help": {
+        "out": "Packets this router forwards out of this interface"
+      }
+    },
+    {
+      "modes": [
+        "config-if"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "no ip access-group in",
+      "handler": "acl.ungroup:in",
+      "help": {
+        "no": "Undo a setting",
+        "ip": "IPv4 settings of this interface",
+        "access-group": "Stop filtering with an access list",
+        "in": "The inbound list"
+      }
+    },
+    {
+      "modes": [
+        "config-if"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "syntax": "no ip access-group out",
+      "handler": "acl.ungroup:out",
+      "help": {
+        "out": "The outbound list"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "permit ip SRC DST",
+      "handler": "acl.rule:permit/ip",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "ip": "Any IPv4 packet"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "permit icmp SRC DST",
+      "handler": "acl.rule:permit/icmp",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "icmp": "ICMP (ping and errors)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint",
+        "TYPE": "uint:0-255"
+      },
+      "syntax": "permit icmp SRC DST type TYPE",
+      "handler": "acl.rule:permit/icmp-type",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "type": "Only this ICMP type",
+        "TYPE": "ICMP type number (8 = echo request, 0 = echo reply)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "permit tcp SRC DST",
+      "handler": "acl.rule:permit/tcp",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "tcp": "TCP"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "permit tcp SRC DST established",
+      "handler": "acl.rule:permit/tcp-est",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "established": "Only segments with ACK or RST set (not the first SYN)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "permit udp SRC DST",
+      "handler": "acl.rule:permit/udp",
+      "help": {
+        "permit": "Let matching packets through",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "udp": "UDP"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "deny ip SRC DST",
+      "handler": "acl.rule:deny/ip",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "ip": "Any IPv4 packet"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "deny icmp SRC DST",
+      "handler": "acl.rule:deny/icmp",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "icmp": "ICMP (ping and errors)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint",
+        "TYPE": "uint:0-255"
+      },
+      "syntax": "deny icmp SRC DST type TYPE",
+      "handler": "acl.rule:deny/icmp-type",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "type": "Only this ICMP type",
+        "TYPE": "ICMP type number (8 = echo request, 0 = echo reply)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "deny tcp SRC DST",
+      "handler": "acl.rule:deny/tcp",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "tcp": "TCP"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "deny tcp SRC DST established",
+      "handler": "acl.rule:deny/tcp-est",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "established": "Only segments with ACK or RST set (not the first SYN)"
+      }
+    },
+    {
+      "modes": [
+        "config-acl"
+      ],
+      "kinds": [
+        "router"
+      ],
+      "args": {
+        "SRC": "acl-endpoint",
+        "DST": "acl-endpoint"
+      },
+      "syntax": "deny udp SRC DST",
+      "handler": "acl.rule:deny/udp",
+      "help": {
+        "deny": "Drop matching packets and tell the sender (ICMP administratively prohibited)",
+        "SRC": "Sender: any, an address, a prefix (tcp/udp: add :PORT or :LOW-HIGH)",
+        "DST": "Receiver, written the same way",
+        "udp": "UDP"
+      }
+    }
+  ]
+}

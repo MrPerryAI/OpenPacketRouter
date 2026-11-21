@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "Access lists on a router",
+  "about": "Host A on one side of router R, server S and a DNS service on the other. R filters on both interfaces: eth0 in lets through DNS, UDP 8000-9100 and ICMP echo toward the server LAN (everything else hits the implicit deny); eth1 out refuses UDP 9000-9100; eth0 out lets only echo replies and DNS answers back to A.",
+  "nodes": [
+    {"name": "A", "kind": "host", "ifaces": {"eth0": "10.1.0.10/24"}, "gw": "10.1.0.1"},
+    {"name": "R", "kind": "router", "ifaces": {"eth0": "10.1.0.1/24", "eth1": "10.2.0.1/24"},
+     "acl": {"lists": {
+       "FROM-LAN": [{"action": "permit", "proto": "udp", "dst": "10.2.0.10", "dport": 53},
+                    {"action": "permit", "proto": "udp", "dst": "10.2.0.10", "dport": "8000-9100"},
+                    {"action": "permit", "proto": "tcp", "dst": "10.2.0.10", "dport": 80},
+                    {"action": "permit", "proto": "tcp", "dst": "10.2.0.10", "dport": 8080, "established": true},
+                    {"action": "permit", "proto": "icmp", "src": "10.1.0.0/24", "dst": "10.2.0.0/24", "icmpType": 8}],
+       "TO-SERVERS": [{"action": "deny", "proto": "udp", "dport": "9000-9100"}, {"action": "permit"}],
+       "TO-LAN": [{"action": "permit", "proto": "icmp", "icmpType": 0}, {"action": "permit", "proto": "udp", "sport": 53},
+                  {"action": "permit", "proto": "tcp", "sport": "80-8080"}]},
+       "bind": {"eth0": {"in": "FROM-LAN", "out": "TO-LAN"}, "eth1": {"out": "TO-SERVERS"}}}},
+    {"name": "S", "kind": "server", "ifaces": {"eth0": "10.2.0.10/24"}, "gw": "10.2.0.1", "services": {"dns": {"srv.lab": "10.2.0.10"}, "tcp": {"7": "echo", "80": "echo", "8080": "echo"}}}
+  ],
+  "links": [["A:eth0", "R:eth0", 1], ["R:eth1", "S:eth0", 1]]
+}

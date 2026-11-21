@@ -113,6 +113,14 @@
    "spec": "vlans/spec.json",
    "actions": "vlans/actions.json",
    "readme": "vlans/README.md"
+  },
+  {
+   "id": "acl-lab",
+   "name": "Access lists on a router",
+   "about": "A router filters between a host and a server with in and out access lists: allowed DNS, UDP and echo pass, everything else hits the implicit deny and the sender gets 'administratively prohibited'. TCP connects are refused at once, like on Linux.",
+   "spec": "acl-lab/spec.json",
+   "actions": "acl-lab/actions.json",
+   "readme": "acl-lab/README.md"
   }
  ]
 }

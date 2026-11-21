@@ -2,7 +2,7 @@
 // construction. ctx: {model, kind, ports, device, backend, state()}.
 
 import * as M from "./model.js";
-import {runningConfig} from "./render.js";
+import {runningConfig, ruleText} from "./render.js";
 import {formatVlanList} from "./types.js";
 
 const pad = (s, n) => String(s ?? "").padEnd(n);
@@ -95,6 +95,21 @@ export const SHOWS = {
       `  Trunk ports:  ${trunks.map(x => x.port + (x.native ? " (native)" : "")).join(", ") || "none"}`,
       ...(svi ? [`  SVI ${svi.name}: ${svi.address || "no address"}, ${svi.status}`] : [])].join("\n");
     return {json, text};
+  },
+
+  // Access lists: each rule numbered as `no rule N` counts them, and where the list is applied.
+  "show.access-lists": (ctx, values) => {
+    const acl = M.services(ctx.model).acl, only = values && values[0];
+    if (only && !(acl && acl.lists[only])) return {json: {accessLists: []}, text: `No access list named ${only}`};
+    const applied = {};
+    for (const [ifn, ifc] of Object.entries(M.interfaces(ctx.model))) for (const d of ["in", "out"]) {
+      const n = ifc["openpacketrouter:acl"]?.[d]; if (n) (applied[n] ||= []).push({interface: ifn, direction: d});
+    }
+    const lists = Object.entries(acl ? acl.lists : {}).filter(([n]) => !only || n === only).map(([name, rules]) => ({
+      name, applied: applied[name] || [], rules: rules.map((r, i) => ({number: i + 1, ...r, text: ruleText(r)})), implicitDeny: true}));
+    const text = lists.length ? lists.map(l => [`Access list ${l.name}${l.applied.length ? ` (applied ${l.applied.map(a => `${a.direction} on ${a.interface}`).join(", ")})` : " (not applied)"}`,
+      ...l.rules.map(r => `  ${r.number}  ${r.text}`), "  (implicit deny: anything else is dropped)"].join("\n")).join("\n\n") : "No access lists";
+    return {json: {accessLists: lists}, text};
   },
 
   "show.vlan-brief": ctx => {

@@ -17,8 +17,8 @@ import {clone} from "./model.js";
 import {TYPES} from "./types.js";
 
 export const PROMPTS = {user: ">", priv: "#", config: "(config)#", "config-if": "(config-if)#", "config-router": "(config-router)#",
-  "config-vlan": "(config-vlan)#", "config-dhcp": "(config-dhcp)#"};
-const CONFIG_MODES = new Set(["config", "config-if", "config-router", "config-vlan", "config-dhcp"]);
+  "config-vlan": "(config-vlan)#", "config-dhcp": "(config-dhcp)#", "config-acl": "(config-acl)#"};
+const CONFIG_MODES = new Set(["config", "config-if", "config-router", "config-vlan", "config-dhcp", "config-acl"]);
 
 const compiled = new WeakMap();
 const tableFor = defs => { if (!compiled.has(defs)) compiled.set(defs, compile(defs)); return compiled.get(defs); };
@@ -51,7 +51,7 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
     const h = HANDLERS[name];
     if (!h) return {out: `% No handler ${name} (a bug in the command definitions)`};
     const before = backend.getConfig(s.device), model = clone(before);
-    const sel = {iface: s.iface, pool: s.pool, vlan: s.vlan, router: s.router};
+    const sel = {iface: s.iface, pool: s.pool, vlan: s.vlan, router: s.router, acl: s.acl};
     try { h({model, s: sel, kind: kind()}, values, param); } catch (e) { return {out: `% ${e.message}`}; }
     let changed = null;
     if (JSON.stringify(model) !== JSON.stringify(before)) {
@@ -71,10 +71,10 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
     "session.configure": () => { s.mode = "config"; return {out: "Configuring from the terminal. Type end or press Ctrl-Z to finish."}; },
     "session.exit": () => {
       if (s.mode === "user" || s.mode === "priv") { s.closed = true; return {out: "Session closed."}; }
-      if (s.mode === "config") s.mode = "priv"; else { s.mode = "config"; s.iface = s.pool = s.vlan = s.router = null; }
+      if (s.mode === "config") s.mode = "priv"; else { s.mode = "config"; s.iface = s.pool = s.vlan = s.router = s.acl = null; }
       return {};
     },
-    "session.end": () => { s.mode = "priv"; s.iface = s.pool = s.vlan = s.router = null; return {}; },
+    "session.end": () => { s.mode = "priv"; s.iface = s.pool = s.vlan = s.router = s.acl = null; return {}; },
     "session.write": () => {
       if (!backend.save) return {out: "% Nowhere to save to: this console was started without a file"};
       return {out: backend.save() === false ? "% Saving failed" : "Configuration saved."};
@@ -115,7 +115,7 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
     if (pipes.length && !c.handler.startsWith("show.") && !c.handler.startsWith("tools.")) return {output: "% Only show commands take | json, | include or | exclude", changed: null};
 
     const saved = s.mode;
-    if (use === "config" && mode !== "config") { s.mode = "config"; s.iface = s.pool = s.vlan = s.router = null; }
+    if (use === "config" && mode !== "config") { s.mode = "config"; s.iface = s.pool = s.vlan = s.router = s.acl = null; }
     let res = run(c, values, use);
     // ping and traceroute take the same pipes as show commands: their text and their JSON result.
     const changedByTool = c.handler.startsWith("tools.") ? res.changed : null;

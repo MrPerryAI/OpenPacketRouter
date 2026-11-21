@@ -25,6 +25,10 @@ export function configLines(model, {kind, ports}) {
     for (const id of ids) out.push(`vlan ${id}`, ` name ${vl[id].config.name}`, "!");
   }
 
+  // access lists come before the interfaces that apply them, so replaying the text finds each list
+  const acls = M.services(model).acl;
+  if (acls) for (const [name, rules] of Object.entries(acls.lists)) out.push(`ip access-list ${name}`, ...rules.map(r => ` ${ruleText(r)}`), "!");
+
   const names = [...new Set([...ports, ...Object.keys(M.interfaces(model))])];
   for (const name of names) {
     const ifc = M.iface(model, name, false);
@@ -45,6 +49,7 @@ export function configLines(model, {kind, ports}) {
       const sp = M.stpPort(model, name, false);
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
+      for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
       const sh = ifc["openpacketrouter:shaper"];
       if (sh) out.push(` shape rate ${sh.rate} burst ${sh.burst} limit ${sh.limit}`);
       if (ifc.config.enabled === false) out.push(" shutdown");
@@ -83,6 +88,12 @@ export function configLines(model, {kind, ports}) {
   if (s.tcp) { for (const [port, app] of Object.entries(s.tcp)) if (app === "echo") out.push(`service tcp-echo ${port}`); out.push("!"); }
   out.push("end");
   return out;
+}
+
+/** One access-list rule as a command: "permit tcp 10.1.0.0/24 10.2.0.10:80 established". */
+export function ruleText(r) {
+  const end = (a, p) => `${a ?? "any"}${p !== undefined ? ":" + p : ""}`;
+  return [r.action, r.proto || "ip", end(r.src, r.sport), end(r.dst, r.dport), ...(r.icmpType !== undefined ? ["type", r.icmpType] : []), ...(r.established ? ["established"] : [])].join(" ");
 }
 
 export const runningConfig = (model, opts) => configLines(model, opts).join("\n");

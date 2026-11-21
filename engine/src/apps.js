@@ -1,7 +1,7 @@
 // Things clients do: ping, traceroute, DNS lookups, a UDP request.
 // Each runs the simulation until an answer arrives or the timeout passes.
 
-const ICMP_ERR = {11: "time exceeded", 3: ["net unreachable", "host unreachable", "protocol unreachable", "port unreachable"]};
+const ICMP_ERR = {11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable", 13: "administratively prohibited"}};
 const errName = i => i.type === 11 ? ICMP_ERR[11] : (ICMP_ERR[3][i.code] || "unreachable");
 
 /** The IP stack of a device: a Layer 3 switch's lives in `l3` (its SVIs); routers and hosts are their own. */

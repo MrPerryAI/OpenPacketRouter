@@ -23,7 +23,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime"],   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services", "ospf", "rip"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js
+  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js
   host: ["ifaces", "routes", "gw", "services"],
   server: ["ifaces", "routes", "gw", "services"],
 };
@@ -62,6 +62,48 @@ function checkOspf(n, p, err) {
       for (const [k, v] of Object.entries(c)) if (!OSPF_IF_KEYS[k]) err(`${p}.ospf.interfaces.${ifn}.${k}`, `node "${n.name}": unknown key "${k}" (${Object.keys(OSPF_IF_KEYS).join(", ")})`);
         else if (!OSPF_IF_KEYS[k](v)) err(`${p}.ospf.interfaces.${ifn}.${k}`, `node "${n.name}": ${ifn}: bad ${k} ${JSON.stringify(v)}`);
       if (c.hello !== undefined && c.dead !== undefined && c.dead <= c.hello) err(`${p}.ospf.interfaces.${ifn}.dead`, `node "${n.name}": ${ifn}: dead (${c.dead}) must be longer than hello (${c.hello})`);
+    }
+  }
+}
+
+const ACL_RULE_KEYS = ["action", "proto", "src", "dst", "sport", "dport", "icmpType", "established"];
+const isAddrOrAny = x => x === "any" || (typeof x === "string" && (isIp(x) || isCidr(x)));
+const isPortSpec = x => (Number.isInteger(x) && x >= 0 && x <= 65535) || (typeof x === "string" && /^\d+-\d+$/.test(x) && x.split("-").every(v => +v <= 65535) && +x.split("-")[0] <= +x.split("-")[1]);
+function checkAcl(n, p, err) {
+  const a = n.acl, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+  if (!isObj(a)) return err(`${p}.acl`, `node "${n.name}": acl must be an object like {"lists": {...}, "bind": {...}}`);
+  for (const k of Object.keys(a)) if (!["lists", "bind"].includes(k)) err(`${p}.acl.${k}`, `node "${n.name}": unknown acl key "${k}" (lists, bind)`);
+  const lists = isObj(a.lists) ? a.lists : {};
+  if (a.lists !== undefined && !isObj(a.lists)) err(`${p}.acl.lists`, `node "${n.name}": acl.lists maps a list name to an array of rules`);
+  for (const [name, rules] of Object.entries(lists)) {
+    const lp = `${p}.acl.lists.${name}`;
+    if (!Array.isArray(rules)) { err(lp, `node "${n.name}": list ${name} must be an array of rules`); continue; }
+    rules.forEach((r, j) => {
+      const rp = `${lp}[${j}]`;
+      if (!isObj(r)) return err(rp, `node "${n.name}": ${name}: a rule is an object like {"action": "permit", "proto": "tcp", "dport": 80}`);
+      for (const k of Object.keys(r)) if (!ACL_RULE_KEYS.includes(k)) err(`${rp}.${k}`, `node "${n.name}": ${name}: unknown rule key "${k}" (${ACL_RULE_KEYS.join(", ")})`);
+      if (!["permit", "deny"].includes(r.action)) err(`${rp}.action`, `node "${n.name}": ${name}: action is "permit" or "deny"`);
+      const proto = r.proto ?? "ip";
+      if (!["ip", "icmp", "tcp", "udp"].includes(proto)) err(`${rp}.proto`, `node "${n.name}": ${name}: proto is ip, icmp, tcp or udp`);
+      for (const k of ["src", "dst"]) if (r[k] !== undefined && !isAddrOrAny(r[k])) err(`${rp}.${k}`, `node "${n.name}": ${name}: ${k} is "any", an address or a prefix like 10.0.0.0/24`);
+      for (const k of ["sport", "dport"]) {
+        if (r[k] !== undefined && !isPortSpec(r[k])) err(`${rp}.${k}`, `node "${n.name}": ${name}: ${k} is a port number or "lo-hi"`);
+        if (r[k] !== undefined && !["tcp", "udp"].includes(proto)) err(`${rp}.${k}`, `node "${n.name}": ${name}: ${k} needs proto tcp or udp`);
+      }
+      if (r.icmpType !== undefined && (proto !== "icmp" || !Number.isInteger(r.icmpType) || r.icmpType < 0 || r.icmpType > 255)) err(`${rp}.icmpType`, `node "${n.name}": ${name}: icmpType is a number 0-255 and needs proto icmp`);
+      if (r.established !== undefined && (typeof r.established !== "boolean" || proto !== "tcp")) err(`${rp}.established`, `node "${n.name}": ${name}: established is true/false and needs proto tcp`);
+    });
+  }
+  if (a.bind !== undefined) {
+    if (!isObj(a.bind)) return err(`${p}.acl.bind`, `node "${n.name}": acl.bind maps interface names to {"in": list, "out": list}`);
+    for (const [ifn, b] of Object.entries(a.bind)) {
+      const bp = `${p}.acl.bind.${ifn}`;
+      if (!names.includes(ifn)) err(bp, `node "${n.name}": ${ifn} is not one of its interfaces (${names.join(", ")})`);
+      if (!isObj(b)) { err(bp, `node "${n.name}": ${ifn}: expected {"in": list, "out": list}`); continue; }
+      for (const [d, l] of Object.entries(b)) {
+        if (!["in", "out"].includes(d)) err(`${bp}.${d}`, `node "${n.name}": ${ifn}: direction is "in" or "out"`);
+        else if (!(l in lists)) err(`${bp}.${d}`, `node "${n.name}": ${ifn} ${d}: no list named "${l}"`);
+      }
     }
   }
 }
@@ -168,6 +210,7 @@ export function validateSpec(spec) {
     }
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
+    if (n.acl !== undefined) checkAcl(n, p, err);
     if (n.services !== undefined) {
       if (!isObj(n.services)) err(`${p}.services`, `node "${n.name}": services must be an object`);
       else if (n.services.dns !== undefined && !(isObj(n.services.dns) && Object.values(n.services.dns).every(isIp)))

@@ -4,7 +4,7 @@
 // family of commands.
 
 import * as M from "./model.js";
-import {maskToPrefix, networkOf, isPrefix, prefixToMask} from "./types.js";
+import {maskToPrefix, networkOf, isPrefix, prefixToMask, aclEndpoint} from "./types.js";
 
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
 const cidrOf = (args) => {   // [prefix] or [ip, mask]
@@ -13,6 +13,7 @@ const cidrOf = (args) => {   // [prefix] or [ip, mask]
 };
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
 const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
+const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
 const pool = ctx => { need(ctx.s.pool, "No DHCP pool selected"); return M.services(ctx.model)["dhcp-server"].pools[ctx.s.pool]; };
 const STP_LEAVES = {"bridge-priority": 1, "hello-time": 1, "max-age": 1, "forwarding-delay": 1, "openpacketrouter:bridge-address": 1};
 
@@ -146,6 +147,32 @@ export const HANDLERS = {
   "rip.no-timers": ctx => { delete rip(ctx).timers; },
   "rip.split": (ctx, args, v) => { const r = rip(ctx); if (v === "simple") delete r.splitHorizon; else r.splitHorizon = v; },
   "rip.triggered": (ctx, args, v) => { const r = rip(ctx); if (v === "true") delete r.triggered; else r.triggered = false; },
+
+  // ---- IPv4 access lists (services.acl.lists, shaped like the spec's acl.lists; the binding is on the interface)
+  "acl.enter": (ctx, [name]) => { const s = M.services(ctx.model); s.acl ||= {lists: {}}; s.acl.lists[name] ||= []; ctx.s.acl = name; },
+  "acl.remove": (ctx, [name]) => {
+    const a = M.services(ctx.model).acl; need(a && a.lists[name], `No access list named ${name}`);
+    for (const [ifn, ifc] of Object.entries(M.interfaces(ctx.model))) for (const d of ["in", "out"]) need(ifc["openpacketrouter:acl"]?.[d] !== name, `${name} is still applied ${d} on ${ifn}: remove it there first`);
+    delete a.lists[name]; if (!Object.keys(a.lists).length) delete M.services(ctx.model).acl;
+  },
+  "acl.rule": (ctx, [src, dst, type], leaf) => {
+    const [action, shape] = leaf.split("/"), proto = shape.split("-")[0], list = acl(ctx);
+    const s = aclEndpoint(src), d = aclEndpoint(dst);
+    need(proto === "tcp" || proto === "udp" || (s.port === undefined && d.port === undefined), `Ports (:PORT) only work with tcp and udp`);
+    const rule = {action, ...(proto !== "ip" ? {proto} : {}), ...(s.addr ? {src: s.addr} : {}), ...(d.addr ? {dst: d.addr} : {}),
+      ...(s.port !== undefined ? {sport: s.port} : {}), ...(d.port !== undefined ? {dport: d.port} : {}),
+      ...(shape === "icmp-type" ? {icmpType: +type} : {}), ...(shape === "tcp-est" ? {established: true} : {})};
+    list.push(rule);
+  },
+  "acl.no-rule": (ctx, [n]) => { const list = acl(ctx); need(n >= 1 && n <= list.length, `This list has ${list.length} rule${list.length === 1 ? "" : "s"}`); list.splice(n - 1, 1); },
+  "acl.group": (ctx, [name], dir) => {
+    need(M.services(ctx.model).acl?.lists[name], `No access list named ${name}: create it with ip access-list ${name}`);
+    const i = curIface(ctx); (i["openpacketrouter:acl"] ||= {})[dir] = name;
+  },
+  "acl.ungroup": (ctx, args, dir) => {
+    const i = curIface(ctx); need(i["openpacketrouter:acl"]?.[dir], `No ${dir}bound access list on this interface`);
+    delete i["openpacketrouter:acl"][dir]; if (!Object.keys(i["openpacketrouter:acl"]).length) delete i["openpacketrouter:acl"];
+  },
 
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },

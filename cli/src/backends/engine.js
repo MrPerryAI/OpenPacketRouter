@@ -84,6 +84,10 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     }
     if (sv.dhcpRelay) for (const c of sv.dhcpRelay.clients || Object.keys(n.ifaces || {})) M.relayHelpers(m, c).push(sv.dhcpRelay.server);
     if (sv.tcp) out.tcp = {...sv.tcp};
+    if (n.acl) {
+      out.acl = {lists: JSON.parse(JSON.stringify(n.acl.lists || {}))};
+      for (const [ifn, b] of Object.entries(n.acl.bind || {})) M.iface(m, ifn)["openpacketrouter:acl"] = {...b};
+    }
     if (n.rip) { const {networks, passive, timers, splitHorizon, triggered} = n.rip;
       out.rip = {networks: [...networks], ...(passive ? {passive: [...passive]} : {}), ...(timers ? {timers: {...timers}} : {}),
         ...(splitHorizon !== undefined ? {splitHorizon} : {}), ...(triggered !== undefined ? {triggered} : {})}; }
@@ -106,7 +110,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "blocked", "stp", "vlans", "agingTime", "vlanNames"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "blocked", "stp", "vlans", "agingTime", "vlanNames"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -194,6 +198,11 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     }
     if (s.tcp) svc.tcp = {...s.tcp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
+    if (s.acl) {
+      const bind = {};
+      for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:acl"]) bind[ifn] = {...ifc["openpacketrouter:acl"]};
+      n.acl = {lists: JSON.parse(JSON.stringify(s.acl.lists)), ...(Object.keys(bind).length ? {bind} : {})};
+    }
     if (Object.keys(svc).length) n.services = svc;
   }
 
