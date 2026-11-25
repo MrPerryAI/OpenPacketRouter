@@ -32,6 +32,8 @@ node bin/openpacketrouter.mjs run   spec.json actions.json --trace            # 
 node bin/openpacketrouter.mjs actions                                         # list action types
 node bin/openpacketrouter.mjs schema                                          # JSON Schema of the spec format
 node bin/openpacketrouter.mjs run   spec.json actions.json --text            # readable report instead of JSON
+# Spec and actions files may also be YAML (.yaml/.yml): same schema as JSON, e.g. `run lab.yaml` picks up lab.actions.yaml.
+# The reader is a small built-in subset (maps, lists, [..]/{..}, quoted strings, # comments); no anchors, tags or block scalars.
 ```
 
 Exit codes: `0` ok, `1` invalid spec or actions (each problem is printed), `2` usage or file error. Only JSON is supported for now. The schema is in `spec.schema.json`, for editors and other tools.

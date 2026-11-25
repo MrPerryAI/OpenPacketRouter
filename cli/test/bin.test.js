@@ -31,3 +31,14 @@ test("--render linux prints the commands for the device; bad usage exits 2", () 
   assert.equal(spawnSync("node", [BIN, SPEC], {encoding: "utf8"}).status, 2);
   assert.equal(spawnSync("node", [BIN, SPEC, "NOPE"], {encoding: "utf8"}).status, 2);
 });
+
+test("a YAML spec works: opr-cli reads it and write saves YAML back", async () => {
+  const {dumpYaml, parseYaml} = await import("../../engine/src/yaml.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "opr-cli-")), f = path.join(dir, "spec.yaml");
+  fs.writeFileSync(f, dumpYaml(JSON.parse(fs.readFileSync(SPEC, "utf8"))));
+  const r = spawnSync("node", [BIN, f, "R1"], {input: "enable\nshow ip route\nconf t\nhostname CORE\nend\nwrite\n", encoding: "utf8"});
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /10\.0\.0\.0\/24/);
+  assert.ok(parseYaml(fs.readFileSync(f, "utf8")).nodes.some(n => n.name === "CORE"));
+  fs.rmSync(dir, {recursive: true});
+});

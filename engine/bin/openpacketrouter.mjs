@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // openpacketrouter — run network specs from the command line.
 //
-//   openpacketrouter run spec.json [actions.json] [--trace] [--compact] [--text]
+//   openpacketrouter run spec.(json|yaml) [actions.(json|yaml)] [--trace] [--compact] [--text]
 //   openpacketrouter check spec.json [actions.json]
 //   openpacketrouter actions
 //   openpacketrouter schema        (JSON Schema of the spec format, for editors and other tools)
@@ -12,6 +12,7 @@
 // <spec>.actions.json if it exists. `check` validates without running. Exit codes: 0 ok, 1 invalid
 // spec/actions, 2 usage or file error.
 import fs from "node:fs";
+import {parseData} from "../src/yaml.js";
 import {textReport} from "../src/report.js";
 import {validateSpec, validateActions, runActions, ACTIONS, RESULT_FORMAT, SPEC_VERSION, SpecError} from "../src/spec.js";
 
@@ -24,7 +25,8 @@ const USAGE = `usage:
 const die = (msg, code = 2) => { process.stderr.write(msg.endsWith("\n") ? msg : msg + "\n"); process.exit(code); };
 const readJson = (file, what) => {
   let text; try { text = fs.readFileSync(file, "utf8"); } catch (e) { die(`cannot read ${what} ${file}: ${e.code || e.message}`); }
-  try { return JSON.parse(text); } catch (e) { die(`${what} ${file} is not valid JSON: ${e.message}`, 1); }
+  const yaml = /\.ya?ml$/i.test(file);
+  try { return parseData(text, file); } catch (e) { die(`${what} ${file} is not valid ${yaml ? "YAML" : "JSON"}: ${e.message}`, 1); }
 };
 const report = (what, v) => {
   for (const w of v.warnings) process.stderr.write(`warning: ${what} ${w.path}: ${w.message}\n`);
@@ -49,8 +51,8 @@ if (!["run", "check"].includes(cmd)) die(`unknown command ${cmd}\n${USAGE}`);
 if (!specFile) die(USAGE);
 
 const spec = readJson(specFile, "spec");
-const sibling = specFile.replace(/\.json$/, ".actions.json");
-const actionsFile = actionsArg ?? (sibling !== specFile && fs.existsSync(sibling) ? sibling : null);
+const siblings = [".actions.json", ".actions.yaml", ".actions.yml"].map(x => specFile.replace(/\.(json|ya?ml)$/i, x)).filter(x => x !== specFile);
+const actionsFile = actionsArg ?? siblings.find(x => fs.existsSync(x)) ?? null;
 const actions = actionsFile ? readJson(actionsFile, "actions") : [];
 
 const vs = validateSpec(spec); report("spec", vs);

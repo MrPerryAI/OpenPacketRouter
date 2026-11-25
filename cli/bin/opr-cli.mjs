@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import readline from "node:readline";
 import {createSession} from "../src/index.js";
+import {parseData, dumpYaml} from "../../engine/src/yaml.js";
 import {engineBackend} from "../src/backends/engine.js";
 import {linuxCommands} from "../src/backends/linux.js";
 import {frrConfig} from "../src/backends/frr.js";
@@ -33,8 +34,8 @@ for (let i = 0; i < argv.length; i++) {
 if (pos.length !== 2) { console.error(USAGE); process.exit(2); }
 const [file, device] = pos;
 let spec;
-try { spec = JSON.parse(fs.readFileSync(file, "utf8")); } catch (e) { console.error(`opr-cli: ${file}: ${e.message}`); process.exit(2); }
-const backend = engineBackend(spec, {save: s => { fs.writeFileSync(file, JSON.stringify(s, null, 1) + "\n"); return true; }});
+try { spec = parseData(fs.readFileSync(file, "utf8"), file); } catch (e) { console.error(`opr-cli: ${file}: ${e.message}`); process.exit(2); }
+const backend = engineBackend(spec, {save: s => { fs.writeFileSync(file, /\.ya?ml$/i.test(file) ? dumpYaml(s) : JSON.stringify(s, null, 1) + "\n"); return true; }});
 if (!backend.kind(device)) { console.error(`opr-cli: no device named ${device} in ${file} (devices: ${backend.devices().join(", ")})`); process.exit(2); }
 
 if (render) {
