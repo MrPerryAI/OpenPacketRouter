@@ -136,6 +136,11 @@ export const HANDLERS = {
   "portsec.max": (ctx, [n]) => { const c = (curIface(ctx)["openpacketrouter:port-security"] ||= {}); c.max = n; },
   "portsec.violation": (ctx, args, mode) => { const c = curIface(ctx)["openpacketrouter:port-security"]; need(c, "Set switchport port-security maximum first"); c.violation = mode; },
   "portsec.off": ctx => { const i = curIface(ctx); need(i["openpacketrouter:port-security"], "Port security is not on for this port"); delete i["openpacketrouter:port-security"]; },
+  // ---- storm control (engine/src/link.js Police; stored as an extension on the interface)
+  "storm.broadcast": (ctx, [rate, burst]) => {
+    curIface(ctx)["openpacketrouter:storm-control"] = {broadcast: {rate, burst}};
+  },
+  "storm.off": ctx => { const i = curIface(ctx); need(i["openpacketrouter:storm-control"], "Storm control is not on for this port"); delete i["openpacketrouter:storm-control"]; },
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

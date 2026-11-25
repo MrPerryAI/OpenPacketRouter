@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "routes", "gw", "services", "lldp"],
@@ -215,6 +215,16 @@ export function validateSpec(spec) {
           else if (c.violation !== undefined && !["protect", "restrict", "shutdown"].includes(c.violation)) err(q, `node "${n.name}": port ${pn}: violation is "protect", "restrict" or "shutdown"`);
         }
       }
+      if (n.stormControl !== undefined) {   // {"p1": {"broadcast": {"rate": "100kbit", "burst": 400}}}; Police in link.js
+        if (!isObj(n.stormControl)) err(`${p}.stormControl`, `node "${n.name}": stormControl must be an object like {"p1": {"broadcast": {"rate": "100kbit", "burst": 400}}}`);
+        else for (const [pn, c] of Object.entries(n.stormControl)) {
+          const q = `${p}.stormControl.${pn}`;
+          if (!(Array.isArray(spec.links) ? spec.links : []).some(l => Array.isArray(l) && l.slice(0, 2).includes(`${n.name}:${pn}`))) err(q, `node "${n.name}": stormControl names port "${pn}", which has no cable in the spec`);
+          const b = isObj(c) ? c.broadcast : undefined;
+          let okRate = false; try { okRate = isObj(b) && parseRate(b.rate) > 0; } catch {}
+          if (!isObj(c) || !isObj(b) || !okRate || !(Number.isFinite(b.burst) && b.burst > 0)) err(q, `node "${n.name}": port ${pn} needs "broadcast": {"rate": "100kbit", "burst": bytes} (rate like 100kbit or bits per second; burst in bytes, above 0)`);
+        }
+      }
       if (n.channels !== undefined) {   // port-channels (LACP): {"Po1": {"ports": ["p3", "p4"], "rate": "slow"|"fast"}}; engine/src/lacp.js
         const cabled = new Set((Array.isArray(spec.links) ? spec.links : []).flatMap(l => Array.isArray(l) ? l.slice(0, 2) : []).filter(e => typeof e === "string" && e.startsWith(n.name + ":")).map(e => e.slice(n.name.length + 1)));
         const used = new Set();
@@ -346,6 +356,11 @@ export const ACTIONS = {
   portSecurity: {required: ["switch"], run: (net, a) => {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
     return {switch: a.switch, ports: n.portSecurity()};
+  }},
+  // Storm control on a switch right now: [{port, broadcast: {rate, burst, passed, dropped}}]
+  stormControl: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
+    return {switch: a.switch, ports: n.stormControl()};
   }},
   // The port-channels of a switch right now: each channel's members with their LACP state bytes and whether they carry traffic.
   lacp: {required: ["switch"], run: (net, a) => {

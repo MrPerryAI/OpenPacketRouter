@@ -83,5 +83,25 @@ export function queueStats(net) {
   const out = {};
   for (const node of net.nodes.values()) for (const i of Object.values(node.ifaces))
     if (i.shaper) out[`${node.name}:${i.name}`] = {sent: i.shaper.sent, dropped: i.shaper.dropped};
+  for (const node of net.nodes.values()) for (const [p, c] of node.storm || []) if (c.broadcast) out[`${node.name}:${p}`] = {sent: c.broadcast.passed, dropped: c.broadcast.dropped};   // storm control policers
   return out;
+}
+
+/** Ingress policer, modeled on Linux's `tc ... action police rate R burst B conform-exceed drop` (net/sched/act_police.c).
+ *  Same token bucket as above, but no queue: a frame either conforms (its tokens are taken) or is dropped, and a dropped
+ *  frame takes no tokens. At the tc ingress hook the kernel has already pulled the Ethernet header, so a frame costs its
+ *  length without the 14-byte header (`frameBytes(f) - 14`). Used by switch storm control (stormControl spec key). */
+export class Police {
+  constructor({rate, burst}) {
+    this.rate = parseRate(rate); this.burstBytes = burst; this.rateSpec = rate;
+    this.buffer = burst * 8 / this.rate; this.tokens = this.buffer; this.tc = 0; this.passed = 0; this.dropped = 0;
+  }
+  flush() {}
+  /** True if the frame conforms. */
+  admit(net, frame) {
+    const len = frameBytes(frame) - 14;
+    const toks = Math.min(this.buffer, this.tokens + (net.time - this.tc)) - len * 8 / this.rate;
+    if (toks < -1e-12) { this.dropped++; return false; }
+    this.tokens = Math.max(0, toks); this.tc = net.time; this.passed++; return true;
+  }
 }

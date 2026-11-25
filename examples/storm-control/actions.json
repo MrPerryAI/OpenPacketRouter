@@ -1,0 +1,7 @@
+[
+ {"do": "udpBurst", "src": "A", "dst": "255.255.255.255", "port": 9, "count": 10, "size": 100},
+ {"do": "stormControl", "switch": "SW1"},
+ {"do": "wait", "seconds": 1},
+ {"do": "ping", "src": "A", "dst": "10.0.0.2"},
+ {"do": "stormControl", "switch": "SW1"}
+]
