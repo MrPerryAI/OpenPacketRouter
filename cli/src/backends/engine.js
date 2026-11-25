@@ -247,6 +247,8 @@ function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
+  // RIP learns routes over a few update periods
+  for (const n of spec.nodes || []) if (n.rip) t = Math.max(t, 3 * (n.rip.timers?.update ?? 30));
   return t;
 }
 function freshNet(spec, cut) {
@@ -264,6 +266,7 @@ function routesOf(n) {
     const out = Object.values(n.ifaces).find(i => i.ip && inSubnet(r.via, i.net, i.mask));
     routes.push({prefix: r.cidr || `${intToIp(r.net)}/${r.prefix}`, protocol: "static", nextHop: r.via, interface: out ? out.name : null});
   }
+  if (n.rip) for (const r of n.rip.fib()) routes.push({prefix: r.cidr, protocol: "rip", nextHop: r.gw, interface: r.iface ?? null, metric: r.metric});
   return routes;
 }
 
@@ -291,6 +294,7 @@ export function stateOf(net, device, spec) {
     routes,
     arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface})),
     ...(n.nat ? {nat: {translations: n.nat.translations(), hits: n.nat.hits, misses: n.nat.misses}} : {}),
+    ...(n.rip ? {rip: n.rip.describe()} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }
