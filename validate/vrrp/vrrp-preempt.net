@@ -1,0 +1,64 @@
+{
+ "version": 1,
+ "name": "vrrp-preempt",
+ "about": "H1 and two routers on one switch share 10.0.0.254. R1 (priority 200) becomes master, R2 (100) is backup. R1's cable is cut: R2 takes over; the cable returns: R1 preempts and takes the address back.",
+ "nodes": [
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.10/24"
+   },
+   "gw": "10.0.0.254"
+  },
+  {
+   "name": "S1",
+   "kind": "switch"
+  },
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   },
+   "vrrp": [
+    {
+     "iface": "eth0",
+     "vrid": 1,
+     "ip": "10.0.0.254",
+     "priority": 200,
+     "preempt": true
+    }
+   ]
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   },
+   "vrrp": [
+    {
+     "iface": "eth0",
+     "vrid": 1,
+     "ip": "10.0.0.254",
+     "priority": 100
+    }
+   ]
+  }
+ ],
+ "links": [
+  [
+   "H1:eth0",
+   "S1:p1"
+  ],
+  [
+   "R1:eth0",
+   "S1:p2"
+  ],
+  [
+   "R2:eth0",
+   "S1:p3"
+  ]
+ ]
+}
