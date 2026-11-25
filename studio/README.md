@@ -36,6 +36,12 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   unplugs its cable, and `ping` and `traceroute` add their frames to the player. Commands: see `cli/README.md` and
   `docs/cli-design.md`.
 
+- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
+  TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
+  play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per
+  frame with time, protocol, from → to and a description; click a row to jump to that frame). Studio now describes
+  OSPF, RIP and LLDP frames (it used to fail on them).
+
 ## Files
 
 | File | What |

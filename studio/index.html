@@ -29,6 +29,7 @@
       <label class="speed">Speed <input type="range" id="speed" min="-2" max="4" step="0.25" value="0"><output id="speedOut">1×</output></label>
       <span id="counter" class="counter"></span>
     </div>
+    <div id="filters" class="filters" role="group" aria-label="Show these protocols"></div>
     <div id="reason" class="reason" aria-live="polite"></div>
   </section>
 
@@ -36,6 +37,10 @@
     <section>
       <h2>Actions</h2>
       <ol id="actions" class="actions"></ol>
+    </section>
+    <section>
+      <h2>Event list <small id="evCount"></small></h2>
+      <div id="events" class="events" role="listbox" aria-label="Frames on the wire"></div>
     </section>
     <section id="device" class="device">
       <h2>Device</h2>
