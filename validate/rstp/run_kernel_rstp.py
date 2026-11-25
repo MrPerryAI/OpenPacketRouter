@@ -40,7 +40,7 @@ class Bridges:
     def up(self):
         for n, node in self.sw.items():
             s = node.get("stp", {})
-            sh("ip", "link", "add", self.br[n], "type", "bridge"); sh("ip", "link", "set", self.br[n], "address", s["mac"])
+            sh("ip", "link", "add", self.br[n], "type", "bridge")
             sh("sysctl", "-qw", f"net.ipv6.conf.{self.br[n]}.disable_ipv6=1", check=False)
         for i, (a, b) in enumerate(self.spec["links"]):
             ends = []
@@ -51,6 +51,14 @@ class Bridges:
                 self.ifn[f"{node}:{port}"] = name
                 sh("sysctl", "-qw", f"net.ipv6.conf.{name}.disable_ipv6=1", check=False)
                 if node in self.sw: sh("ip", "link", "set", name, "master", self.br[node])
+        # The bridge ids come from the bridges' MAC addresses. udev may still be giving the new devices their own address:
+        # let it finish, then set ours, and check it stuck (a bridge MAC that moved would change the root election).
+        sh("udevadm", "settle", check=False)
+        for attempt in range(5):
+            for n, node in self.sw.items(): sh("ip", "link", "set", self.br[n], "address", node["stp"]["mac"])
+            time.sleep(0.5)
+            if all(sh("cat", f"/sys/class/net/{self.br[n]}/address").strip() == node["stp"]["mac"] for n, node in self.sw.items()): break
+        else: raise RuntimeError("could not set the bridges' MAC addresses")
         self.pids = subprocess.Popen(["mstpd", "-d", "-v", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         time.sleep(1)
         for n, node in self.sw.items():
@@ -78,6 +86,9 @@ class Bridges:
         time.sleep(0.5)
         for name in self.ifn.values(): sh("ip", "link", "set", name, "up")
         self.t0 = time.monotonic()
+        for n, node in self.sw.items():
+            now = sh("cat", f"/sys/class/net/{self.br[n]}/address").strip()
+            if now != node["stp"]["mac"]: raise RuntimeError(f"{self.br[n]}: the bridge MAC moved to {now}")
 
     def snapshot(self, names):
         out = {}
