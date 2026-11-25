@@ -122,6 +122,12 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     }
     out.push(args.join(" "));
   }
+  if (s.lldp) {   // lldpd, configured the way validate/lldp does
+    out.push("lldpd");
+    if (s.lldp.txInterval !== undefined) out.push(`lldpcli configure lldp tx-interval ${s.lldp.txInterval}`);
+    if (s.lldp.holdMultiplier !== undefined) out.push(`lldpcli configure lldp tx-hold ${s.lldp.holdMultiplier}`);
+    if (typeof s.lldp.description === "string") out.push(`lldpcli configure system description '${s.lldp.description.replace(/'/g, "")}'`);
+  }
   for (const [port, app] of Object.entries(s.tcp || {})) if (app === "echo") out.push(`socat TCP-LISTEN:${port},fork,reuseaddr EXEC:cat`);
   return out;
 }
