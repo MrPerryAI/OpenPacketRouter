@@ -9,8 +9,10 @@ jobs:
       - name: mstpd on the runner host
         run: |
           uname -r
-          sudo apt-get install -y --no-install-recommends mstpd tcpdump >/dev/null 2>&1 || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends mstpd tcpdump >/dev/null)
-          dpkg -L mstpd | grep -E "bin/|service" | head -20
+          sudo apt-get update -qq; apt-cache policy mstpd | head -3
+          sudo apt-get install -y --no-install-recommends tcpdump build-essential git >/dev/null
+          git clone -q --depth 1 https://github.com/mstpd/mstpd /tmp/mstpd-src && make -C /tmp/mstpd-src -j4 >/dev/null 2>&1 && sudo make -C /tmp/mstpd-src install >/dev/null 2>&1
+          git -C /tmp/mstpd-src log --oneline -1; which mstpd mstpctl; ls -la /sbin/bridge-stp
           sudo systemctl start mstpd || true
           sleep 1; pgrep -a mstpd || (sudo mstpd -d -v 2 >/tmp/mstpd.log 2>&1 &) ; sleep 1; pgrep -a mstpd
           sudo ip link add b1 type bridge; sudo ip link add b2 type bridge
