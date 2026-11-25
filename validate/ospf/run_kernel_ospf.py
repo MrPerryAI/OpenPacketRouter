@@ -358,7 +358,11 @@ def compare(name, eng, kr):
         if not ok:
             d = {}
             for part in ("neighbors", "interfaces", "routes", "database"):
-                if not checks[part]: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
+                if checks[part]: continue
+                if part == "database":   # only the LSAs that differ (the annotation GitHub keeps is short)
+                    jd = lambda l: json.dumps(l, sort_keys=True)
+                    d[part] = {r: {"engine only": sorted(set(map(jd, ec[r][part])) - set(map(jd, kc[r][part]))), "linux only": sorted(set(map(jd, kc[r][part])) - set(map(jd, ec[r][part])))} for r in ec if ec[r][part] != kc[r][part]}
+                else: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
             if not checks.get("last hello on every cable", True):
                 el, kl = last_hellos(eupto), last_hellos(kupto)
                 d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}

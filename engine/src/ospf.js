@@ -75,8 +75,9 @@ export class Ospf {
     return n ? n.area : null;
   }
   enabled(ifname) { return this.areaOf(ifname) !== null; }
-  areas() { return [...new Set([...this.ifs.values()].map(i => i.area))].sort((a, b) => cmpIp(a, b)); }
-  /** An area border router (3): interfaces up in two or more areas, one of them the backbone. */
+  /** The areas this router is configured in: those of its OSPF interfaces, up or not (ospfd keeps an area, with an empty router LSA, while its cable is down). */
+  areas() { return [...new Set(Object.keys(this.node.ifaces).map(n => this.areaOf(n)).filter(a => a !== null))].sort((a, b) => cmpIp(a, b)); }
+  /** An area border router (3): configured in two or more areas, one of them the backbone. */
   isAbr() { const a = this.areas(); return a.length > 1 && a.includes(AREA0); }
   routerId() {
     if (this.rid) return this.rid;
