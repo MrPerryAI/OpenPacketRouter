@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "routes", "gw", "services", "lldp"],
@@ -206,6 +206,15 @@ export function validateSpec(spec) {
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
       if (n.agingTime !== undefined && !(typeof n.agingTime === "number" && Number.isFinite(n.agingTime) && n.agingTime > 0))
         err(`${p}.agingTime`, `node "${n.name}": agingTime must be a number of seconds above 0 (default 300; Linux bridges treat 0 as "expire at once", which is not modeled)`);
+      if (n.portSecurity !== undefined) {   // {"p1": {"max": 2, "violation": "restrict"}}; see Switch in network.js
+        if (!isObj(n.portSecurity)) err(`${p}.portSecurity`, `node "${n.name}": portSecurity must be an object like {"p1": {"max": 2, "violation": "protect"}}`);
+        else for (const [pn, c] of Object.entries(n.portSecurity)) {
+          const q = `${p}.portSecurity.${pn}`;
+          if (!(Array.isArray(spec.links) ? spec.links : []).some(l => Array.isArray(l) && l.slice(0, 2).includes(`${n.name}:${pn}`))) err(q, `node "${n.name}": portSecurity names port "${pn}", which has no cable in the spec`);
+          if (!isObj(c) || !Number.isInteger(c.max) || c.max < 1) err(q, `node "${n.name}": port ${pn} needs "max": a whole number of secured addresses, 1 or more`);
+          else if (c.violation !== undefined && !["protect", "restrict", "shutdown"].includes(c.violation)) err(q, `node "${n.name}": port ${pn}: violation is "protect", "restrict" or "shutdown"`);
+        }
+      }
       if (n.channels !== undefined) {   // port-channels (LACP): {"Po1": {"ports": ["p3", "p4"], "rate": "slow"|"fast"}}; engine/src/lacp.js
         const cabled = new Set((Array.isArray(spec.links) ? spec.links : []).flatMap(l => Array.isArray(l) ? l.slice(0, 2) : []).filter(e => typeof e === "string" && e.startsWith(n.name + ":")).map(e => e.slice(n.name.length + 1)));
         const used = new Set();
@@ -332,6 +341,11 @@ export const ACTIONS = {
   macTable: {required: ["switch"], run: (net, a) => {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
     return {switch: a.switch, entries: n.macTable()};
+  }},
+  // Port security on a switch right now: [{port, max, violation, secured, violations, errdisabled}]
+  portSecurity: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
+    return {switch: a.switch, ports: n.portSecurity()};
   }},
   // The port-channels of a switch right now: each channel's members with their LACP state bytes and whether they carry traffic.
   lacp: {required: ["switch"], run: (net, a) => {

@@ -72,8 +72,13 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false} = {}) {
-    super(net, name, "switch"); this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, portSecurity = null} = {}) {
+    super(net, name, "switch");
+    /** portSecurity: {port: {max: N, violation: "protect"|"restrict"|"shutdown"}}. The first N source MACs heard on the port are secured for good
+     *  (they never age); a frame from any other MAC is a violation: dropped before the switch learns it (protect, restrict) and counted;
+     *  shutdown also takes the port down (err-disabled) until `clearPortSecurity`. Linux reference: nftables bridge prerouting + dynamic set (validate/portsec). */
+    this.portSec = new Map(Object.entries(portSecurity || {}).map(([p, c]) => [p, {max: c.max, violation: c.violation || "protect", secure: new Set(), violations: 0, errdisabled: false}]));
+ this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -164,6 +169,15 @@ export class Switch extends Device {
     }
     const st = this.stp && this.stp.ports.get(ifname) ? this.stp.ports.get(ifname).state : "forwarding";
     if (st === "disabled" || st === "listening" || st === "blocking") return;
+    const ps = this.portSec.get(ifname);
+    if (ps && !ps.secure.has(f.src)) {   // (a broadcast source is never legal; kernel: the set is keyed on the source address as is)
+      if (ps.secure.size < ps.max && f.src !== BROADCAST_MAC) ps.secure.add(f.src);
+      else {
+        ps.violations++; this.log("port-security", `${describe(f)}: ${f.src} is not one of the ${ps.max} secured address(es) on ${ifname} (${ps.violation})`);
+        if (ps.violation === "shutdown" && !ps.errdisabled) { ps.errdisabled = true; this.net.setLink(`${this.name}:${ifname}`, false); }
+        return;
+      }
+    }
     // VLAN classification
     let vid = 0;
     if (this.vlans) {
@@ -187,6 +201,10 @@ export class Switch extends Device {
     for (const p of ports) emit(p);
     if (svi && f.dst === BROADCAST_MAC) { const g = {...f}; delete g.vlan; this.l3.receive(svi.name, g); }   // and up to the SVI
   }
+  /** Port-security state per port: [{port, max, violation, secured: [mac], violations, errdisabled}]. */
+  portSecurity() { return [...this.portSec].map(([port, c]) => ({port, max: c.max, violation: c.violation, secured: [...c.secure], violations: c.violations, errdisabled: c.errdisabled})); }
+  /** Forget a port's secured addresses and violation count; bring an err-disabled port back up. */
+  clearPortSecurity(port) { const c = this.portSec.get(port); if (!c) return; c.secure.clear(); c.violations = 0; if (c.errdisabled) { c.errdisabled = false; this.net.setLink(`${this.name}:${port}`, true); } }
   flush() { this.table.clear(); this.seen.clear(); if (this.l3) this.l3.flush(); }
 }
 
@@ -445,7 +463,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

@@ -47,6 +47,8 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/intervlan/run_kernel_intervlan.py
       - name: MAC address aging vs real Linux bridges (ageing_time, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/aging/run_kernel_aging.py
+      - name: Port security vs real Linux (nftables bridge sets, frame for frame)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/portsec/run_kernel_portsec.py
       - name: STP topology change notices vs real Linux bridges (flags, aging, MAC tables)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcn/run_kernel_tcn.py
       - name: LACP port-channels vs real Linux bonds (802.3ad, states, LACPDUs, hash per cable)
