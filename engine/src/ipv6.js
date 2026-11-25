@@ -7,8 +7,10 @@
 //   - A packet the router cannot deliver after 3 solicitations gets "address unreachable" (ICMPv6 type 1 code 3) back.
 //   - Hop limit is decremented when forwarding; at 1 the router answers "time exceeded" (type 3); no route: type 1 code 0.
 //   - No ICMPv6 errors about ICMPv6 errors.
+//   - A solicitation for a forwarded packet is sent from the interface's link-local address (the packet's source is not ours), so the
+//     host that answers does not learn the router's global address and solicits it itself when it replies (Linux ndisc_solicit).
 // Not modelled (the validators pin Linux to match): duplicate address detection (nodad), router solicitations,
-// MLD reports, router advertisements, redirects, link-local addresses.
+// MLD reports, router advertisements, redirects, link-local addresses as routing targets (only as solicitation sources).
 import {ip6ToInt, intToIp6, parseCidr6, inSubnet6, solicitedNode, multicastMac} from "./addr6.js";
 
 export const ICMP6 = {unreach: 1, timeExceeded: 3, echoRequest: 128, echoReply: 129, ns: 135, na: 136};
@@ -26,9 +28,16 @@ export class Ip6 {
     this.pending = new Map();   // next-hop address -> {iface, packets, tries, forwarded}
   }
   owns(ip) { return this.addrs.some(a => a.ip === ip); }
-  ownsOn(iface, ip) { return this.addrs.some(a => a.iface === iface && a.ip === ip); }
+  /** The interface's link-local address, built from its MAC like Linux (EUI-64): fe80::/64 with the U/L bit flipped. Used only as the
+   *  source of solicitations for forwarded packets, and answered like any local address. */
+  linkLocal(iface) {
+    const m = this.node.ifaces[iface].mac.split(":").map(x => parseInt(x, 16));
+    const g = [0xfe80, 0, 0, 0, ((m[0] ^ 2) << 8) | m[1], (m[2] << 8) | 0xff, (0xfe << 8) | m[3], (m[4] << 8) | m[5]];
+    return intToIp6(g.reduce((a, x) => (a << 16n) | BigInt(x), 0n));
+  }
+  ownsOn(iface, ip) { return ip === this.linkLocal(iface) || this.addrs.some(a => a.iface === iface && a.ip === ip); }
   /** Does the NIC on `iface` accept frames to this multicast MAC (a solicited-node group we have joined)? */
-  joined(iface, mac) { return this.addrs.some(a => a.iface === iface && multicastMac(solicitedNode(a.ip)) === mac); }
+  joined(iface, mac) { return [...this.addrs.filter(a => a.iface === iface).map(a => a.ip), this.linkLocal(iface)].some(ip => multicastMac(solicitedNode(ip)) === mac); }
   flush() { this.cache.clear(); this.pending.clear(); }
 
   /** Longest-prefix match over connected prefixes and static routes. */
@@ -73,7 +82,9 @@ export class Ip6 {
     }
     q.tries++;
     const i = this.node.ifaces[q.iface], first = q.packets[0];
-    const spa = first.src && this.ownsOn(q.iface, first.src) ? first.src : this.addrs.find(a => a.iface === q.iface).ip;   // the packet's own source when it is ours
+    // Like Linux (ndisc_solicit): the packet's own source when it is a local address on this interface, else the link-local address.
+    // So a router resolving a host for a forwarded packet does not teach the host its global address, and the host must solicit it back.
+    const spa = first.src && this.ownsOn(q.iface, first.src) ? first.src : this.linkLocal(q.iface);
     const group = solicitedNode(target);
     this.node.log("ns", `who has ${target}? (try ${q.tries})`);
     this.node.send(q.iface, {src: i.mac, dst: multicastMac(group), type: "ipv6",
