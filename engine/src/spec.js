@@ -430,7 +430,15 @@ export function runActions(spec, actions, {trace = false} = {}) {
   const va = validateActions(actions, spec);
   if (!va.ok) throw new SpecError("actions", va.errors);
   const out = [];
+  const withV6 = [...net.nodes.values()].some(n => n.v6);
+  let icmp6 = {};   // ICMPv6 message types sent per cable direction during the current action (validate/ipv6 compares them with tcpdump)
+  if (withV6) net.taps.add((node, ifname, f) => {
+    if (f.type !== "ipv6" || f.ip6.proto !== "icmp6") return;
+    const peer = node.ifaces[ifname].peer, key = `${node.name}:${ifname}>${peer.node.name}:${peer.name}`;
+    (icmp6[key] ||= []).push(f.ip6.icmp.type);
+  });
   for (const a of actions) {
+    icmp6 = {};
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
@@ -438,6 +446,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
+    if (withV6) entry.icmp6 = Object.fromEntries(Object.entries(icmp6).map(([k, v]) => [k, v.sort((x, y) => x - y)]));
     const nats = [...net.nodes.values()].filter(n => n.nat);
     if (nats.length) entry.nat = Object.fromEntries(nats.map(n => [n.name, n.nat.conntrack()]));   // live tracking entries, in conntrack's shape (validate/nat compares them)
     if (trace) entry.trace = net.trace.slice(t0);
