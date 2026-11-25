@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 
 def sh(*a, check=True):
     r = subprocess.run(a, capture_output=True, text=True)
-    if check and r.returncode: raise RuntimeError(f"{' '.join(a)}: {r.stderr.strip()}")
+    if check and r.returncode: raise RuntimeError(f"{' '.join(a)}: {r.stderr.strip()} {r.stdout.strip()}")
     return r.stdout
 
 
@@ -44,8 +44,8 @@ class Bridges:
         time.sleep(1)
         for n, node in self.sw.items():
             s = node.get("stp", {}); b = self.br[n]
-            sh("ip", "link", "set", b, "type", "bridge", "stp_state", "2")
-        time.sleep(0.5)
+            sh("ip", "link", "set", b, "type", "bridge", "stp_state", "2"); sh("ip", "link", "set", b, "up")
+        time.sleep(1)
         for n, node in self.sw.items():
             s = node.get("stp", {}); b = self.br[n]
             sh("mstpctl", "setforcevers", b, "rstp")
@@ -58,7 +58,6 @@ class Bridges:
             f = f"/tmp/rstp-bpdu-{name}.txt"; open(f, "w").close(); self.files[key] = f
             self.sniff.append(subprocess.Popen([sys.executable, str(HERE / "sniff_bpdu.py"), name, f]))
         time.sleep(0.5)
-        for b in self.br.values(): sh("ip", "link", "set", b, "up")
         for name in self.ifn.values(): sh("ip", "link", "set", name, "up")
         self.t0 = time.monotonic()
 
