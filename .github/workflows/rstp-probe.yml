@@ -7,11 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: mstpd on the runner host
+        shell: bash {0}
         run: |
           uname -r
           sudo apt-get update -qq; apt-cache policy mstpd | head -3
           sudo apt-get install -y --no-install-recommends tcpdump build-essential git >/dev/null
-          git clone -q --depth 1 https://github.com/mstpd/mstpd /tmp/mstpd-src && make -C /tmp/mstpd-src -j4 >/dev/null 2>&1 && sudo make -C /tmp/mstpd-src install >/dev/null 2>&1
+          git clone -q --depth 1 https://github.com/mstpd/mstpd /tmp/mstpd-src && make -C /tmp/mstpd-src -j4 2>&1 | tail -15; sudo make -C /tmp/mstpd-src install 2>&1 | tail -8
           git -C /tmp/mstpd-src log --oneline -1; which mstpd mstpctl; ls -la /sbin/bridge-stp
           sudo systemctl start mstpd || true
           sleep 1; pgrep -a mstpd || (sudo mstpd -d -v 2 >/tmp/mstpd.log 2>&1 &) ; sleep 1; pgrep -a mstpd
