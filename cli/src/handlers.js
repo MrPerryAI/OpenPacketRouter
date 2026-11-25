@@ -123,6 +123,10 @@ export const HANDLERS = {
     const ifc = curIface(ctx); need(M.isLagName(ifc.config.name), "lacp rate is set on a port-channel (interface Po1)");
     if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
   },
+  // ---- port security (engine/src/network.js portSecurity; stored as an extension on the interface)
+  "portsec.max": (ctx, [n]) => { const c = (curIface(ctx)["openpacketrouter:port-security"] ||= {}); c.max = n; },
+  "portsec.violation": (ctx, args, mode) => { const c = curIface(ctx)["openpacketrouter:port-security"]; need(c, "Set switchport port-security maximum first"); c.violation = mode; },
+  "portsec.off": ctx => { const i = curIface(ctx); need(i["openpacketrouter:port-security"], "Port security is not on for this port"); delete i["openpacketrouter:port-security"]; },
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

@@ -6,6 +6,7 @@ const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 2 : 1).padStart(8)} ms`;
 export function describeResult(a, r) {
   if (a.do === "wait") return `wait ${a.seconds} s (now ${+r.time.toFixed(3)} s)`;
   if (a.do === "macTable") return `MAC table of ${r.switch}: ` + (r.entries.map(e => `vlan ${e.vlan} ${e.mac} on ${e.port} (age ${e.age} s)`).join("; ") || "empty");
+  if (a.do === "portSecurity") return `port security on ${r.switch}: ` + (r.ports.map(p => `${p.port} ${p.secured.length}/${p.max} secured, ${p.violations} violation(s), ${p.violation}${p.errdisabled ? ", err-disabled" : ""}`).join("; ") || "off");
   if (a.do === "stp") return `spanning tree on ${r.switch}: root ${r.root}${r.isRoot ? " (this switch)" : ""}, ` + Object.entries(r.ports).map(([n, p]) => `${n} ${p.role}/${p.state}`).join(" ") + (r.topologyChange ? ", topology change in progress" : "");
   if (a.do === "lacp") return `port-channels on ${r.switch}: ` + (r.channels.map(c => `${c.name} (${c.rate}) ` + c.members.map(m => `${m.port} ${!m.up ? "down" : m.aggregated ? "bundled" : "waiting"}`).join(", ")).join("; ") || "none");
   if (a.do === "link") return `cable at ${a.end} ${r.up ? "restored" : "cut"}`;

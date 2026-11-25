@@ -56,6 +56,11 @@ export const SHOWS = {
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 
+  "show.port-security": ctx => {
+    const rows = ctx.state().portSecurity || [];
+    return {json: rows, text: rows.length ? table(["Port", "Max", "Secured", "Violation", "Violations", "State"], rows.map(r => [r.port, r.max, r.secured.length, r.violation, r.violations, r.errdisabled ? "err-disabled" : "secure-up"])) : "Port security is not on for any port (switchport port-security maximum N, on an access port)"};
+  },
+
   "show.etherchannel": ctx => {
     const ch = ctx.state().lacp || [];
     if (!ch.length) return {json: [], text: "No port-channels on this switch (channel-group N mode active on two or more ports makes one)"};

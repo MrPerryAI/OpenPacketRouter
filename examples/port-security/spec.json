@@ -1,0 +1,13 @@
+{
+ "version": 1,
+ "name": "Port security",
+ "about": "A and B share a small switch HUB whose uplink plugs into SW1:p1. SW1 secures one MAC address on p1 (restrict): the first host heard keeps it, the other is dropped. C sits on SW1:p2 with no limit.",
+ "nodes": [
+  {"name": "SW1", "kind": "switch", "portSecurity": {"p1": {"max": 1, "violation": "restrict"}}},
+  {"name": "HUB", "kind": "switch"},
+  {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+  {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}},
+  {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.3/24"}}
+ ],
+ "links": [["A:eth0", "HUB:p1"], ["B:eth0", "HUB:p2"], ["HUB:p3", "SW1:p1"], ["C:eth0", "SW1:p2"]]
+}
