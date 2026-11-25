@@ -45,3 +45,10 @@ test("routed ping6, hop limit 1, no route, unresolvable neighbor", () => {
   assert.equal(dead.frames["R:eth1>C:eth0"], 3);                   // three solicitations, then "address unreachable" to A
   assert.equal(dead.frames["R:eth0>SW:p3"], 2);                   // the NA for A, then the error
 });
+
+test("each action reports the ICMPv6 message types sent on every cable direction (NS 135, NA 136, echo 128/129)", () => {
+  const [r] = runActions(lab(), [{do: "ping", src: "A", dst: "2001:db8:1::b"}]);
+  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [128, 135]);
+  assert.deepEqual(r.icmp6["B:eth0>SW:p2"], [129, 136]);
+  assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [135]);   // the switch floods the solicitation, not the echo
+});
