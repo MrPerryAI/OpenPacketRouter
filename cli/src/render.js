@@ -80,6 +80,13 @@ export function configLines(model, {kind, ports}) {
       if (sp && sp["edge-port"] === "EDGE_ENABLE") out.push(" spanning-tree portfast");
       if (ifc["openpacketrouter:nat"]) out.push(` ip nat ${ifc["openpacketrouter:nat"]}`);
       for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
+      for (const g of (M.services(model).vrrp || []).filter(x => x.iface === name)) {
+        if (g.ip) out.push(` vrrp ${g.vrid} address ${g.ip}`);
+        if (g.priority !== undefined) out.push(` vrrp ${g.vrid} priority ${g.priority}`);
+        if (g.interval !== undefined) out.push(` vrrp ${g.vrid} interval ${g.interval}`);
+        if (g.preempt === false) out.push(` no vrrp ${g.vrid} preempt`);
+        if (g.virtualMac) out.push(` vrrp ${g.vrid} virtual-mac`);
+      }
       const oi = M.ospfIf(model, name, false);
       if (oi) {
         const c = oi.config, t = oi.timers.config;
