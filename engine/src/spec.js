@@ -51,7 +51,15 @@ function checkOspf(n, p, err) {
   for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces)`);
   if (o.routerId !== undefined && !isIp(o.routerId)) err(`${p}.ospf.routerId`, `node "${n.name}": routerId "${o.routerId}" is not like 1.1.1.1`);
   if (!Array.isArray(o.networks) || !o.networks.length) err(`${p}.ospf.networks`, `node "${n.name}": ospf needs networks: interface names or prefixes like 10.0.0.0/8`);
-  else o.networks.forEach((x, j) => { if (!(isCidr(x) || names.includes(x))) err(`${p}.ospf.networks[${j}]`, `node "${n.name}": "${x}" is neither one of its interfaces nor a prefix like 10.0.0.0/8`); });
+  else o.networks.forEach((x, j) => {
+    // an interface name or prefix (area 0), or {"network": ..., "area": "0.0.0.1" | 1}
+    const nw = isObj(x) ? x.network : x, q = `${p}.ospf.networks[${j}]`;
+    if (isObj(x)) {
+      for (const k of Object.keys(x)) if (!["network", "area"].includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown key "${k}" in a networks entry (network, area)`);
+      if (x.area !== undefined && !(Number.isInteger(x.area) && x.area >= 0 && x.area <= 0xffffffff) && !(typeof x.area === "string" && (isIp(x.area) || /^\d+$/.test(x.area)))) err(`${q}.area`, `node "${n.name}": area ${JSON.stringify(x.area)} is not like 1 or 0.0.0.1`);
+    }
+    if (!(typeof nw === "string" && (isCidr(nw) || names.includes(nw)))) err(q, `node "${n.name}": "${nw}" is neither one of its interfaces nor a prefix like 10.0.0.0/8`);
+  });
   if (o.passive !== undefined && !(Array.isArray(o.passive) && o.passive.every(x => names.includes(x))))
     err(`${p}.ospf.passive`, `node "${n.name}": passive must list some of its interfaces (${names.join(", ")})`);
   if (o.interfaces !== undefined) {

@@ -155,3 +155,30 @@ test("LSAs flood across several routers: point-to-point, then a LAN, then point-
   assert.deepEqual(routes(net, "R1"), ["10.0.0.0/24 cost 25 via 10.12.0.2", "10.5.0.0/24 cost 42 via 10.12.0.2", "10.45.0.0/24 cost 32 via 10.12.0.2"]);
   assert.equal(ping(net, "H1", "10.5.0.10").ok, true);
 });
+
+test("three areas: ABRs summarize each area into the others, inter-area routes carry the ABR's cost", () => {
+  const net = Network.fromSpec(load("ospf-areas"));
+  at(net, 25);
+  assert.deepEqual(routes(net, "R1"), ["10.0.0.0/24 cost 25 via 10.12.0.2", "10.3.0.0/24 cost 35 via 10.12.0.2", "10.5.0.0/24 cost 42 via 10.12.0.2", "10.45.0.0/24 cost 32 via 10.12.0.2"]);
+  assert.deepEqual(net.node("R1").ospf.describe().map(r => r.type), ["inter", "inter", "inter", "inter"]);
+  assert.deepEqual(net.node("R2").ospf.describe().filter(r => r.type === "intra").map(r => r.network), ["10.1.0.0/24", "10.3.0.0/24"]);
+  assert.equal(ping(net, "H1", "10.5.0.10").ok, true);
+  assert.equal(ping(net, "H3", "10.1.0.10").ok, true);
+  // area 1 has its own database: R1 knows nothing of the other areas' router LSAs, only their summaries
+  const db = net.node("R1").ospf.database();
+  assert.deepEqual([...new Set(db.map(l => l.area))], ["0.0.0.1"]);
+  assert.deepEqual(db.filter(l => l.type === "summary").map(l => `${l.id}/${l.adv} ${l.metric}`), ["10.0.0.0/2.2.2.2 20", "10.3.0.0/2.2.2.2 30", "10.5.0.0/2.2.2.2 37", "10.45.0.0/2.2.2.2 27"]);
+  // an interface in the wrong area forms no adjacency
+  const bad = load("ospf-areas"); bad.nodes.find(n => n.name === "R5").ospf.networks = [{network: "10.0.0.0/8", area: 3}];
+  const n2 = Network.fromSpec(bad); at(n2, 25);
+  assert.equal(n2.node("R5").ospf.neighbors().length, 0);
+});
+
+test("an ABR that loses the backbone flushes its summaries; the area is cut off", () => {
+  const net = Network.fromSpec(load("ospf-areas"));
+  at(net, 25); net.setLink("SW:p3", false); at(net, 50);
+  assert.deepEqual(routes(net, "R1"), ["10.0.0.0/24 cost 25 via 10.12.0.2", "10.3.0.0/24 cost 35 via 10.12.0.2"]);
+  assert.deepEqual(routes(net, "R5"), []);
+  net.setLink("SW:p3", true); at(net, 75);
+  assert.equal(ping(net, "H1", "10.5.0.10").ok, true);
+});
