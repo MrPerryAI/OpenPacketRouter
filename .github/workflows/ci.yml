@@ -113,3 +113,10 @@ jobs:
           f=$(grep -lE '^ *(profile +)?[^ ]*lldpd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f" || true; fi
           validate/docker/run.sh lldp
+      - name: VRRP vs keepalived (master, ping to the virtual address, advertisements on every cable)
+        # Runs in the project's privileged container (validate/docker/Dockerfile has keepalived), like `run.sh vrrp` locally.
+        run: |
+          # As for lldpd: unload a host AppArmor profile that could confine the container's keepalived.
+          f=$(grep -lE '^ *(profile +)?[^ ]*keepalived\b' /etc/apparmor.d/* 2>/dev/null | head -1)
+          if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f" || true; fi
+          validate/docker/run.sh vrrp
