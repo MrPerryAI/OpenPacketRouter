@@ -306,6 +306,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show interface brief` | user, privileged | all devices | One line per interface |
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
+| `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | One list |
