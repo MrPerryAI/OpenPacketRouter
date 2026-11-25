@@ -3,6 +3,7 @@ import {validateSpec, validateActions} from "../engine/src/spec.js";
 import {simulate, analyse} from "./sim.js";
 import {autoLayout} from "./layout.js";
 import * as ed from "./editor.js";
+import {parseData, dumpYaml} from "../engine/src/yaml.js";
 import {EXAMPLES} from "./examples.js";
 import {createSession} from "../cli/src/index.js";
 import {engineBackend} from "../cli/src/backends/engine.js";
@@ -78,8 +79,8 @@ export function restoreAutosave() {
 
 /** The spec as the JSON a file would hold (two-space indent, trailing newline). */
 export const specJson = () => JSON.stringify(S.spec, null, 2) + "\n";
-function download(filename, text) {
-  const url = URL.createObjectURL(new Blob([text], {type: "application/json"}));
+function download(filename, text, type = "application/json") {
+  const url = URL.createObjectURL(new Blob([text], {type}));
   const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -431,17 +432,18 @@ async function init() {
   sel.innerHTML = list.map((e, i) => `<option value="${i}">${esc(e.title)}</option>`).join("") + `<option value="" disabled hidden>(your file)</option>`;
   sel.addEventListener("change", () => { if (sel.value !== "") loadExample(list[+sel.value]).catch(e => showErrors([String(e)])); });
   $("#specFile").addEventListener("change", async e => {
-    try { const spec = JSON.parse(await readFile(e.target)); sel.value = ""; load(spec, [], e.target.files[0].name); }
+    try { const spec = parseData(await readFile(e.target), e.target.files[0].name); sel.value = ""; load(spec, [], e.target.files[0].name); }
     catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
     e.target.value = "";
   });
   $("#actionsFile").addEventListener("change", async e => {
-    try { const a = JSON.parse(await readFile(e.target)); if (S.spec) { const vs = validateActions(a, S.spec);
+    try { const a = parseData(await readFile(e.target), e.target.files[0].name); if (S.spec) { const vs = validateActions(a, S.spec);
       if (!vs.ok) showErrors(vs.errors.map(x => `actions ${x.path}: ${x.message}`)); else { showErrors([]); S.actions = a; rerun(); } } }
     catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
     e.target.value = "";
   });
   $("#saveSpec").addEventListener("click", () => S.spec && download(`${fileBase()}.spec.json`, specJson()));
+  $("#saveYaml").addEventListener("click", () => S.spec && download(`${fileBase()}.spec.yaml`, dumpYaml(S.spec), "text/yaml"));
   $("#saveActions").addEventListener("click", () => S.spec && download(`${fileBase()}.actions.json`, JSON.stringify(S.actions, null, 2) + "\n"));
   $("#restore").addEventListener("click", restoreAutosave); showRestore();
   $("#consoleInput").addEventListener("keydown", consoleKey);
@@ -551,5 +553,5 @@ function consoleKey(e) {
   }
 }
 
-window.studio = {S, edit, addDevice, setTool, restoreAutosave, specJson, load, rerun, goto, play, stop, select, toggleCut, openConsole};
+window.studio = {S, dumpYaml, edit, addDevice, setTool, restoreAutosave, specJson, load, rerun, goto, play, stop, select, toggleCut, openConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });

@@ -179,6 +179,15 @@ try {
   check(true, "a full or disabled browser storage does not break the page");
   await page.evaluate(() => localStorage.setItem("studio-autosave", "{not json")); 
   check(await page.evaluate(() => window.studio.restoreAutosave()) === false, "a corrupt autosave is ignored");
+  // YAML: save the network as YAML and open it again
+  await page.evaluate(() => { window.studio.load({version: 1, name: "Yaml net", nodes: [{name: "SW1", kind: "switch"}, {name: "PC1", kind: "host", ifaces: {eth0: "10.0.0.1/24"}}], links: [["PC1:eth0", "SW1:p1"]]}); });
+  const [dly] = await Promise.all([page.waitForEvent("download"), page.click("#saveYaml")]);
+  const ytext = await page.evaluate(() => window.lastBlob.text());
+  check(dly.suggestedFilename() === "yaml-net.spec.yaml" && /"name": "SW1"/.test(ytext), "Save YAML downloads the network as YAML", dly.suggestedFilename());
+  await page.evaluate(() => window.studio.load({version: 1, name: "Other", nodes: [], links: []}));
+  await page.setInputFiles("#specFile", {name: "net.yaml", mimeType: "text/yaml", buffer: Buffer.from(ytext)});
+  await page.waitForFunction(() => window.studio.S.spec.nodes.length === 2);
+  check(await page.evaluate(() => window.studio.S.spec.nodes[1].ifaces.eth0) === "10.0.0.1/24", "a YAML spec opens like a JSON one");
 
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
