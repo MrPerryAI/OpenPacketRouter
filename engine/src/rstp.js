@@ -33,7 +33,8 @@ export class Rstp {
     this.hello = opts.hello ?? 2; this.maxAge = opts.maxAge ?? 20; this.forwardDelay = opts.forwardDelay ?? 15;
     this.costOf = opts.cost || {}; this.prioOf = opts.portPriority || {}; this.edgeOf = opts.edge || {}; this.autoEdge = opts.autoEdge ?? true;
     this.started = false; this.ports = new Map(); this.running = false; this.again = false;
-    this.tc = false; this.tcd = false; this.curFwd = this.forwardDelay;   // (the classic fields other code reads: RSTP flushes instead of ageing faster)
+    this.tc = false; this.curFwd = this.forwardDelay;   // (`tc` stays false: classic STP shortens MAC ageing while a topology change is in force, RSTP flushes the ports instead)
+    this.tcActive = false;
   }
   get bid() { return [this.priority, this.mac]; }
   isRoot() { return cmpId(this.rootPri.root, this.bid) === 0; }
@@ -86,10 +87,9 @@ export class Rstp {
     this._run();
   }
   _setTc(hint, p) {
-    const was = this.tc;
-    this.tc = hint ? true : [...this.ports.values()].some(q => q.tcWhile !== 0);
-    this.tcd = this.tc;
-    if (this.tc !== was) this.sw.log("stp", this.tc ? `topology change${p ? ` (port ${p.name})` : ""}` : "topology change over");
+    const was = this.tcActive;
+    this.tcActive = hint ? true : [...this.ports.values()].some(q => q.tcWhile !== 0);
+    if (this.tcActive !== was) this.sw.log("stp", this.tcActive ? `topology change${p ? ` (port ${p.name})` : ""}` : "topology change over");
   }
 
   // ----- the clause 17 helpers -----
@@ -437,7 +437,7 @@ export class Rstp {
   /** What an engineer would read off `show spanning-tree`. */
   describe() {
     const state = {blocking: "discarding"};
-    return {mode: "rstp", bridgeId: idStr(this.bid), root: idStr(this.rootPri.root), isRoot: this.isRoot(), topologyChange: this.tc, rootCost: this.rootPri.cost, rootPort: this.rootPort,
+    return {mode: "rstp", bridgeId: idStr(this.bid), root: idStr(this.rootPri.root), isRoot: this.isRoot(), topologyChange: this.tcActive, rootCost: this.rootPri.cost, rootPort: this.rootPort,
       ports: Object.fromEntries([...this.ports.values()].map(p => [p.name, {role: p.role, state: state[p.state] ?? p.state, no: p.no, id: p.id, cost: p.cost, edge: p.operEdge, pointToPoint: p.operP2P,
         designatedRoot: idStr(p.portPri.root), designatedCost: p.portPri.cost, designatedBridge: idStr(p.portPri.bridge), designatedPort: p.portPri.port}]))};
   }

@@ -165,6 +165,9 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
 | `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
+| `spanning-tree mode stp` | config | switches | Classic spanning tree (802.1D): timers decide when a port may forward |
+| `spanning-tree mode rstp` | config | switches | Rapid spanning tree (802.1w): neighbours agree with proposals and agreements, so ports forward in moments |
+| `no spanning-tree mode` | config | switches | Back to classic spanning tree |
 | `spanning-tree priority PRIORITY` | config | switches | Priority (default 32768) |
 | `spanning-tree hello-time SECONDS` | config | switches | Seconds |
 | `spanning-tree max-age SECONDS` | config | switches | Seconds |
@@ -177,6 +180,8 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no spanning-tree bridge-address` | config | switches | Default bridge address |
 | `spanning-tree cost COST` | interface | switches | Cost |
 | `spanning-tree port-priority PRIORITY` | interface | switches | Priority (default 128) |
+| `spanning-tree portfast` | interface | switches | An edge port: a host hangs here, no switch, so rapid spanning tree forwards on it at once |
+| `no spanning-tree portfast` | interface | switches | Not an edge port (the switch still detects one by itself when no BPDU arrives) |
 | `no spanning-tree cost` | interface | switches | Default cost |
 | `no spanning-tree port-priority` | interface | switches | Default port priority |
 
@@ -505,6 +510,7 @@ Lab `loop-with-stp`, device `SW1`:
 ```text
 SW1>enable
 SW1#show spanning-tree
+Protocol spanning tree (STP)
 Bridge 8000.02aa00000001  (this switch is the root)
 Root   8000.02aa00000001
 Priority 32768, hello 1 s, max age 6 s, forward delay 4 s

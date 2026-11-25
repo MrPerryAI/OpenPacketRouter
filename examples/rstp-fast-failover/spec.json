@@ -1,0 +1,13 @@
+{
+ "version": 1,
+ "name": "Rapid spanning tree: fast failover",
+ "about": "Three switches in a triangle run rapid spanning tree with the default timers. SW1 is the root. A (on SW2) and B (on SW3) talk through SW1; when the cable SW1-SW3 is cut, SW3's blocked port takes over at once.",
+ "nodes": [
+  {"name": "SW1", "kind": "switch", "stp": {"mode": "rstp", "mac": "02:aa:00:00:00:01", "priority": 4096}},
+  {"name": "SW2", "kind": "switch", "stp": {"mode": "rstp", "mac": "02:aa:00:00:00:02", "edge": {"p3": true}}},
+  {"name": "SW3", "kind": "switch", "stp": {"mode": "rstp", "mac": "02:aa:00:00:00:03"}},
+  {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+  {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+ ],
+ "links": [["SW1:p1", "SW2:p1"], ["SW1:p2", "SW3:p1"], ["SW2:p2", "SW3:p2"], ["A:eth0", "SW2:p3"], ["B:eth0", "SW3:p3"]]
+}

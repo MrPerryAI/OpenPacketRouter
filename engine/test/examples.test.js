@@ -137,3 +137,14 @@ test("stp-topology-change: the flag appears after a cable is cut, MAC entries go
   assert.equal(after.topologyChange, false);
   assert.ok(tableAfter.entries.every(e => !e.stale), "back to the 60 s aging time");
 });
+
+test("rstp-fast-failover: the alternate port takes over the moment the cable is cut, and pings keep working", () => {
+  const r = run("rstp-fast-failover");
+  const [, before, ping1, , after, ping2, , , back, ping3] = r.map(a => a.result);
+  assert.equal(before.ports.p1.role, "root"); assert.equal(before.ports.p2.role, "alternate"); assert.equal(before.ports.p2.state, "discarding");
+  assert.equal(ping1.ok, true);
+  assert.equal(after.ports.p2.role, "root"); assert.equal(after.ports.p2.state, "forwarding"); assert.equal(after.ports.p1.state, "disabled");
+  assert.equal(ping2.ok, true, "no 30 second wait as with classic spanning tree");
+  assert.equal(back.ports.p1.role, "root"); assert.equal(back.ports.p2.role, "alternate");
+  assert.equal(ping3.ok, true);
+});

@@ -86,11 +86,12 @@ export const SHOWS = {
     if (!d) return {json: null, text: "Spanning tree is off on this switch"};
     const g = M.stpGlobal(ctx.model);
     const timers = {helloTime: g["hello-time"] ?? 2, maxAge: g["max-age"] ?? 20, forwardDelay: g["forwarding-delay"] ?? 15, priority: g["bridge-priority"] ?? 32768};
-    const lines = [`Bridge ${d.bridgeId}${d.isRoot ? "  (this switch is the root)" : ""}`, `Root   ${d.root}`];
+    const rstp = d.mode === "rstp";
+    const lines = [`Protocol ${rstp ? "rapid spanning tree (RSTP)" : "spanning tree (STP)"}`, `Bridge ${d.bridgeId}${d.isRoot ? "  (this switch is the root)" : ""}`, `Root   ${d.root}`];
     if (!d.isRoot) lines.push(`Path cost to root ${d.rootCost}, through port ${d.rootPort}`);
     lines.push(`Priority ${timers.priority}, hello ${timers.helloTime} s, max age ${timers.maxAge} s, forward delay ${timers.forwardDelay} s`);
-    lines.push("", table(["Port", "Role", "State", "Cost", "Port ID"], Object.entries(d.ports).map(([p, x]) => [p, x.role, x.state, x.cost, `${x.id >> 8}.${x.no}`])));
-    return {json: {...d, timers}, text: lines.join("\n")};
+    lines.push("", table(["Port", "Role", "State", "Cost", "Port ID", ...(rstp ? ["Edge"] : [])], Object.entries(d.ports).map(([p, x]) => [p, x.role, x.state, x.cost, `${x.id >> 8}.${x.no}`, ...(rstp ? [x.edge ? "yes" : "no"] : [])])));
+    return {json: {...d, mode: d.mode ?? "stp", timers}, text: lines.join("\n")};
   },
 
   "show.spanning-tree-interface": (ctx, [name]) => {

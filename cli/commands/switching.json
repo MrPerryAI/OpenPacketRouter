@@ -44,6 +44,12 @@
      "help": {"mac": "MAC address table settings", "address-table": "The table of which port each MAC address lives on", "aging-time": "Seconds an unused entry is kept (default 300)", "SECONDS": "Seconds"}},
     {"modes": ["config"], "kinds": ["switch"], "syntax": "no mac address-table aging-time", "handler": "fdb.aging.unset",
      "help": {"no": "Undo a setting", "mac": "MAC address table settings", "address-table": "The table of which port each MAC address lives on", "aging-time": "Back to the default (300 seconds)"}},
+    {"modes": ["config"], "kinds": ["switch"], "syntax": "spanning-tree mode stp", "handler": "stp.mode:STP",
+     "help": {"mode": "Which spanning tree protocol runs", "stp": "Classic spanning tree (802.1D): timers decide when a port may forward"}},
+    {"modes": ["config"], "kinds": ["switch"], "syntax": "spanning-tree mode rstp", "handler": "stp.mode:RSTP",
+     "help": {"rstp": "Rapid spanning tree (802.1w): neighbours agree with proposals and agreements, so ports forward in moments"}},
+    {"modes": ["config"], "kinds": ["switch"], "syntax": "no spanning-tree mode", "handler": "stp.mode.unset",
+     "help": {"mode": "Back to classic spanning tree"}},
     {"modes": ["config"], "kinds": ["switch"], "syntax": "spanning-tree priority PRIORITY", "args": {"PRIORITY": "uint:0-65535"}, "handler": "stp.set:bridge-priority",
      "help": {"priority": "Bridge priority: the lowest becomes the root", "PRIORITY": "Priority (default 32768)"}},
     {"modes": ["config"], "kinds": ["switch"], "syntax": "spanning-tree hello-time SECONDS", "args": {"SECONDS": "uint:1-10"}, "handler": "stp.set:hello-time",
@@ -64,6 +70,10 @@
      "help": {"spanning-tree": "Spanning tree settings of this port", "cost": "Path cost through this port (lower is preferred)", "COST": "Cost"}},
     {"modes": ["config-if"], "kinds": ["switch"], "syntax": "spanning-tree port-priority PRIORITY", "args": {"PRIORITY": "uint:0-255"}, "handler": "stp.port.set:port-priority",
      "help": {"port-priority": "Breaks ties between ports (lower is preferred)", "PRIORITY": "Priority (default 128)"}},
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "spanning-tree portfast", "handler": "stp.portfast",
+     "help": {"portfast": "An edge port: a host hangs here, no switch, so rapid spanning tree forwards on it at once"}},
+    {"modes": ["config-if"], "kinds": ["switch"], "syntax": "no spanning-tree portfast", "handler": "stp.portfast.unset",
+     "help": {"portfast": "Not an edge port (the switch still detects one by itself when no BPDU arrives)"}},
     {"modes": ["config-if"], "kinds": ["switch"], "syntax": "no spanning-tree cost", "handler": "stp.port.unset:cost", "help": {"no": "Undo a setting", "cost": "Default cost"}},
     {"modes": ["config-if"], "kinds": ["switch"], "syntax": "no spanning-tree port-priority", "handler": "stp.port.unset:port-priority", "help": {"port-priority": "Default port priority"}}
   ]
