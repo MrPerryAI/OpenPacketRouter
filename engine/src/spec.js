@@ -77,7 +77,18 @@ const OSPF_IF_KEYS = {type: v => ["broadcast", "point-to-point"].includes(v), pr
 function checkOspf(n, p, err) {
   const o = n.ospf, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
   if (!isObj(o)) return err(`${p}.ospf`, `node "${n.name}": ospf must be an object like {"networks": ["10.0.0.0/8"]}`);
-  for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces)`);
+  for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces", "redistribute"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces, redistribute)`);
+  if (o.redistribute !== undefined) {
+    if (!Array.isArray(o.redistribute)) err(`${p}.ospf.redistribute`, `node "${n.name}": ospf.redistribute is a list like [{"source": "connected", "metric": 20, "metricType": 2}]`);
+    else o.redistribute.forEach((x, j) => {
+      const q = `${p}.ospf.redistribute[${j}]`;
+      if (!isObj(x)) return err(q, `node "${n.name}": expected an object like {"source": "static"}`);
+      for (const k of Object.keys(x)) if (!["source", "metric", "metricType"].includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown key "${k}" (source, metric, metricType)`);
+      if (!["connected", "static"].includes(x.source)) err(`${q}.source`, `node "${n.name}": source must be "connected" or "static"`);
+      if (x.metric !== undefined && !(Number.isInteger(x.metric) && x.metric >= 0 && x.metric < 0xffffff)) err(`${q}.metric`, `node "${n.name}": metric ${JSON.stringify(x.metric)} is not a whole number from 0 to 16777214`);
+      if (x.metricType !== undefined && ![1, 2].includes(x.metricType)) err(`${q}.metricType`, `node "${n.name}": metricType is 1 or 2`);
+    });
+  }
   if (o.routerId !== undefined && !isIp(o.routerId)) err(`${p}.ospf.routerId`, `node "${n.name}": routerId "${o.routerId}" is not like 1.1.1.1`);
   if (!Array.isArray(o.networks) || !o.networks.length) err(`${p}.ospf.networks`, `node "${n.name}": ospf needs networks: interface names or prefixes like 10.0.0.0/8`);
   else o.networks.forEach((x, j) => {
