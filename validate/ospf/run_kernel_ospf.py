@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas"]
+SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas", "ospf-redist"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
@@ -94,6 +94,8 @@ class OspfNet(l3.KernelNet):
                      f" ip ospf priority {c['priority']}", f" ip ospf retransmit-interval {c['retransmit']}", "!"]
         conf += ["router ospf"]
         if o.get("routerId"): conf += [f" ospf router-id {o['routerId']}"]
+        for r in o.get("redistribute", []):   # routes added with `ip route` are "kernel" routes to zebra, which is what the engine calls static
+            conf += [f" redistribute {'kernel' if r['source'] == 'static' else r['source']} metric {r.get('metric', 20)} metric-type {r.get('metricType', 2)}"]
         conf += [f" passive-interface {x}" for x in o.get("passive", [])]
         for x in o["networks"]:
             area = "0.0.0.0"
@@ -126,7 +128,7 @@ class OspfNet(l3.KernelNet):
         raw = os.environ.get("OSPF_RAW")   # a file to append the raw vtysh JSON to (for developing the parsers)
         nb = json.loads(self.vty(name, "show ip ospf neighbor json") or "{}")
         ifs = json.loads(self.vty(name, "show ip ospf interface json") or "{}")
-        db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary")}
+        db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary", "asbr-summary", "external")}
         if raw: print(f"=== {name} neighbor", json.dumps(nb, indent=1), f"=== {name} interface", json.dumps(ifs, indent=1), f"=== {name} database", json.dumps(db, indent=1), file=open(raw, "a"))
         return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db)}
 
@@ -210,11 +212,20 @@ def parse_database(js):
         for l in lsas or []:
             if l["lsaAge"] >= 3600: continue
             out.append({"type": "summary", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric", l.get("tos0Metric"))})
+    for area, lsas in (js["asbr-summary"].get("asbrSummaryLinkStates", {}).get("areas", {}) or {}).items():
+        for l in lsas or []:
+            if l["lsaAge"] >= 3600: continue
+            out.append({"type": "asbr-summary", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric", l.get("tos0Metric"))})
+    ext = js["external"].get("asExternalLinkStates", [])
+    for l in (ext.get("lsas", []) if isinstance(ext, dict) else ext):
+        if l["lsaAge"] >= 3600: continue
+        mt = str(l.get("metricType", "")); et = 1 if mt.startswith("E1") else 2
+        out.append({"type": "external", "area": "-", "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric"), "eType": et, "fwd": l.get("forwardAddress", "0.0.0.0")})
     return sorted(out, key=db_key)
 
 
-TYPE_ORDER = {"router": 0, "network": 1, "summary": 2, "external": 3}
-def db_key(l): return (ip2int(l["area"]), TYPE_ORDER[l["type"]], ip2int(l["id"]), ip2int(l["adv"]))
+TYPE_ORDER = {"router": 0, "network": 1, "summary": 2, "asbr-summary": 3, "external": 4}
+def db_key(l): return (ip2int(l["area"]) if "." in l["area"] else -1, TYPE_ORDER[l["type"]], ip2int(l["id"]), ip2int(l["adv"]))
 def ml(v): return v if isinstance(v, int) else mask_len(v)
 def mask_len(m): return sum(bin(int(o)).count("1") for o in m.split("."))
 
@@ -225,6 +236,7 @@ def engine_database(db):
         e = {"type": l["type"], "area": l["area"], "id": l["id"], "adv": l["adv"]}
         if l["type"] == "router": e["links"] = l["links"]
         elif l["type"] == "network": e.update(maskLen=mask_len(l["mask"]), attached=sorted(l["attached"], key=ip2int))
+        elif l["type"] == "external": e.update(area="-", maskLen=mask_len(l["mask"]), metric=l["metric"], eType=l["eType"], fwd=l["fwd"])
         else: e.update(maskLen=mask_len(l["mask"]), metric=l["metric"])
         out.append(e)
     return sorted(out, key=db_key)
