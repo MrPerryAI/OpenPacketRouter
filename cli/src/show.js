@@ -72,6 +72,12 @@ export const SHOWS = {
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 
+  "show.monitor": ctx => {
+    const all = Object.entries(ctx.model.monitor || {});
+    if (!all.length) return {json: {}, text: "No monitor sessions (monitor session 1 destination interface p3, monitor session 1 source interface p1 creates one)"};
+    const rows = all.map(([n, s]) => [n, s.destination || "(none)", Object.entries(s.sources).map(([p, d]) => `${p}(${d})`).join(" ") || "(none)"]);
+    return {json: ctx.model.monitor, text: table(["Session", "Destination", "Sources"], rows)};
+  },
   "show.etherchannel": ctx => {
     const ch = ctx.state().lacp || [];
     if (!ch.length) return {json: [], text: "No port-channels on this switch (channel-group N mode active on two or more ports makes one)"};

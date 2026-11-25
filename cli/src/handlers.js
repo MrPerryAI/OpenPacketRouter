@@ -124,6 +124,23 @@ export const HANDLERS = {
     const ifc = curIface(ctx); need(M.isLagName(ifc.config.name), "lacp rate is set on a port-channel (interface Po1)");
     if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
   },
+  // ---- port mirroring (monitor sessions)
+  "monitor.dest": (ctx, [n, port]) => {
+    const all = M.monitor(ctx.model), s = (all[n] ||= {sources: {}});
+    need(!Object.entries(all).some(([k, x]) => k !== n && x.destination === port), `${port} is already the destination of another session`);
+    need(!Object.values(all).some(x => port in x.sources), `${port} is a source of a session; a destination cannot also be a source`);
+    s.destination = port;
+  },
+  "monitor.src": (ctx, [n, port], dir) => {
+    const all = M.monitor(ctx.model), s = (all[n] ||= {sources: {}});
+    need(!Object.values(all).some(x => x.destination === port), `${port} is a monitor destination; a destination cannot also be a source`);
+    s.sources[port] = dir;
+  },
+  "monitor.src.unset": (ctx, [n, port]) => {
+    const s = M.monitor(ctx.model, false)[n]; need(s && port in s.sources, `${port} is not a source of session ${n}`);
+    delete s.sources[port];
+  },
+  "monitor.unset": (ctx, [n]) => { need(M.monitor(ctx.model, false)[n], `No monitor session ${n}`); delete ctx.model.monitor[n]; if (!Object.keys(ctx.model.monitor).length) delete ctx.model.monitor; },
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

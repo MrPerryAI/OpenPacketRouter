@@ -179,6 +179,13 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `spanning-tree port-priority PRIORITY` | interface | switches | Priority (default 128) |
 | `no spanning-tree cost` | interface | switches | Default cost |
 | `no spanning-tree port-priority` | interface | switches | Default port priority |
+| `monitor session N destination interface IF` | config | switches | Port name |
+| `monitor session N source interface IF both` | config | switches | Frames received and sent (the default) |
+| `monitor session N source interface IF rx` | config | switches | Only frames the port receives |
+| `monitor session N source interface IF tx` | config | switches | Only frames the port sends |
+| `monitor session N source interface IF` | config | switches | Port name |
+| `no monitor session N source interface IF` | config | switches | Port name |
+| `no monitor session N` | config | switches | Session number |
 
 ### Services
 
@@ -313,6 +320,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
+| `show monitor` | user, privileged | switches | Port mirroring sessions: destination and source ports |
 | `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
