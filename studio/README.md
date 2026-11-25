@@ -48,6 +48,12 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. YAML export
   waits until the CLI reads YAML specs.
 
+- **Feature panels** (in the device panel, at the current frame): RIP routes; OSPF neighbors, interfaces and routes;
+  NAT translations with time left; ACL rules with **hit counts** (Studio counts them: it wraps each router's ACL check
+  during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
+  time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
+  members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+
 ## Files
 
 | File | What |

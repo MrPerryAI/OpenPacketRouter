@@ -180,6 +180,25 @@ try {
   await page.evaluate(() => localStorage.setItem("studio-autosave", "{not json")); 
   check(await page.evaluate(() => window.studio.restoreAutosave()) === false, "a corrupt autosave is ignored");
 
+  // panels for newer engine features
+  const panel = async (lab, dev) => { await page.goto(BASE + "?lab=" + lab); await page.waitForFunction(() => document.body.dataset.ready === "1");
+    await page.evaluate(d => window.studio.select(d), dev); return page.textContent("#device"); };
+  check(/RIP routes/.test(await panel("rip-chain", "R2")) && /192\.168|10\./.test(await page.textContent("#device")), "RIP table panel on a RIP router");
+  const nat = await panel("nat-lab", "R"); check(/NAT translations/.test(nat), "NAT translations panel");
+  check(/ACL/.test(await panel("acl-lab", "R")), "ACL panel lists the rules");
+  await page.evaluate(() => window.studio.goto(window.studio.S.sim.steps.length - 1));
+  const aclHits = await page.evaluate(() => Object.values(window.studio.S.sim.steps.at(-1).state.R.aclHits || {}).reduce((a, b) => a + b, 0));
+  check(aclHits > 0 && /<td>[1-9]\d*<\/td>/.test(await page.innerHTML("#device")), "ACL hit counts grow as packets are filtered", String(aclHits));
+  check(/Port-channels \(LACP\)/.test(await panel("lacp-channel", "SW1")), "LACP bundle panel on a switch with a port-channel");
+  await panel("mac-aging", "SW1"); await page.evaluate(() => window.studio.goto(window.studio.S.sim.actions[0].last));
+  check(/expires in/.test(await page.textContent("#device")) && /Aging time 5 s/.test(await page.textContent("#device")), "MAC table shows aging time and time left");
+  await page.evaluate(() => window.studio.load({version: 1, name: "OSPF+LLDP", nodes: [
+    {name: "R1", kind: "router", ifaces: {eth0: "10.0.0.1/24"}, ospf: {networks: ["10.0.0.0/24"]}, lldp: {}},
+    {name: "R2", kind: "router", ifaces: {eth0: "10.0.0.2/24"}, ospf: {networks: ["10.0.0.0/24"]}, lldp: {}}], links: [["R1:eth0", "R2:eth0"]]}));
+  await page.evaluate(() => window.studio.select("R1"));
+  const op = await page.textContent("#device");
+  check(/OSPF neighbors/.test(op) && /Full/.test(op) && /LLDP neighbors/.test(op) && /R2/.test(op), "OSPF neighbors (Full) and LLDP neighbors are listed at rest");
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });

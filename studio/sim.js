@@ -37,12 +37,27 @@ export function describeFrame(f) {
   return `IPv4 ${p.src} → ${p.dst} ${l4}, TTL ${p.ttl}${tag}`;
 }
 
-/** Seconds spanning tree needs to settle (0 without STP): blocking → listening → learning → forwarding, plus max age. */
+/** Seconds the network needs to settle at rest: spanning tree (0 without STP), then OSPF, RIP and LLDP: blocking → listening → learning → forwarding, plus max age. */
 export function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
+  for (const n of spec.nodes || []) { if (n.ospf) t = Math.max(t, 50); if (n.rip) t = Math.max(t, 40); if (n.lldp) t = Math.max(t, 3); }   // adjacencies, first RIP updates, first LLDPDUs
   return t;
+}
+
+/**
+ * ACL hit counts: the engine's Acl has no counters, so wrap each router's `check` (this instance only) and count
+ * which rule decided each packet. Counts: node.aclHits = {"LIST:0": n, "LIST:deny": n}.
+ */
+export function countAclHits(net) {
+  for (const n of net.nodes.values()) {
+    if (!n.acl || n.acl._counted) continue;
+    const check = n.acl.check.bind(n.acl); n.aclHits = {}; n.acl._counted = true;
+    n.acl.check = (dir, ifname, p) => { const r = check(dir, ifname, p);
+      if (r.list && r.rule !== null) { const k = `${r.list}:${r.rule === -1 ? "deny" : r.rule}`; n.aclHits[k] = (n.aclHits[k] || 0) + 1; }
+      return r; };
+  }
 }
 
 /** Plain copy of every device's tables (what the side panels show). */
@@ -50,16 +65,22 @@ export function snapshotDevices(net) {
   const out = {};
   for (const n of net.nodes.values()) {
     if (n.kind === "switch") {
-      const mac = n.macTable().map(({vlan, mac: m, port}) => ({vlan, mac: m, port}));
-      out[n.name] = {mac, stp: n.stp && n.stp.started ? n.stp.describe() : null};
+      const mac = n.macTable().map(({vlan, mac: m, port, age, stale}) => ({vlan, mac: m, port, age, stale}));
+      out[n.name] = {mac, stp: n.stp && n.stp.started ? n.stp.describe() : null, aging: {time: n.agingTime, hold: n.holdTime()},
+        channels: [...n.channels.values()].map(c => c.describe())};
     } else {
       out[n.name] = {
         arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface})),
         leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
         ifaces: Object.values(n.ifaces).map(i => ({name: i.name, ip: i.ip ? `${i.ip}/${i.prefix}` : i.dhcp ? "dhcp (none yet)" : "", mac: i.mac})),
       };
+      if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
+      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe()};
+      if (n.nat) out[n.name].nat = n.nat.translations();
+      if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }
   }
+  for (const n of net.nodes.values()) if (n.lldp && out[n.name]) out[n.name].lldp = n.lldp.neighbors();
   return out;
 }
 
@@ -92,7 +113,7 @@ function cutLinks(net, cut) {
  * cut: link indexes (order of spec.links) that are unplugged.
  */
 export function analyse(spec, {cut = []} = {}) {
-  const net = loadSpec(spec); cutLinks(net, cut);
+  const net = loadSpec(spec); cutLinks(net, cut); countAclHits(net);
   const t = convergeTime(spec); net._start(); if (t) net.run(t);
   return {ports: portStates(net), storm: stormAnalysis(net), converged: t, devices: snapshotDevices(net)};
 }
@@ -103,7 +124,7 @@ export function analyse(spec, {cut = []} = {}) {
  * A step: {i, action, t, arrive, link, from, fromIf, to, toIf, desc, kind, notes: [{t, node, event, detail}], state}.
  */
 export function simulate(spec, actions, {cut = [], maxSteps = MAX_STEPS} = {}) {
-  const net = loadSpec(spec); cutLinks(net, cut);
+  const net = loadSpec(spec); cutLinks(net, cut); countAclHits(net);
   const va = validateActions(actions, spec);
   if (!va.ok) throw new SpecError("actions", va.errors);
   const steps = []; let traceAt = 0, current = 0, truncated = false;
