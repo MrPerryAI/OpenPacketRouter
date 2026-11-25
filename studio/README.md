@@ -53,6 +53,11 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
   members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
+  TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
+  play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per
+  frame with time, protocol, from → to and a description; click a row to jump to that frame). Studio now describes
+  OSPF, RIP and LLDP frames (it used to fail on them).
 
 ## Files
 

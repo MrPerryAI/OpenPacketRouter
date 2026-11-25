@@ -207,6 +207,24 @@ try {
   await page.evaluate(() => window.studio.select("R1"));
   const op = await page.textContent("#device");
   check(/OSPF neighbors/.test(op) && /Full/.test(op) && /LLDP neighbors/.test(op) && /R2/.test(op), "OSPF neighbors (Full) and LLDP neighbors are listed at rest");
+  // playback filters and the event list (routing protocol frames included)
+  await page.evaluate(() => window.studio.load({version: 1, name: "Proto mix", nodes: [
+    {name: "R1", kind: "router", ifaces: {eth0: "10.0.0.1/24"}, ospf: {networks: ["10.0.0.0/24"]}, rip: {networks: ["10.0.0.0/24"]}, lldp: {}},
+    {name: "R2", kind: "router", ifaces: {eth0: "10.0.0.2/24"}, ospf: {networks: ["10.0.0.0/24"]}, rip: {networks: ["10.0.0.0/24"]}, lldp: {}}],
+    links: [["R1:eth0", "R2:eth0"]]}, [{do: "ping", src: "R1", dst: "10.0.0.2"}]));
+  const kinds = await page.$$eval("#filters input", i => i.map(x => x.dataset.kind));
+  check(["arp", "icmp", "ospf", "rip", "lldp"].every(k => kinds.includes(k)), "a filter for each protocol that appears (incl. OSPF, RIP, LLDP)", kinds.join(","));
+  const total = await page.$$eval("#events .ev", r => r.length);
+  check(total === await page.evaluate(() => window.studio.S.sim.steps.length) && /OSPF hello/.test(await page.textContent("#events")), "the event list has one row per frame");
+  for (const k of kinds.filter(k => k !== "icmp")) await page.uncheck(`#filters input[data-kind="${k}"]`);
+  const only = await page.$$eval("#events .ev", r => r.length);
+  check(only > 0 && only < total && /shown/.test(await page.textContent("#counter")), "unchecking protocols shortens the list", `${only} of ${total}`);
+  await page.click("#first"); await page.click("#step");
+  check(await page.evaluate(() => window.studio.S.sim.steps[window.studio.S.step].kind) === "icmp", "stepping skips frames of hidden protocols");
+  await page.click("#events .ev >> nth=1");
+  check(await page.evaluate(() => window.studio.S.step) === +(await page.getAttribute("#events .ev >> nth=1", "data-step")) && await page.$$eval("#events .ev.current", r => r.length) === 1, "clicking an event jumps to that frame");
+  await page.check('#filters input[data-kind="ospf"]');
+  check(/OSPF/.test(await page.textContent("#events")), "checking a protocol brings its frames back");
 
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
