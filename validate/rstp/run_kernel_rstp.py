@@ -18,6 +18,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent.parent
 CASES = [("tri", "tri.steps")]
+DIAG = {}   # what the kernel side looked like, printed if a step does not match
 ROLES = {"root": "root", "desg": "designated", "altn": "alternate", "back": "backup", "disa": "disabled"}
 STATES = {"forw": "forwarding", "disc": "discarding", "lear": "learning", "down": "disabled"}
 
@@ -157,6 +158,7 @@ def kernel(name, steps_name):
     spec = json.loads((HERE / f"{name}.json").read_text()); steps = json.loads((HERE / f"{steps_name}.json").read_text()); k = Bridges(spec); out = []
     try:
         k.up(); k.window()   # (the start-up exchange is not compared)
+        DIAG[name] = {sw: {"link": sh("ip", "-br", "link", "show", k.br[sw]).strip(), "bridge": re.search(r"bridge id\s+(\S+)", sh("mstpctl", "showbridge", k.br[sw])).group(1)} for sw in k.sw}
         for s in steps:
             if "wait" in s: time.sleep(s["wait"])
             elif "link" in s: k.link(s["link"]["end"], s["link"]["up"])
@@ -185,7 +187,7 @@ def main():
         if len(eng) != len(kern): ok_all = False; detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern)}
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
-    if detail: print(json.dumps(detail, indent=1)[:8000])
+    if detail: print(json.dumps({**detail, "diag": DIAG}, indent=1)[:12000])
     return 0 if ok_all else 1
 
 
