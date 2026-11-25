@@ -121,6 +121,10 @@ export const HANDLERS = {
     const ifc = curIface(ctx); need(M.isLagName(ifc.config.name), "lacp rate is set on a port-channel (interface Po1)");
     if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
   },
+  // ---- LLDP passes through a switch (bridge group_fwd_mask bit 14)
+  "bridge.lldp-forward": ctx => { M.services(ctx.model).forwardLldp = true; },
+  "bridge.no-lldp-forward": ctx => { delete M.services(ctx.model).forwardLldp; },
+
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

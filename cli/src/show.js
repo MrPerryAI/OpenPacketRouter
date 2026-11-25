@@ -88,6 +88,7 @@ export const SHOWS = {
     const timers = {helloTime: g["hello-time"] ?? 2, maxAge: g["max-age"] ?? 20, forwardDelay: g["forwarding-delay"] ?? 15, priority: g["bridge-priority"] ?? 32768};
     const lines = [`Bridge ${d.bridgeId}${d.isRoot ? "  (this switch is the root)" : ""}`, `Root   ${d.root}`];
     if (!d.isRoot) lines.push(`Path cost to root ${d.rootCost}, through port ${d.rootPort}`);
+    lines.push(`Topology change: ${d.topologyChange ? "in progress" : "none"}${d.topologyChangeDetected ? " (detected by this switch)" : ""}`);
     lines.push(`Priority ${timers.priority}, hello ${timers.helloTime} s, max age ${timers.maxAge} s, forward delay ${timers.forwardDelay} s`);
     lines.push("", table(["Port", "Role", "State", "Cost", "Port ID"], Object.entries(d.ports).map(([p, x]) => [p, x.role, x.state, x.cost, `${x.id >> 8}.${x.no}`])));
     return {json: {...d, timers}, text: lines.join("\n")};
