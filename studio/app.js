@@ -552,7 +552,25 @@ export function openConsole(name) {
   S.console = name; showConsole(); $("#consoleInput").focus();
 }
 function closeConsole() { const b = $("#console"); if (b) b.hidden = true; S.console = null; }
+function showTabs() {
+  const box = $("#consoleTabs"); box.innerHTML = "";
+  for (const name of S.sessions.keys()) {
+    const t = document.createElement("div"); t.className = `tab${name === S.console ? " on" : ""}`; t.dataset.tab = name; t.setAttribute("role", "tab"); t.setAttribute("aria-selected", name === S.console);
+    t.innerHTML = `<span>${esc(name)}</span><button title="Close this console" aria-label="Close console ${esc(name)}">✕</button>`;
+    t.addEventListener("click", () => { S.console = name; showConsole(); $("#consoleInput").focus(); });
+    t.querySelector("button").addEventListener("click", e => { e.stopPropagation(); closeTab(name); });
+    box.appendChild(t);
+  }
+}
+/** Close one console tab (its history goes with it); the window closes with the last tab. */
+function closeTab(name) {
+  const names = [...S.sessions.keys()], i = names.indexOf(name); S.sessions.delete(name);
+  if (S.console !== name) return showConsole();
+  const next = [...S.sessions.keys()][Math.min(i, S.sessions.size - 1)];
+  if (next) { S.console = next; showConsole(); $("#consoleInput").focus(); } else closeConsole();
+}
 function showConsole() {
+  showTabs();
   const c = S.sessions.get(S.console); if (!c) return;
   $("#consoleTitle").textContent = `Console: ${c.cli.device}`; $("#consolePrompt").textContent = c.cli.prompt();
   const out = $("#consoleOut"); out.textContent = c.log; out.scrollTop = out.scrollHeight;
@@ -567,7 +585,7 @@ function consoleKey(e) {
     if (r.output) c.log += r.output + "\n";
     if (r.changed === "spec" || r.changed === "cut") rerun();
     if (before !== c.cli.device) { S.sessions.delete(before); S.sessions.set(c.cli.device, c); S.console = c.cli.device; }
-    if (c.cli.closed) { S.sessions.delete(S.console); c.log += "\n"; closeConsole(); return; }
+    if (c.cli.closed) { closeTab(S.console); return; }
     showConsole();
   } else if (e.key === "Tab") {
     e.preventDefault(); const r = c.cli.complete(inp.value);
@@ -582,5 +600,5 @@ function consoleKey(e) {
   }
 }
 
-window.studio = {S, dumpYaml, edit, addDevice, setTool, restoreAutosave, specJson, load, rerun, goto, play, stop, select, toggleCut, openConsole};
+window.studio = {S, dumpYaml, edit, addDevice, setTool, restoreAutosave, specJson, closeTab, load, rerun, goto, play, stop, select, toggleCut, openConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });
