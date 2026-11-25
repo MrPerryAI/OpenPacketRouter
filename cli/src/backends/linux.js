@@ -47,9 +47,11 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       out.push(`ip link add ${b} type bond mode 802.3ad lacp_rate ${M.lacpInterval(model, b, false)?.interval === "FAST" ? "fast" : "slow"} xmit_hash_policy layer2 miimon 100`, `ip link set ${b} master br0`, `ip link set ${b} up`);
       if (labParity) out.push(...parity(b));
     }
+    const monDest = new Set(Object.values(M.monitor(model, false)).map(x => x.destination).filter(Boolean));
+    const hooks = new Set();
     for (const p of [...ports.filter(p => !(ifs[p] && M.lagOf(ifs[p]))), ...bonds]) {   // bridge ports: plain ports and channels
       const ifc = ifs[p];
-      if (!bonds.includes(p)) out.push(`ip link set ${p} master br0`);
+      if (!bonds.includes(p) && !monDest.has(p)) out.push(`ip link set ${p} master br0`);   // a monitor destination leaves the bridge
       const sp = M.stpPort(model, p, false);
       // Always set the cost: the engine's default is 19 (802.1D, 100 Mbit/s), the kernel's depends on the link speed.
       // The kernel's port priority is 6 bits shifted by 10 in the port ID, the model's 8 bits shifted by 8: 128 -> 32.
@@ -66,6 +68,12 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       }
       pushShaper(out, p, ifc);
       if (!bonds.includes(p)) out.push(`ip link set ${p} ${ifc && ifc.config.enabled === false ? "down" : "up"}`);
+    }
+    // port mirroring: a clsact qdisc on each source port, a matchall filter per direction with `mirred egress mirror` to the destination
+    for (const s of Object.values(M.monitor(model, false))) for (const [p, d] of Object.entries(s.sources)) {
+      if (!hooks.has(p)) { out.push(`tc qdisc add dev ${p} clsact`); hooks.add(p); }
+      for (const h of {rx: ["ingress"], tx: ["egress"], both: ["ingress", "egress"]}[d])
+        out.push(`tc filter add dev ${p} ${h} matchall action mirred egress mirror dev ${s.destination}`);
     }
     for (const p of ports) if (ifs[p] && M.lagOf(ifs[p])) out.push(`ip link set ${p} master ${M.lagOf(ifs[p])}`, `ip link set ${p} up`);
     // Layer 3 switch: each SVI is a VLAN device on the bridge itself (the bridge must carry that VLAN "self").
