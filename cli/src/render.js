@@ -64,6 +64,8 @@ export function configLines(model, {kind, ports}) {
         out.push(" switchport mode trunk", ` switchport trunk allowed vlan ${formatVlanList(sv["trunk-vlans"])}`);
         if (sv["native-vlan"] !== undefined) out.push(` switchport trunk native vlan ${sv["native-vlan"]}`);
       }
+      const sc = ifc["openpacketrouter:storm-control"]?.broadcast;
+      if (sc) out.push(` storm-control broadcast rate ${sc.rate} burst ${sc.burst}`);
       const sp = M.stpPort(model, name, false);
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
