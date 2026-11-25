@@ -204,12 +204,15 @@ def main():
     for name in names:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_lldp.mjs"), str(netfile(name)), str(HERE / f"{name}.steps.json")))
         kr = kern[name]
-        for (es, ewin), (ks, kwin) in zip(phases(eng), phases(kr)):
+        for pi, ((es, ewin), (ks, kwin)) in enumerate(zip(phases(eng), phases(kr))):
+            # lldpd's first LLDPDU goes out while it is being configured, before the window starts (see above); the engine's
+            # counterpart is its start-up LLDPDU, 1 s after t=0. Leave it out of the first window, then counts are exact.
+            if pi == 0: ewin = [f for f in ewin if f["t"] > 1.5]
             en = {n: canon_nbrs(v, eng["macs"]) for n, v in es["nodes"].items()}; kn = {n: canon_nbrs(v, kr["macs"]) for n, v in ks["nodes"].items()}
             ef, kf = per_cable(ewin, eng["macs"]), per_cable(kwin, kr["macs"])
             checks = {"neighbor tables": en == kn,
                       "LLDPDU contents": {c: sorted(set(v)) for c, v in ef.items()} == {c: sorted(set(v)) for c, v in kf.items()},
-                      "LLDPDUs per cable (within 1)": all(abs(len(ef.get(c, [])) - len(kf.get(c, []))) <= 1 for c in set(ef) | set(kf))}
+                      "LLDPDUs per cable": all(len(ef.get(c, [])) == len(kf.get(c, [])) for c in set(ef) | set(kf))}
             ok = all(checks.values())
             table = "; ".join(f"{n}: " + (", ".join(f'{x["iface"]}={x["sysName"]}' for x in v) or "none") for n, v in en.items())
             rows.append((name, es["snapshot"], table, ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()) + f' · LLDPDUs {sum(len(v) for v in ef.values())} (Linux {sum(len(v) for v in kf.values())})', "✓" if ok else "✗"))
@@ -217,7 +220,7 @@ def main():
                 d = {}
                 if not checks["neighbor tables"]: d["neighbor tables"] = {n: {"engine": en[n], "linux": kn.get(n)} for n in en if en[n] != kn.get(n)}
                 if not checks["LLDPDU contents"]: d["LLDPDU contents"] = {c: {"engine": sorted(set(ef.get(c, []))), "linux": sorted(set(kf.get(c, [])))} for c in sorted(set(ef) | set(kf)) if sorted(set(ef.get(c, []))) != sorted(set(kf.get(c, [])))}
-                if not checks["LLDPDUs per cable (within 1)"]: d["counts"] = {c: {"engine": len(ef.get(c, [])), "linux": len(kf.get(c, []))} for c in sorted(set(ef) | set(kf)) if abs(len(ef.get(c, [])) - len(kf.get(c, []))) > 1}
+                if not checks["LLDPDUs per cable"]: d["counts"] = {c: {"engine": len(ef.get(c, [])), "linux": len(kf.get(c, []))} for c in sorted(set(ef) | set(kf)) if len(ef.get(c, [])) != len(kf.get(c, []))}
                 detail[f'{name}: {es["snapshot"]}'] = d
     md = ["| Network | Snapshot | Engine neighbor tables (same in lldpd?) | Checks | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
