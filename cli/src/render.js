@@ -52,6 +52,7 @@ export function configLines(model, {kind, ports}) {
       if (ifc.config.description) out.push(` description ${ifc.config.description}`);
       for (const a of M.addressesOf(ifc)) out.push(` ip address ${a.ip}/${a.prefixLength}`);
       if (M.dhcpClientOf(ifc)) out.push(" ip address dhcp");
+      for (const a of M.addressesOf6(ifc)) out.push(` ipv6 address ${a.ip}/${a.prefixLength}`);
       for (const h of M.relayHelpers(model, name, false)) out.push(` ip helper-address ${h}`);
       if (M.lagOf(ifc)) out.push(` channel-group ${M.lagOf(ifc).slice(2)} mode active`);
       if (M.lacpInterval(model, name, false)?.interval === "FAST") out.push(" lacp rate fast");
@@ -88,6 +89,9 @@ export function configLines(model, {kind, ports}) {
   const routes = M.staticList(model);
   for (const r of routes) out.push(`ip route ${r.prefix} ${r.nextHop}`);
   if (routes.length) out.push("!");
+  const routes6 = M.staticList6(model);
+  for (const r of routes6) out.push(`ipv6 route ${r.prefix} ${r.nextHop}`);
+  if (routes6.length) out.push("!");
 
   const s = M.services(model);
   if (s.dns) {

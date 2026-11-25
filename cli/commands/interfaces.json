@@ -26,6 +26,10 @@
      "help": {"shape": "Limit how fast this interface sends (token bucket)", "rate": "Sending rate", "burst": "Bytes that may leave back to back",
               "limit": "Queue size in bytes: more waiting than this is dropped", "BYTES": "Bytes", "QUEUE": "Bytes"}},
     {"modes": ["config-if"], "syntax": "no shape", "handler": "shaper.remove",
-     "help": {"shape": "Send at full speed again"}}
+     "help": {"shape": "Send at full speed again"}},
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "ipv6 address PREFIX", "args": {"PREFIX": "ipv6-prefix"}, "handler": "ipv6.address.set",
+     "help": {"ipv6": "IPv6 settings of this interface", "address": "Set the interface's IPv6 address", "PREFIX": "Address and prefix length, like 2001:db8:1::a/64"}},
+    {"modes": ["config-if"], "kinds": ["router", "host", "server"], "syntax": "no ipv6 address", "handler": "ipv6.address.remove",
+     "help": {"no": "Undo a setting", "ipv6": "IPv6 settings of this interface", "address": "Remove the interface's IPv6 address"}}
   ]
 }

@@ -15,6 +15,12 @@
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip default-gateway GATEWAY", "args": {"GATEWAY": "ipv4-address"}, "handler": "static.default",
      "help": {"default-gateway": "Send traffic for unknown networks to this router (same as ip route 0.0.0.0/0)", "GATEWAY": "Router address"}},
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ip default-gateway", "handler": "static.no-default",
-     "help": {"default-gateway": "Remove the default route"}}
+     "help": {"default-gateway": "Remove the default route"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ipv6 route PREFIX NEXTHOP", "args": {"PREFIX": "ipv6-prefix", "NEXTHOP": "ipv6-address"}, "handler": "static6.add",
+     "help": {"ipv6": "IPv6 settings", "route": "Add an IPv6 static route", "PREFIX": "Destination network, like 2001:db8:2::/64 (::/0 for the default route)", "NEXTHOP": "Address of the next router"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ipv6 route PREFIX NEXTHOP", "args": {"PREFIX": "ipv6-prefix", "NEXTHOP": "ipv6-address"}, "handler": "static6.remove",
+     "help": {"no": "Undo a setting", "ipv6": "IPv6 settings", "route": "Remove an IPv6 static route"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no ipv6 route PREFIX", "args": {"PREFIX": "ipv6-prefix"}, "handler": "static6.remove",
+     "help": {"route": "Remove an IPv6 static route"}}
   ]
 }

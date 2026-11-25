@@ -4,6 +4,7 @@
 // family of commands.
 
 import * as M from "./model.js";
+import {parseCidr6, intToIp6, ip6ToInt} from "../../engine/src/addr6.js";
 import {maskToPrefix, networkOf, isPrefix, prefixToMask, aclEndpoint} from "./types.js";
 
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };
@@ -50,6 +51,27 @@ export const HANDLERS = {
     const v4 = M.ipv4(curIface(ctx));
     v4.addresses.address = {[ip]: {config: {ip, "prefix-length": p}}};
     v4.config["dhcp-client"] = false;
+  },
+  "ipv6.address.set": (ctx, [prefix]) => {
+    const c = parseCidr6(prefix);
+    need(ip6ToInt(c.ip) !== ip6ToInt(c.cidr.split("/")[0]) || c.prefix >= 127, `${prefix} is the network itself, not a host address on it`);
+    M.ipv6(curIface(ctx)).addresses.address = {[c.ip]: {config: {ip: c.ip, "prefix-length": c.prefix}}};
+  },
+  "ipv6.address.remove": ctx => {
+    const v6 = M.ipv6(curIface(ctx), false);
+    need(v6 && Object.keys(v6.addresses.address).length, "This interface has no IPv6 address");
+    v6.addresses.address = {};
+  },
+  "static6.add": (ctx, [prefix, via]) => {
+    const net = parseCidr6(prefix).cidr, nh = intToIp6(ip6ToInt(via));
+    const r = M.statics(ctx.model)[net] ||= {prefix: net, config: {prefix: net}, "next-hops": {"next-hop": {}}};
+    r["next-hops"]["next-hop"][nh] = {index: nh, config: {index: nh, "next-hop": nh}};
+  },
+  "static6.remove": (ctx, [prefix, via]) => {
+    const net = parseCidr6(prefix).cidr, all = M.statics(ctx.model), r = all[net], nh = via && intToIp6(ip6ToInt(via));
+    need(r && (!nh || r["next-hops"]["next-hop"][nh]), `There is no static route to ${net}${nh ? ` via ${nh}` : ""}`);
+    if (nh) delete r["next-hops"]["next-hop"][nh]; else delete all[net];
+    if (all[net] && !Object.keys(all[net]["next-hops"]["next-hop"]).length) delete all[net];
   },
   "ipv4.address.dhcp": ctx => { const v4 = M.ipv4(curIface(ctx)); v4.addresses.address = {}; v4.config["dhcp-client"] = true; },
   "ipv4.address.remove": ctx => {

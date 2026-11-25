@@ -65,6 +65,8 @@ jobs:
         run: validate/docker/run.sh acl
       - name: NAT vs Linux nftables (masquerade, snat and dnat; frames, pings, TCP and UDP)
         run: validate/docker/run.sh nat
+      - name: IPv6 vs Linux (neighbor discovery, ICMPv6 echo, static routes; frames on every cable)
+        run: validate/docker/run.sh ipv6
       - name: RIPv2 vs FRRouting ripd (tables and packets on every cable)
         # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh rip` locally.
         run: |

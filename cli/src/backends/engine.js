@@ -13,6 +13,7 @@
 
 import {validateSpec, loadSpec, ACTIONS} from "../../../engine/src/spec.js";
 import {intToIp, inSubnet} from "../../../engine/src/addr.js";
+import {parseCidr6, intToIp6, ip6ToInt} from "../../../engine/src/addr6.js";
 import * as M from "../model.js";
 import {maskToPrefix, prefixToMask} from "../types.js";
 
@@ -24,7 +25,7 @@ export function portsOf(spec, device) {
   const n = spec.nodes.find(x => x.name === device); if (!n) return [];
   const cabled = [];
   for (const l of spec.links) for (const r of l.slice(0, 2)) if (typeof r === "string" && r.startsWith(device + ":")) cabled.push(r.slice(device.length + 1));
-  return n.kind === "switch" ? [...new Set([...cabled, ...Object.keys(n.ifaces || {})])] : [...new Set([...cabled, ...Object.keys(n.ifaces || {})])];   // cable order: stable
+  return n.kind === "switch" ? [...new Set([...cabled, ...Object.keys(n.ifaces || {})])] : [...new Set([...cabled, ...Object.keys(n.ifaces || {}), ...Object.keys(n.ifaces6 || {})])];   // cable order: stable
 }
 const linkIndex = (spec, device, port) => spec.links.findIndex(l => l[0] === ref(device, port) || l[1] === ref(device, port));
 
@@ -70,6 +71,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       if (a === "dhcp") v4.config["dhcp-client"] = true;
       else { const [ip, p] = a.split("/"); v4.addresses.address[ip] = {config: {ip, "prefix-length": +p}}; }
     }
+    for (const [name, a] of Object.entries(n.ifaces6 || {})) { const c = parseCidr6(a); M.ipv6(M.iface(m, name)).addresses.address[c.ip] = {config: {ip: c.ip, "prefix-length": c.prefix}}; }
     for (const p of ports) { const i = linkIndex(spec, device, p); if (i >= 0 && cut.has(i)) M.iface(m, p).config.enabled = false; }
     const st = M.statics(m);
     const addRoute = (prefix, via) => {
@@ -78,6 +80,8 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     };
     for (const [dst, via] of n.routes || []) addRoute(dst, via);
     if (n.gw) addRoute("0.0.0.0/0", n.gw);
+    for (const [dst, via] of n.routes6 || []) addRoute(parseCidr6(dst).cidr, intToIp6(ip6ToInt(via)));
+    if (n.gw6) addRoute("::/0", intToIp6(ip6ToInt(n.gw6)));
     const sv = n.services || {}, out = M.services(m);
     if (sv.dns) out.dns = {enabled: true, hosts: {...sv.dns}};
     if (sv.dhcp) {
@@ -135,7 +139,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -197,6 +201,21 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     for (const p of Object.keys(old.ifaces || {})) if (!(p in ifaces) && linkIndex(spec, device, p) >= 0)
       throw new Error(`${p} has a cable, and the engine needs an address on every cabled interface: change it with ip address (or ip address dhcp) instead of removing it`);
     if (Object.keys(ifaces).length) n.ifaces = ifaces;
+    const ifaces6 = {};
+    for (const [p, ifc] of Object.entries(ifs)) {
+      const a6 = M.addressesOf6(ifc);
+      if (a6.length > 1) throw new Error(`${p}: the engine keeps one IPv6 address per interface`);
+      if (a6.length) ifaces6[p] = `${a6[0].ip}/${a6[0].prefixLength}`;
+    }
+    for (const p of Object.keys(old.ifaces6 || {})) if (!(p in ifaces6) && !(p in ifaces) && linkIndex(spec, device, p) >= 0)
+      throw new Error(`${p} has a cable, and the engine needs an address on every cabled interface: change it with ipv6 address instead of removing it`);
+    if (Object.keys(ifaces6).length) n.ifaces6 = ifaces6;
+    const routes6 = [];
+    for (const r of M.staticList6(m)) {
+      if (r.prefix === "::/0") { if (n.gw6) throw new Error("The engine keeps one IPv6 default route"); n.gw6 = r.nextHop; }
+      else routes6.push([r.prefix, r.nextHop]);
+    }
+    if (routes6.length) n.routes6 = routes6;
     const routes = [];
     for (const r of M.staticList(m)) {
       if (r.prefix === "0.0.0.0/0") { if (n.gw) throw new Error("The engine keeps one default route"); n.gw = r.nextHop; }
