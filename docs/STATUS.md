@@ -8,6 +8,53 @@
 
 **The classroom lab is frozen.** `web/` (El Dorado Storm Lab) and `labs/packet-tracer/` are finished and in use. Fix bugs only if asked; don't add features. The lab will later be rebuilt on top of the engine.
 
+## v1.0 definition of done
+
+v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pull request is merged with every CI check green and, for features, a validator that matches real Linux or FRRouting frame for frame. Owner of each item in brackets; the lead keeps this list current.
+
+**A. Close open work**
+- [ ] OSPF CLI commands, `show ip ospf`, FRR rendering (PR #68) [docs]
+- [ ] NAT: translation table compared against conntrack (PR #83) [dhcp-tcp]
+- [x] Topology change validator flake fixed (PR #86) [stp-vlan]
+- [ ] LLDP: exact LLDPDU counts per cable (PR #87) [checker]
+
+**B. Routing**
+- [ ] OSPF multi-area (ABR, summary LSAs) vs ospfd [checker]
+- [ ] OSPF redistribution (ASBR, external LSAs) vs ospfd [checker]
+- [ ] BGP basics (eBGP, iBGP, prefixes, basic path selection) vs bgpd [checker]
+- [ ] VRRP first-hop redundancy vs keepalived, CLI in our own words [first free agent]
+
+**C. Switching**
+- [ ] Port security, or recorded here as not validatable [stp-vlan]
+- [ ] Storm control, or recorded here as not validatable [stp-vlan]
+- [ ] DHCP snooping, or recorded here as not validatable [stp-vlan]
+- [ ] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
+
+**D. Mirroring and IPv6**
+- [ ] SPAN port mirroring vs tc mirred [dhcp-tcp]
+- [ ] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp]
+- [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
+
+**E. Transport and links**
+- [ ] TCP data retransmission and window behaviour vs Linux [links]
+- [ ] Link delay and loss vs netem [links]
+- [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [links]
+
+**F. CLI**
+- [ ] Every spec key has a configure command and a show with `| json` [docs]
+- [ ] YAML spec input [docs]
+- [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables [docs]
+- [ ] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs]
+- [ ] A student guide for every example lab [docs]
+
+**G. Studio**
+- [ ] Browser topology editor and visual features [ui]
+
+**H. Release prep**
+- [ ] README quick start, CHANGELOG and v1.0 release notes (no tag, npm publish or GitHub release: the owner decides) [lead]
+
+**Later, not in v1.0:** the research ideas in `docs/vision.md` (mixed detail levels, device handoff, git-style state, quirk layers), vendor images, wireless.
+
 ## What exists
 
 | Path | What | Verified how |
