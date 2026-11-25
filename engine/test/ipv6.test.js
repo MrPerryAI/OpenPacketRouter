@@ -52,3 +52,10 @@ test("each action reports the ICMPv6 message types sent on every cable direction
   assert.deepEqual(r.icmp6["B:eth0>SW:p2"], [129, 136]);
   assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [128, 135]);   // the switch floods the solicitation; the echo follows
 });
+
+test("a router solicits from its link-local address, so the host solicits the router back before replying (Linux ndisc_solicit)", () => {
+  const [r] = runActions(lab(), [{do: "ping", src: "A", dst: "2001:db8:2::c"}]);
+  assert.deepEqual(r.icmp6["R:eth1>C:eth0"], [128, 135, 136]);   // NS for C, the forwarded echo, and the NA for C's own solicitation
+  assert.deepEqual(r.icmp6["C:eth0>R:eth1"], [129, 135, 136]);   // NA, the reply, and C's solicitation for the gateway
+  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [128, 135]);         // on A's own link nothing extra: A's solicitation came from its global address
+});
