@@ -128,6 +128,17 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     if (s.lldp.holdMultiplier !== undefined) out.push(`lldpcli configure lldp tx-hold ${s.lldp.holdMultiplier}`);
     if (typeof s.lldp.description === "string") out.push(`lldpcli configure system description '${s.lldp.description.replace(/'/g, "")}'`);
   }
+  const vg = (s.vrrp || []).filter(x => x.ip);
+  if (vg.length) {   // keepalived (vrrp only), one instance per group, written the way validate/vrrp does
+    const conf = [];
+    for (const g of vg) {
+      const a = ifs[g.iface] && M.addressesOf(ifs[g.iface])[0];
+      conf.push(`vrrp_instance VI_${g.iface}_${g.vrid} {`, "  state BACKUP", `  interface ${g.iface}`, `  virtual_router_id ${g.vrid}`, `  priority ${g.priority ?? 100}`,
+        `  advert_int ${g.interval ?? 1}`, ...(g.preempt === false ? ["  nopreempt"] : []), ...(g.virtualMac ? ["  use_vmac"] : []),
+        "  virtual_ipaddress {", `    ${g.ip}/${a ? a.prefixLength : 24} dev ${g.iface}`, "  }", "}");
+    }
+    out.push(`printf '%s\\n' ${conf.map(l => `'${l}'`).join(" ")} > /etc/keepalived/keepalived.conf`, "keepalived -P -f /etc/keepalived/keepalived.conf");
+  }
   for (const [port, app] of Object.entries(s.tcp || {})) if (app === "echo") out.push(`socat TCP-LISTEN:${port},fork,reuseaddr EXEC:cat`);
   return out;
 }

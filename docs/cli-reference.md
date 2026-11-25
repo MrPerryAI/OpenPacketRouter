@@ -292,6 +292,22 @@ LLDP (neighbor discovery) on routers, hosts and servers: `lldp run` turns it on,
 | `show lldp` | user, privileged | routers, hosts, servers | Whether LLDP runs, its timers and neighbor count |
 | `show lldp neighbors` | user, privileged | routers, hosts, servers | Devices heard on each interface: name, port, capabilities, time left |
 
+### Vrrp
+
+First-hop redundancy on routers: two or more routers on one LAN share a virtual gateway address; the highest priority owns it, and a backup takes over when it falls silent. Set up per interface with `vrrp GROUP ...`.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `vrrp GROUP address ADDRESS` | interface | routers | An unused address on this interface's subnet |
+| `vrrp GROUP priority PRIORITY` | interface | routers | 1 to 255 |
+| `vrrp GROUP interval SECONDS` | interface | routers | 1 to 40 |
+| `vrrp GROUP preempt` | interface | routers | Take the address back from a lower-priority master (the default) |
+| `no vrrp GROUP preempt` | interface | routers | Stay backup even with a higher priority until the master fails |
+| `vrrp GROUP virtual-mac` | interface | routers | Answer ARP for the address with the group's own MAC 00:00:5e:00:01:GROUP instead of the interface's MAC |
+| `no vrrp GROUP virtual-mac` | interface | routers | Use the interface's own MAC again (the default) |
+| `no vrrp GROUP` | interface | routers | Group number |
+| `show vrrp` | user, privileged | routers | Each group: its state, who is master, priority and timers |
+
 ### Show
 
 Show commands. Every one also takes | json, | include WORD and | exclude WORD.
