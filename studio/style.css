@@ -116,3 +116,30 @@ main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap:
 .events .ev:hover { background: #eef2ff; }
 .events .ev.current { background: #dbe4ff; font-weight: 600; }
 .events .ev .k { font-weight: 600; }
+/* keyboard focus and motion */
+.skip { position: absolute; left: -999px; top: 0; background: #fff; padding: 6px 10px; z-index: 10; }
+.skip:focus { left: 8px; top: 8px; }
+:focus-visible { outline: 3px solid #f79009; outline-offset: 2px; }
+.node:focus-visible { outline: none; } .node:focus-visible .shape { stroke: #f79009; stroke-width: 4; }
+.cable-hit:focus-visible { outline: none; stroke: #f79009; stroke-opacity: .5; }
+.node, .cable-hit { touch-action: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* phones */
+@media (max-width: 700px) {
+  body { font-size: 15px; }
+  .bar { flex-wrap: wrap; gap: 6px 10px; padding: 8px 10px; }
+  .bar h1 { font-size: 16px; width: 100%; }
+  .bar label, .bar button { flex: 1 1 auto; }
+  .bar label { min-width: 0; width: 100%; } .bar select { min-width: 0; flex: 1; width: 100%; }
+  .storm { margin-left: 0; width: 100%; text-align: center; }
+  main { padding: 6px; gap: 8px; }
+  .stage { padding: 6px; }
+  #map { height: auto; max-height: 60vh; }
+  .player { flex-wrap: wrap; }
+  .player button, .tools button { min-height: 40px; min-width: 40px; }
+  .player .speed { flex: 1 1 100%; }
+  .side { overflow: visible; }
+  table { display: block; overflow-x: auto; }
+  .console { left: 6px; right: 6px; bottom: 6px; width: auto; height: 55vh; }
+}
