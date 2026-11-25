@@ -182,3 +182,22 @@ test("an ABR that loses the backbone stops being one: its summaries stay in the 
   net.setLink("SW:p3", true); at(net, 75);
   assert.equal(ping(net, "H1", "10.5.0.10").ok, true);
 });
+
+test("redistribution: ASBRs originate type 5 LSAs; E1 adds the path to the ASBR, E2 only its metric; type 4 LSAs carry ASBRs across areas", () => {
+  const net = Network.fromSpec(load("ospf-redist"));
+  at(net, 25);
+  assert.deepEqual(routes(net, "R1"), ["10.23.0.0/24 cost 15 via 10.12.0.2", "10.24.0.0/24 cost 20 via 10.12.0.2", "10.30.0.0/24 cost 45 via 10.12.0.2", "10.40.0.0/24 cost 20 via 10.12.0.2", "10.98.0.0/24 cost 20 via 10.12.0.2", "10.99.0.0/24 cost 10 via 10.12.0.2"]);
+  assert.deepEqual(net.node("R1").ospf.describe().map(r => r.type), ["inter", "inter", "e1", "e2", "e2", "e2"]);
+  const db = net.node("R1").ospf.database();
+  assert.deepEqual(db.filter(l => l.type === "asbr-summary").map(l => `${l.id} via ${l.adv} ${l.metric}`), ["3.3.3.3 via 2.2.2.2 10", "4.4.4.4 via 2.2.2.2 15"]);
+  assert.deepEqual(db.filter(l => l.type === "external").map(l => `${l.id}/${l.adv} E${l.eType} ${l.metric}`), ["10.30.0.0/3.3.3.3 E1 30", "10.40.0.0/4.4.4.4 E2 20", "10.98.0.0/3.3.3.3 E2 20", "10.99.0.0/3.3.3.3 E2 20", "10.99.0.0/4.4.4.4 E2 10"]);
+  assert.equal(ping(net, "H1", "10.40.0.2").ok, true);
+  net.setLink("R3:eth1", false); at(net, 50);
+  assert.deepEqual(routes(net, "R1"), ["10.23.0.0/24 cost 15 via 10.12.0.2", "10.24.0.0/24 cost 20 via 10.12.0.2", "10.40.0.0/24 cost 20 via 10.12.0.2", "10.99.0.0/24 cost 10 via 10.12.0.2"]);
+});
+
+test("the spec check catches bad redistribute settings", () => {
+  const s = load("ospf-redist"); s.nodes[2].ospf.redistribute = [{source: "bgp"}, {source: "static", metricType: 3, metric: -1, x: 1}];
+  const paths = validateSpec(s).errors.map(e => e.path);
+  for (const p of ["[0].source", "[1].metricType", "[1].metric", "[1].x"]) assert.ok(paths.includes(`$.nodes[2].ospf.redistribute${p}`), p);
+});

@@ -14,6 +14,7 @@ the routes ospfd installs, the link state database and the OSPF packets on every
 | `ospf-priority` | DR election by priority, one router with priority 0 (never DR or BDR). Host LANs are passive interfaces. |
 | `ospf-mixed` | Five routers: point-to-point links on both sides of a transit LAN with DR R3 / BDR R4, so paths cross a network LSA and LSAs are flooded over several hops; passive host LANs, unequal costs. A router's LAN cable is cut and repaired. |
 | `ospf-areas` | Three areas: a switched backbone (R2, R3, R4) and ABRs R2 (to area 1) and R4 (to area 2). Type 3 summary LSAs and inter-area routes, a separate LSDB per area. R1-R2 is cut and repaired; R4's backbone cable is cut (it stops being an ABR, its area is cut off) and repaired. |
+| `ospf-redist` | ASBRs R3 and R4 redistribute connected (E1, metric 30) and static routes (E2) into area 0; ABR R2 passes them to area 1 with type 4 ASBR summary LSAs. Two ASBRs advertise the same prefix (lowest E2 metric wins). A LAN cable is cut (redistributed routes withdrawn), then an ASBR becomes unreachable. FRR's `redistribute kernel` stands for the engine's static routes (`ip route` adds kernel routes). |
 
 The specs end in `.net`, not `.json`, on purpose: `cli/test/roundtrip.test.js` reads every `*.json` spec in
 `validate/` and `examples/` and needs a CLI command for every key in them. OSPF gets its CLI commands in a later
