@@ -40,6 +40,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
   if (n.kind === "switch") {
     for (const p of n.blocked || []) M.iface(m, p).config.enabled = false;
     if (n.agingTime !== undefined) M.fdb(m)["mac-aging-time"] = n.agingTime;
+    if (n.forwardLldp) M.services(m).forwardLldp = true;
     // a Layer 3 switch: SVIs (vlanN with an address) and static routes
     for (const [name, a] of Object.entries(n.ifaces || {})) { const [ip, pl] = a.split("/"); M.ipv4(M.iface(m, name)).addresses.address[ip] = {config: {ip, "prefix-length": +pl}}; }
     for (const [dst, via] of n.routes || []) {
@@ -136,7 +137,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -158,6 +159,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     const blocked = ports.filter(p => ifs[p] && ifs[p].config.enabled === false);
     if (blocked.length) n.blocked = blocked;
     if (M.fdb(m)["mac-aging-time"] !== undefined) n.agingTime = M.fdb(m)["mac-aging-time"];
+    if (M.services(m).forwardLldp) n.forwardLldp = true;
     const channels = {};   // members in cable order; the channel's rate is slow unless `lacp rate fast`
     for (const p of ports) { const id = ifs[p] && M.lagOf(ifs[p]); if (id) (channels[id] ||= {ports: []}).ports.push(p); }
     for (const [id, c] of Object.entries(channels)) if (M.lacpInterval(m, id, false)?.interval === "FAST") c.rate = "fast";
