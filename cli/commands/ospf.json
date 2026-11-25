@@ -1,0 +1,437 @@
+{
+ "feature": "ospf",
+ "about": "OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and the show commands.",
+ "commands": [
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "router ospf",
+   "handler": "ospf.enter",
+   "enter": "config-ospf",
+   "help": {
+    "router": "Routing protocols",
+    "ospf": "OSPF: routers learn each other's networks automatically"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no router ospf",
+   "handler": "ospf.remove",
+   "help": {
+    "ospf": "Turn OSPF off and forget its settings"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "router-id ADDRESS",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "ospf.router-id",
+   "help": {
+    "router-id": "The name this router uses in OSPF (default: its highest address)",
+    "ADDRESS": "Router ID, written like an IPv4 address"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no router-id",
+   "handler": "ospf.no-router-id",
+   "help": {
+    "router-id": "Go back to the default router ID"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network PREFIX",
+   "args": {
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "ospf.network",
+   "help": {
+    "network": "Run OSPF on interfaces inside this network",
+    "PREFIX": "Network, like 10.0.0.0/8"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ospf.passive",
+   "help": {
+    "passive-interface": "Announce this interface's network but send no OSPF packets on it",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ospf.no-passive",
+   "help": {
+    "no": "Undo a setting",
+    "passive-interface": "Speak OSPF on this interface again",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network interface IFNAME",
+   "args": {
+    "IFNAME": "ifname"
+   },
+   "handler": "ospf.network-if",
+   "help": {
+    "network": "Run OSPF on interfaces inside this network",
+    "interface": "Pick one interface by name",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no network PREFIX",
+   "args": {
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "ospf.no-network",
+   "help": {
+    "network": "Stop running OSPF on this network",
+    "PREFIX": "Network, like 10.0.0.0/8"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no network interface IFNAME",
+   "args": {
+    "IFNAME": "ifname"
+   },
+   "handler": "ospf.no-network-if",
+   "help": {
+    "network": "Stop running OSPF on this interface",
+    "interface": "Pick one interface by name",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf cost N",
+   "args": {
+    "N": "uint:1-65535"
+   },
+   "handler": "ospf.set:metric",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "cost": "Cost of sending traffic out of this interface (default 10)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf cost",
+   "handler": "ospf.unset:metric",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "cost": "Go back to the default"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf hello-interval N",
+   "args": {
+    "N": "uint:1-65535"
+   },
+   "handler": "ospf.set:hello-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "hello-interval": "Seconds between hello packets (default 10)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf hello-interval",
+   "handler": "ospf.unset:hello-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "hello-interval": "Go back to the default"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf dead-interval N",
+   "args": {
+    "N": "uint:1-65535"
+   },
+   "handler": "ospf.set:dead-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "dead-interval": "Seconds of silence before a neighbor is declared gone (default: 4 x hello)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf dead-interval",
+   "handler": "ospf.unset:dead-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "dead-interval": "Go back to the default"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf retransmit-interval N",
+   "args": {
+    "N": "uint:1-65535"
+   },
+   "handler": "ospf.set:retransmission-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "retransmit-interval": "Seconds before an unacknowledged update is sent again (default 5)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf retransmit-interval",
+   "handler": "ospf.unset:retransmission-interval",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "retransmit-interval": "Go back to the default"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf priority N",
+   "args": {
+    "N": "uint:0-255"
+   },
+   "handler": "ospf.set:priority",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "priority": "Chance of becoming the designated router; 0 never (default 1)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf priority",
+   "handler": "ospf.unset:priority",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "priority": "Go back to the default"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf network point-to-point",
+   "handler": "ospf.network-type:POINT_TO_POINT_NETWORK",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "network": "What kind of cable this interface is on",
+    "point-to-point": "Exactly one neighbor: no designated router election"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "ospf network broadcast",
+   "handler": "ospf.network-type:BROADCAST_NETWORK",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "network": "What kind of cable this interface is on",
+    "broadcast": "Several routers: elect a designated router"
+   }
+  },
+  {
+   "modes": [
+    "config-if"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no ospf network",
+   "handler": "ospf.unset:network-type",
+   "help": {
+    "ospf": "OSPF settings of this interface",
+    "network": "Go back to the default (broadcast)"
+   }
+  },
+  {
+   "modes": [
+    "user",
+    "priv"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "show ip ospf neighbor",
+   "handler": "show.ospf-neighbor",
+   "help": {
+    "ip": "IPv4 status",
+    "ospf": "OSPF",
+    "neighbor": "Routers this one has met through OSPF"
+   }
+  },
+  {
+   "modes": [
+    "user",
+    "priv"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "show ip ospf interface",
+   "handler": "show.ospf-interface",
+   "help": {
+    "ip": "IPv4 status",
+    "ospf": "OSPF",
+    "interface": "OSPF state of each interface"
+   }
+  },
+  {
+   "modes": [
+    "user",
+    "priv"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "show ip ospf database",
+   "handler": "show.ospf-database",
+   "help": {
+    "ip": "IPv4 status",
+    "ospf": "OSPF",
+    "database": "The link-state database: what every router announced"
+   }
+  },
+  {
+   "modes": [
+    "user",
+    "priv"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "show ip ospf route",
+   "handler": "show.ospf-route",
+   "help": {
+    "ip": "IPv4 status",
+    "ospf": "OSPF",
+    "route": "Networks OSPF has computed"
+   }
+  }
+ ]
+}
