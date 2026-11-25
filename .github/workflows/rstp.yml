@@ -26,3 +26,9 @@ jobs:
           mstpd -h 2>&1 | head -1 || true; git log --oneline -1
       - name: RSTP engine vs mstpd
         run: sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py
+      - name: Flake check (temporary)
+        continue-on-error: true
+        run: |
+          for i in 1 2 3 4 5 6; do
+            echo "== run $i"; sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py > /tmp/run$i.log 2>&1; echo "exit $?"; grep -c "✓" /tmp/run$i.log; grep "kernel bridges" /tmp/run$i.log | cut -c1-900
+          done
