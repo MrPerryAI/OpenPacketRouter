@@ -33,7 +33,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   runs a show command from configuration mode, and `| json`, `| include`, `| exclude` filter show output. Show
   commands read the tables at the current frame. Configuration edits the spec through the CLI's engine backend and
   the network runs again; a change the spec check refuses is reported with its reason. `shutdown` on an interface
-  unplugs its cable, and `ping` and `traceroute` add their frames to the player. Commands: see `cli/README.md` and
+  unplugs its cable, and `ping` and `traceroute` add their frames to the player. Each device you open gets its own tab (own history and mode); ✕ on a tab closes it. Commands: see `cli/README.md` and
   `docs/cli-design.md`.
 
 - **Topology editor**: the toolbar above the map adds a switch, router, host or server. The *Cable* tool joins two
