@@ -82,6 +82,8 @@ export class Ospf {
   areas() { return [...new Set(Object.keys(this.node.ifaces).map(n => this.areaOf(n)).filter(a => a !== null))].sort((a, b) => cmpIp(a, b)); }
   /** An area border router (3): configured in two or more areas, one of them the backbone. */
   isAbr() { const a = this.areas(); return a.length > 1 && a.includes(AREA0); }
+  /** Does the backbone have a Full neighbor? Without one ospfd no longer acts as an ABR: its router LSA drops the B bit and its summary LSAs stay as they are. */
+  _backboneActive() { return [...this.ifs.values()].some(i => i.area === AREA0 && [...i.nbrs.values()].some(n => n.state === "Full")); }
   routerId() {
     if (this.rid) return this.rid;
     if (this.cfgRouterId) return (this.rid = this.cfgRouterId);
@@ -492,6 +494,7 @@ export class Ospf {
   }
   /** As an ABR, one summary LSA (type 3) per prefix the table reaches outside the area, and one type 4 per ASBR, in every area (12.4.3). */
   _originateSummaries() {
+    if (this.isAbr() && !this._backboneActive()) return;    // cut off from the backbone: not an ABR any more, nothing is originated or flushed
     const want = new Map(), wantAsbr = new Map();
     // may route r (reached by `kind`/`area`, out of `hops`) be advertised into area t?
     const ok = (t, r) => (r.kind === "intra" ? r.area !== t : t !== AREA0 && r.kind === "inter") && !(r.hops?.length && !r.direct && r.hops.every(h => this.ifs.get(h.iface)?.area === t));
@@ -552,7 +555,7 @@ export class Ospf {
       if (transit) links.push({type: "transit", id: i.dr, data: i.ip, metric: i.cost});
       else links.push({type: "stub", id: intToIp(i.net), data: i.mask, metric: i.cost});
     }
-    return {abr: this.isAbr(), asbr: this.redist.length > 0, links};
+    return {abr: this.isAbr() && this._backboneActive(), asbr: this.redist.length > 0, links};
   }
   /** Body of the network LSA we'd originate for interface address `id`, or null (not the DR, or alone). */
   _networkBody(id) {
@@ -662,6 +665,7 @@ export class Ospf {
     for (const l of this.lsdb.values()) {
       if ((l.type !== 3 && l.type !== 4) || this._isMaxAge(l) || l.adv === me || !perArea.has(l.area) || (abr && l.area !== AREA0)) continue;
       const via = perArea.get(l.area).routers.get(l.adv); if (!via || !via.hops.length) continue;
+      if (!this.lsdb.get(key(l.area, 1, l.adv, l.adv))?.body.abr) continue;    // only an ABR (B bit) may summarize
       if (l.body.metric >= LS_INFINITY) continue;
       const cost = via.dist + l.body.metric;
       if (l.type === 4) { if (l.id !== me) putAsbr(l.id, {kind: "inter", area: l.area, cost, hops: via.hops, direct: false}); continue; }
@@ -678,7 +682,7 @@ export class Ospf {
     }
     const all = [...table.values()];
     // a static or connected route to the very same prefix has the better administrative distance: OSPF's route is not installed
-    const local = new Set([...this.node.routes.map(x => `${x.net}/${x.prefix}`), ...Object.values(this.node.ifaces).filter(i => i.ip).map(i => `${i.net}/${i.prefix}`)]);
+    const local = new Set([...this.node.routes.filter(x => this._viaUp(x.via)).map(x => `${x.net}/${x.prefix}`), ...Object.entries(this.node.ifaces).filter(([n, i]) => i.ip && this._linkUp(n)).map(([, i]) => `${i.net}/${i.prefix}`)]);
     const maskLen = m => [...m.split(".")].reduce((n, o) => n + (+o).toString(2).replace(/0/g, "").length, 0);
     const out = all.filter(r => !r.direct && r.hops.length && !local.has(`${ipToInt(r.net)}/${maskLen(r.mask)}`)).map(r => {
       r.hops.sort((a, b) => cmpIp(a.gw || "0.0.0.0", b.gw || "0.0.0.0") || a.iface.localeCompare(b.iface));

@@ -174,7 +174,7 @@ test("three areas: ABRs summarize each area into the others, inter-area routes c
   assert.equal(n2.node("R5").ospf.neighbors().length, 0);
 });
 
-test("an ABR that loses the backbone flushes its summaries; the area is cut off", () => {
+test("an ABR that loses the backbone stops being one: its summaries stay in the database but give no routes", () => {
   const net = Network.fromSpec(load("ospf-areas"));
   at(net, 25); net.setLink("SW:p3", false); at(net, 50);
   assert.deepEqual(routes(net, "R1"), ["10.0.0.0/24 cost 25 via 10.12.0.2", "10.3.0.0/24 cost 35 via 10.12.0.2"]);
