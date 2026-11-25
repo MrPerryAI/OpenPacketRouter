@@ -1,0 +1,24 @@
+{
+  "feature": "vrrp",
+  "about": "First-hop redundancy on routers: two or more routers on one LAN share a virtual gateway address; the highest priority owns it, and a backup takes over when it falls silent. Set up per interface with `vrrp GROUP ...`.",
+  "commands": [
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "vrrp GROUP address ADDRESS", "args": {"GROUP": "uint:1-255", "ADDRESS": "ipv4-address"}, "handler": "vrrp.address",
+     "help": {"vrrp": "Shared gateway address with other routers", "GROUP": "Group number, the same on every router of the group (1 to 255)", "address": "The virtual address hosts use as their gateway", "ADDRESS": "An unused address on this interface's subnet"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "vrrp GROUP priority PRIORITY", "args": {"GROUP": "uint:1-255", "PRIORITY": "uint:1-255"}, "handler": "vrrp.priority",
+     "help": {"vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "priority": "Who wins the election: the higher number (default 100; 255 means this router owns the address)", "PRIORITY": "1 to 255"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "vrrp GROUP interval SECONDS", "args": {"GROUP": "uint:1-255", "SECONDS": "uint:1-40"}, "handler": "vrrp.interval",
+     "help": {"vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "interval": "Seconds between the master's announcements (default 1; every router of the group must agree)", "SECONDS": "1 to 40"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "vrrp GROUP preempt", "args": {"GROUP": "uint:1-255"}, "handler": "vrrp.preempt",
+     "help": {"vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "preempt": "Take the address back from a lower-priority master (the default)"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "no vrrp GROUP preempt", "args": {"GROUP": "uint:1-255"}, "handler": "vrrp.no-preempt",
+     "help": {"no": "Undo a setting", "vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "preempt": "Stay backup even with a higher priority until the master fails"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "vrrp GROUP virtual-mac", "args": {"GROUP": "uint:1-255"}, "handler": "vrrp.virtual-mac",
+     "help": {"vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "virtual-mac": "Answer ARP for the address with the group's own MAC 00:00:5e:00:01:GROUP instead of the interface's MAC"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "no vrrp GROUP virtual-mac", "args": {"GROUP": "uint:1-255"}, "handler": "vrrp.no-virtual-mac",
+     "help": {"no": "Undo a setting", "vrrp": "Shared gateway address with other routers", "GROUP": "Group number", "virtual-mac": "Use the interface's own MAC again (the default)"}},
+    {"modes": ["config-if"], "kinds": ["router"], "syntax": "no vrrp GROUP", "args": {"GROUP": "uint:1-255"}, "handler": "vrrp.remove",
+     "help": {"no": "Undo a setting", "vrrp": "Leave the group and forget its settings", "GROUP": "Group number"}},
+    {"modes": ["user", "priv"], "kinds": ["router"], "syntax": "show vrrp", "handler": "show.vrrp",
+     "help": {"show": "Show status and settings", "vrrp": "Each group: its state, who is master, priority and timers"}}
+  ]
+}
