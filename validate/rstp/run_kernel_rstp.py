@@ -61,8 +61,14 @@ class Bridges:
             sh("mstpctl", "setforcevers", b, "rstp")
             sh("mstpctl", "sethello", b, str(s.get("hello", 2))); sh("mstpctl", "setmaxage", b, str(s.get("maxAge", 20))); sh("mstpctl", "setfdelay", b, str(s.get("forwardDelay", 15)))
             sh("mstpctl", "settreeprio", b, "0", str(s.get("priority", 0x8000) >> 12))
+        for name in self.ifn.values(): sh("ip", "link", "set", name, "up")   # mstpd only knows a port once it has been up: bring them up, then down again to configure them
+        time.sleep(1)
+        for name in self.ifn.values(): sh("ip", "link", "set", name, "down")
+        time.sleep(0.5)
+        for n, node in self.sw.items():
+            s = node.get("stp", {})
             for key, name in self.ifn.items():
-                if key.startswith(n + ":"): sh("mstpctl", "setportpathcost", b, name, str((s.get("cost") or {}).get(key.split(":")[1], 20000)))
+                if key.startswith(n + ":"): sh("mstpctl", "setportpathcost", self.br[n], name, str((s.get("cost") or {}).get(key.split(":")[1], 20000)))
         for f in os.listdir("/tmp"):
             if f.startswith("rstp-bpdu-"): os.remove("/tmp/" + f)
         for key, name in self.ifn.items():
