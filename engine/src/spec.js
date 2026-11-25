@@ -22,7 +22,8 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "monitor"],   // monitor: port mirroring (SPAN), see Switch._setupMonitor
+      // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "routes", "gw", "services", "lldp"],
@@ -223,6 +224,29 @@ export function validateSpec(spec) {
           }
         }
         if (n.stp !== undefined) err(`${p}.channels`, `node "${n.name}": spanning tree over a port-channel is not modeled yet`);
+      }
+      if (n.monitor !== undefined) {   // port mirroring: {"1": {"destination": "p3", "sources": {"p1": "both", "p2": "rx"}}}; Switch._setupMonitor
+        const cabled = new Set((Array.isArray(spec.links) ? spec.links : []).flatMap(l => Array.isArray(l) ? l.slice(0, 2) : []).filter(e => typeof e === "string" && e.startsWith(n.name + ":")).map(e => e.slice(n.name.length + 1)));
+        const chPorts = new Set(Object.values(isObj(n.channels) ? n.channels : {}).flatMap(c => isObj(c) && Array.isArray(c.ports) ? c.ports : []));
+        const dests = new Set(), srcs = new Set();
+        if (!isObj(n.monitor)) err(`${p}.monitor`, `node "${n.name}": monitor must be an object like {"1": {"destination": "p3", "sources": {"p1": "both"}}}`);
+        else for (const [sn, s] of Object.entries(n.monitor)) {
+          const q = `${p}.monitor.${sn}`;
+          if (!/^\d+$/.test(sn)) err(q, `node "${n.name}": monitor session "${sn}": the session id is a number`);
+          if (!isObj(s) || typeof s.destination !== "string" || !isObj(s.sources) || !Object.keys(s.sources).length) { err(q, `node "${n.name}": monitor session ${sn} needs "destination": a port name and "sources": {"port": "rx"|"tx"|"both"}`); continue; }
+          for (const k of Object.keys(s)) if (!["destination", "sources"].includes(k)) warn(`${q}.${k}`, `node "${n.name}": monitor session ${sn}: unknown key "${k}" (ignored)`);
+          if (!cabled.has(s.destination) || chPorts.has(s.destination)) err(`${q}.destination`, `node "${n.name}": monitor session ${sn}: destination ${s.destination} must be a cabled port that is not in a channel`);
+          if (dests.has(s.destination)) err(`${q}.destination`, `node "${n.name}": port ${s.destination} is the destination of two monitor sessions`);
+          dests.add(s.destination);
+          for (const [port, dir] of Object.entries(s.sources)) {
+            if (!cabled.has(port) || chPorts.has(port)) err(`${q}.sources.${port}`, `node "${n.name}": monitor session ${sn}: source ${port} must be a cabled port that is not in a channel`);
+            if (!["rx", "tx", "both"].includes(dir)) err(`${q}.sources.${port}`, `node "${n.name}": monitor session ${sn}: direction of ${port} is "rx", "tx" or "both"`);
+            if (port === s.destination) err(`${q}.sources.${port}`, `node "${n.name}": monitor session ${sn}: ${port} is both source and destination`);
+            srcs.add(port);
+          }
+        }
+        for (const d of dests) if (srcs.has(d)) err(`${p}.monitor`, `node "${n.name}": port ${d} cannot be a monitor destination and a monitor source`);
+        if (n.stp !== undefined) err(`${p}.monitor`, `node "${n.name}": port mirroring together with spanning tree is not modeled yet`);
       }
       if (n.ifaces === undefined) {
         for (const k of ["routes", "gw"]) if (n[k] !== undefined) err(`${p}.${k}`, `node "${n.name}": a switch needs SVIs ("ifaces": {"vlan10": ...}) before it can have ${k}`);
