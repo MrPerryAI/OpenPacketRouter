@@ -53,6 +53,11 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
   members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+- **Keyboard and phones**: Tab moves between devices and cables (a skip link jumps to the map). On a device: Enter or
+  Space selects, **C** opens its console, arrow keys move it (Shift for bigger steps), Escape clears the selection;
+  Enter on a cable unplugs or plugs it. Escape closes the console. Player buttons and the frame counter are labelled
+  for screen readers; animation stops under *reduce motion*. Under 700 px wide the page is one column, the console
+  fills the width, tables scroll sideways and buttons are touch sized.
 
 ## Files
 
