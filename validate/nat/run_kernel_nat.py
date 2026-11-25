@@ -166,7 +166,7 @@ def main():
     md = ["| Network | Action | Engine result (same in Linux?) | Frames (engine = Linux, cable by cable?) and translation table | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
-    print("\n".join(md))
+    print("\n".join(md)); l3.gh_note("notice", "NAT results.md", "\n".join(md)); l3.gh_note("notice", "NAT mismatches.json", json.dumps(detail, indent=1))
     if detail: print(json.dumps(detail, indent=1)[:5000]); l3.gh_note("error", "NAT engine vs Linux mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
