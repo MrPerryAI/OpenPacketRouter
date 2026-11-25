@@ -1,0 +1,23 @@
+[
+ {"wait": 9},
+ {"stp": ["SW1", "SW2", "SW3"]},
+ {"bpdus": "mark"},
+ {"wait": 6},
+ {"bpdus": true},
+ {"link": {"end": "SW1:p1", "up": false}},
+ {"wait": 0.5},
+ {"stp": ["SW1", "SW2", "SW3"]},
+ {"wait": 9},
+ {"stp": ["SW1", "SW2", "SW3"]},
+ {"bpdus": "mark"},
+ {"wait": 6},
+ {"bpdus": true},
+ {"link": {"end": "SW1:p1", "up": true}},
+ {"wait": 0.5},
+ {"stp": ["SW1", "SW2", "SW3"]},
+ {"wait": 9},
+ {"stp": ["SW1", "SW2", "SW3"]},
+ {"bpdus": "mark"},
+ {"wait": 6},
+ {"bpdus": true}
+]

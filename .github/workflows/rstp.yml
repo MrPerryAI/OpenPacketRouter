@@ -24,5 +24,5 @@ jobs:
           git clone -q https://github.com/mstpd/mstpd /tmp/mstpd-src
           cd /tmp/mstpd-src && ./autogen.sh >/dev/null 2>&1 && ./configure --prefix=/usr --sysconfdir=/etc >/dev/null && make -j4 >/dev/null && sudo make install >/dev/null
           mstpd -h 2>&1 | head -1 || true; git log --oneline -1
-      - name: Explore
-        run: sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py --explore validate/rstp/tri.json 25 cut SW1:p1 14 restore SW1:p1 20
+      - name: RSTP engine vs mstpd
+        run: sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py
