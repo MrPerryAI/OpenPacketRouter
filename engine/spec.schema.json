@@ -98,6 +98,7 @@
         {"if": {"properties": {"kind": {"const": "switch"}}}, "then": {"properties": {
           "blocked": {"type": "array", "items": {"type": "string"}},
           "forwardLldp": {"type": "boolean", "description": "true: the switch forwards LLDP frames (bridge group_fwd_mask 0x4000); default false, as in Linux"},
+          "monitor": {"type": "object", "description": "Port mirroring (SPAN): session number -> {destination: port, sources: {port: rx|tx|both}}", "additionalProperties": {"type": "object", "required": ["destination", "sources"], "properties": {"destination": {"type": "string"}, "sources": {"type": "object", "additionalProperties": {"enum": ["rx", "tx", "both"]}}}}},
           "agingTime": {"type": "number", "exclusiveMinimum": 0, "description": "MAC table aging time in seconds (default 300). Like a Linux bridge's ageing_time."},
           "stp": {"type": "object", "properties": {
             "priority": {"type": "integer", "minimum": 0, "maximum": 65535}, "mac": {"type": "string"},

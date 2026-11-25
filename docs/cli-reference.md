@@ -170,8 +170,6 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `switchport port-security violation restrict` | interface | switches | Drop it, count it and log it |
 | `switchport port-security violation shutdown` | interface | switches | Drop it and take the port down (err-disabled) |
 | `no switchport port-security` | interface | switches | Remove the address limit from this port |
-| `storm-control broadcast rate RATE burst BYTES` | interface | switches | Bytes |
-| `no storm-control broadcast` | interface | switches | Broadcast frames |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
 | `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
 | `spanning-tree mode stp` | config | switches | Classic spanning tree (802.1D): timers decide when a port may forward |
@@ -193,10 +191,17 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no spanning-tree portfast` | interface | switches | Not an edge port (the switch still detects one by itself when no BPDU arrives) |
 | `no spanning-tree cost` | interface | switches | Default cost |
 | `no spanning-tree port-priority` | interface | switches | Default port priority |
+| `monitor session N destination interface IF` | config | switches | Port name |
+| `monitor session N source interface IF both` | config | switches | Frames received and sent (the default) |
+| `monitor session N source interface IF rx` | config | switches | Only frames the port receives |
+| `monitor session N source interface IF tx` | config | switches | Only frames the port sends |
+| `monitor session N source interface IF` | config | switches | Port name |
+| `no monitor session N source interface IF` | config | switches | Port name |
+| `no monitor session N` | config | switches | Session number |
 
 ### Services
 
-What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discard.
+What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
@@ -220,8 +225,6 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no ip helper-address ADDRESS` | interface | routers | DHCP server address |
 | `service tcp-echo PORT` | config | routers, hosts, servers | TCP port |
 | `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
-| `service tcp-discard PORT` | config | routers, hosts, servers | TCP port |
-| `no service tcp-discard PORT` | config | routers, hosts, servers | Stop the TCP discard service on a port |
 
 ### Rip
 
@@ -331,7 +334,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
 | `show port-security` | user, privileged | switches | Limits on how many hosts a switch port accepts, and the violations so far |
-| `show storm-control` | user, privileged | switches | Broadcast limits per switch port, and how many frames each let through or dropped |
+| `show monitor` | user, privileged | switches | Port mirroring sessions: destination and source ports |
 | `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
