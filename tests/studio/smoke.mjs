@@ -129,6 +129,36 @@ try {
   check(/empty/.test((await page.textContent("#consoleOut")).split("show arp").pop()), "… and they are empty before the first frame");
   await page.click("#consoleClose");
 
+
+  // keyboard and accessibility basics
+  await page.goto(BASE + "?lab=routed-lan-dns"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  await page.focus('.node[data-node="R1"]');
+  check(/router R1/.test(await page.getAttribute('.node[data-node="R1"]', "aria-label")), "devices are focusable with a label");
+  await page.keyboard.press("Enter");
+  check(await page.evaluate(() => window.studio.S.selected) === "R1" && await page.evaluate(() => document.activeElement.dataset.node) === "R1", "Enter selects the focused device and keeps focus");
+  const x0 = await page.evaluate(() => window.studio.S.pos.R1.x);
+  await page.keyboard.press("ArrowRight"); await page.keyboard.press("Shift+ArrowRight");
+  check(await page.evaluate(() => window.studio.S.pos.R1.x) === x0 + 50 && await page.evaluate(() => document.activeElement.dataset.node) === "R1", "arrow keys move a device (Shift: bigger steps)");
+  await page.keyboard.press("c");
+  check(await page.isVisible("#console"), "C opens the console on the focused device");
+  await page.keyboard.press("Escape");
+  await page.focus('#console input'); await page.keyboard.press("Escape");
+  check(!(await page.isVisible("#console")), "Escape closes the console");
+  await page.focus('.cable-hit >> nth=0'); await page.keyboard.press("Enter");
+  check(await page.$$eval("line.cable.cut", l => l.length) === 1, "Enter on a focused cable unplugs it");
+  await page.focus('.cable-hit >> nth=0'); await page.keyboard.press("Enter");
+  check(await page.$$eval("line.cable.cut", l => l.length) === 0, "… and plugs it back in");
+  check(await page.getAttribute("#play", "aria-label") === "Play or pause" && await page.$("a.skip") !== null, "player buttons are labelled; skip link present");
+  // a phone-width screen
+  await page.setViewportSize({width: 390, height: 800});
+  await page.goto(BASE + "?lab=vlans"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  const m = await page.evaluate(() => ({sw: document.documentElement.scrollWidth, w: innerWidth, map: document.querySelector("#map").getBoundingClientRect().width, cols: getComputedStyle(document.querySelector("main")).gridTemplateColumns.split(" ").length}));
+  check(m.sw <= m.w && m.map > 300 && m.cols === 1, "phone width: one column, no sideways scrolling, map fills the screen", JSON.stringify(m));
+  await page.evaluate(() => window.studio.openConsole("SW1"));
+  const c = await page.evaluate(() => { const r = document.querySelector("#console").getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth; });
+  check(c, "the console fits a phone screen");
+  await page.setViewportSize({width: 1440, height: 950});
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });

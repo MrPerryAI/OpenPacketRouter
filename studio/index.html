@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<a class="skip" href="#map">Skip to the network map</a>
 <header class="bar">
   <h1>OpenPacketRouter <span>Studio</span></h1>
   <label>Lab <select id="examples" aria-label="Example lab"></select></label>
@@ -19,15 +20,15 @@
   <section class="stage">
     <div id="title" class="title"></div>
     <div id="errors" class="errors" hidden></div>
-    <svg id="map" viewBox="0 0 900 560" role="img" aria-label="Network map"></svg>
+    <svg id="map" viewBox="0 0 900 560" role="group" aria-label="Network map: Tab moves between devices and cables"></svg>
     <div class="legend" id="legend"></div>
     <div class="player">
-      <button id="first" title="Back to the start (Home)">⏮</button>
-      <button id="back" title="Step back (←)">◀</button>
-      <button id="play" title="Play / pause (Space)">▶</button>
-      <button id="step" title="Step forward (→)">▶|</button>
-      <label class="speed">Speed <input type="range" id="speed" min="-2" max="4" step="0.25" value="0"><output id="speedOut">1×</output></label>
-      <span id="counter" class="counter"></span>
+      <button id="first" aria-label="Back to the start" title="Back to the start (Home)">⏮</button>
+      <button id="back" aria-label="Step back" title="Step back (←)">◀</button>
+      <button id="play" aria-label="Play or pause" title="Play / pause (Space)">▶</button>
+      <button id="step" aria-label="Step forward" title="Step forward (→)">▶|</button>
+      <label class="speed">Speed <input type="range" id="speed" aria-label="Playback speed" min="-2" max="4" step="0.25" value="0"><output id="speedOut">1×</output></label>
+      <span id="counter" class="counter" aria-live="polite"></span>
     </div>
     <div id="reason" class="reason" aria-live="polite"></div>
   </section>

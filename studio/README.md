@@ -36,6 +36,12 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   unplugs its cable, and `ping` and `traceroute` add their frames to the player. Commands: see `cli/README.md` and
   `docs/cli-design.md`.
 
+- **Keyboard and phones**: Tab moves between devices and cables (a skip link jumps to the map). On a device: Enter or
+  Space selects, **C** opens its console, arrow keys move it (Shift for bigger steps), Escape clears the selection;
+  Enter on a cable unplugs or plugs it. Escape closes the console. Player buttons and the frame counter are labelled
+  for screen readers; animation stops under *reduce motion*. Under 700 px wide the page is one column, the console
+  fills the width, tables scroll sideways and buttons are touch sized.
+
 ## Files
 
 | File | What |
