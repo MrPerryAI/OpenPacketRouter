@@ -131,7 +131,7 @@ try {
 
 
   // several consoles in tabs
-  await page.dblclick('#map .node[data-node="CORE"]'); await page.dblclick('#map .node[data-node="R2"]').catch(() => {});
+  await page.dblclick('#map .node[data-node="CORE"]');
   const other = await page.evaluate(() => window.studio.S.spec.nodes.find(n => n.name !== "CORE" && n.kind !== "switch").name);
   await page.evaluate(n => window.studio.openConsole(n), other);
   check(await page.$$eval("#consoleTabs .tab", t => t.length) >= 2 && await page.$eval("#consoleTabs .tab.on", t => t.dataset.tab) === other, "each opened device gets a console tab");
