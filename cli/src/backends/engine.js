@@ -52,6 +52,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       if (c.trunk) { sv["interface-mode"] = "TRUNK"; sv["trunk-vlans"] = [...c.trunk]; if (c.native !== undefined) sv["native-vlan"] = c.native; }
       else { sv["interface-mode"] = "ACCESS"; sv["access-vlan"] = c.access ?? 1; }
     }
+    for (const [p, c] of Object.entries(n.portSecurity || {})) M.iface(m, p)["openpacketrouter:port-security"] = {max: c.max, ...(c.violation ? {violation: c.violation} : {})};
     for (const [cn, c] of Object.entries(n.channels || {})) {   // port-channels: members point at the channel, the channel is an interface (Po1)
       const po = M.iface(m, cn); po.config.type = "ieee8023adLag"; po.aggregation = {config: {"lag-type": "LACP"}};
       for (const p of c.ports) M.setLag(M.iface(m, p), cn);
@@ -136,7 +137,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels", "portSecurity"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -169,6 +170,8 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       vl[p] = sv["interface-mode"] === "TRUNK" ? {trunk: [...sv["trunk-vlans"]], ...(sv["native-vlan"] !== undefined ? {native: sv["native-vlan"]} : {})} : {access: sv["access-vlan"]};
     }
     if (Object.keys(vl).length) n.vlans = vl;
+    const psec = {}; for (const p of ports) { const c = ifs[p]?.["openpacketrouter:port-security"]; if (c) psec[p] = {max: c.max, ...(c.violation ? {violation: c.violation} : {})}; }
+    if (Object.keys(psec).length) n.portSecurity = psec;
     const vn = {}; for (const [id, v] of Object.entries(M.vlans(m))) if (v.config?.name) vn[id] = v.config.name;
     if (Object.keys(vn).length) n.vlanNames = vn;
     const g = M.stpGlobal(m), portCfg = m.stp.interfaces.interface;
@@ -322,6 +325,7 @@ export function stateOf(net, device, spec) {
     const base = {
       interfaces: [...Object.keys(n.ifaces).map(p => ({name: p, status: !cabledUp(p) ? "down" : n.blocked.has(p) ? "admin-down" : "up"})),
         ...svis.map(i => ({name: i.name, address: i.ip ? `${i.ip}/${i.prefix}` : null, mac: i.mac, status: sviUp(i) ? "up" : "down"}))],
+      portSecurity: n.portSecurity(),
       mac: n.macTable().map(e => ({...e, vlan: e.vlan || 1})),
       stp: n.stp && n.stp.started ? n.stp.describe() : null,
       lacp: [...n.channels.values()].map(c => c.describe()),
