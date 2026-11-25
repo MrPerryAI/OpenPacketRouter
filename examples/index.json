@@ -83,6 +83,14 @@
    "readme": "mac-aging/README.md"
   },
   {
+   "id": "port-security",
+   "name": "Port security",
+   "about": "A small switch with two hosts plugs into a port that allows one MAC address. The first host heard is secured; the second is dropped and counted.",
+   "spec": "port-security/spec.json",
+   "actions": "port-security/actions.json",
+   "readme": "port-security/README.md"
+  },
+  {
    "id": "rip-chain",
    "name": "RIP on a chain of three routers (poisoned reverse)",
    "about": "Three routers learn each other's networks with RIPv2. Cut a cable: the route is poisoned (metric 16), then garbage collected, and returns when the cable is restored.",
