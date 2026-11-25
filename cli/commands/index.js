@@ -8,8 +8,9 @@ import services from "./services.json" with {type: "json"};
 import rip from "./rip.json" with {type: "json"};
 import show from "./show.json" with {type: "json"};
 import acl from "./acl.json" with {type: "json"};
+import lldp from "./lldp.json" with {type: "json"};
 import nat from "./nat.json" with {type: "json"};
 import exec from "./exec.json" with {type: "json"};
 import ospf from "./ospf.json" with {type: "json"};
 
-export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, acl, nat, show, exec, ospf];
+export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, acl, nat, lldp, show, exec, ospf];

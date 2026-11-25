@@ -1,0 +1,26 @@
+{
+  "feature": "lldp",
+  "about": "LLDP (neighbor discovery) on routers, hosts and servers: `lldp run` turns it on, then timer and hold-multiplier set how often it speaks and how long neighbors are believed. Switches do not take part (a bridge never forwards LLDP).",
+  "commands": [
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "lldp run", "handler": "lldp.run",
+     "help": {"lldp": "Link Layer Discovery Protocol", "run": "Send and listen for LLDP on every cabled interface"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no lldp run", "handler": "lldp.remove",
+     "help": {"no": "Undo a setting", "lldp": "Link Layer Discovery Protocol", "run": "Turn LLDP off and forget its settings"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "lldp timer SECONDS", "args": {"SECONDS": "uint:1-3600"}, "handler": "lldp.timer",
+     "help": {"timer": "Seconds between advertisements (default 30)", "SECONDS": "1 to 3600"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no lldp timer", "handler": "lldp.no-timer",
+     "help": {"no": "Undo a setting", "lldp": "Link Layer Discovery Protocol", "timer": "Back to the default of 30 seconds"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "lldp hold-multiplier COUNT", "args": {"COUNT": "uint:1-100"}, "handler": "lldp.hold",
+     "help": {"hold-multiplier": "How many timer periods a neighbor stays listed after its last advertisement (default 4)", "COUNT": "1 to 100"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no lldp hold-multiplier", "handler": "lldp.no-hold",
+     "help": {"no": "Undo a setting", "lldp": "Link Layer Discovery Protocol", "hold-multiplier": "Back to the default of 4"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "lldp description TEXT", "args": {"TEXT": "word"}, "handler": "lldp.description",
+     "help": {"description": "The system description neighbors see (one word)", "TEXT": "The text"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no lldp description", "handler": "lldp.no-description",
+     "help": {"no": "Undo a setting", "lldp": "Link Layer Discovery Protocol", "description": "Back to the default description"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "show lldp", "handler": "show.lldp",
+     "help": {"show": "Show status and settings", "lldp": "Whether LLDP runs, its timers and neighbor count"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "show lldp neighbors", "handler": "show.lldp-neighbors",
+     "help": {"lldp": "Link Layer Discovery Protocol", "neighbors": "Devices heard on each interface: name, port, capabilities, time left"}}
+  ]
+}
