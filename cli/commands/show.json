@@ -32,6 +32,8 @@
      "help": {"dhcp": "DHCP server", "binding": "Addresses this server has handed out"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show mac address-table", "handler": "show.mac-table",
      "help": {"mac": "MAC addresses", "address-table": "Which port each MAC address was seen on"}},
+    {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show monitor", "handler": "show.monitor",
+     "help": {"show": "Show device state", "monitor": "Port mirroring sessions: destination and source ports"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show etherchannel summary", "handler": "show.etherchannel",
      "help": {"etherchannel": "Port-channels (link aggregation)", "summary": "One line per channel, with the state of each member port"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show spanning-tree", "handler": "show.spanning-tree",
