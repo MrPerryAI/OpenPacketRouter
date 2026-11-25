@@ -163,6 +163,8 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `lacp rate slow` | interface | switches | Every 30 seconds (the default) |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
+| `lldp forward` | config | switches | Pass LLDP frames through this switch instead of dropping them (the switch itself does not speak LLDP) |
+| `no lldp forward` | config | switches | Drop LLDP frames again (the default) |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
 | `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
 | `spanning-tree priority PRIORITY` | config | switches | Priority (default 32768) |
@@ -473,6 +475,7 @@ SW1>enable
 SW1#show spanning-tree
 Bridge 8000.02aa00000001  (this switch is the root)
 Root   8000.02aa00000001
+Topology change: in progress (detected by this switch)
 Priority 32768, hello 1 s, max age 6 s, forward delay 4 s
 
 Port  Role        State       Cost  Port ID
