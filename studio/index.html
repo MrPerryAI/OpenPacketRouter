@@ -11,6 +11,9 @@
   <h1>OpenPacketRouter <span>Studio</span></h1>
   <label>Lab <select id="examples" aria-label="Example lab"></select></label>
   <label class="file">Open spec… <input type="file" id="specFile" accept=".json,application/json"></label>
+  <button id="saveSpec" title="Download this network as spec JSON">Save spec</button>
+  <button id="saveActions" title="Download the actions as JSON">Save actions</button>
+  <button id="restore" title="Reload the network autosaved in this browser" hidden>Restore autosave</button>
   <label class="file">Open actions… <input type="file" id="actionsFile" accept=".json,application/json"></label>
   <div id="storm" class="storm" title="Storm math: what one broadcast would do on this network as cabled now (a teaching model)"></div>
 </header>

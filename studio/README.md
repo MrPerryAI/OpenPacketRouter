@@ -36,6 +36,11 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   unplugs its cable, and `ping` and `traceroute` add their frames to the player. Commands: see `cli/README.md` and
   `docs/cli-design.md`.
 
+- **Save and export**: *Save spec* downloads the network as spec JSON (what the editor and the console changed),
+  *Save actions* the actions; *Open spec…* reads such a file back. Every change is also autosaved in the browser's
+  storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. YAML export
+  waits until the CLI reads YAML specs.
+
 ## Files
 
 | File | What |

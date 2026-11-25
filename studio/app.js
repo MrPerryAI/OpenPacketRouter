@@ -50,11 +50,39 @@ export function load(spec, actions = [], name = "") {
   if (!v.ok) return false;
   S.spec = spec; S.actions = errs.length ? [] : actions; S.name = name; S.cut = new Set(); S.selected = null;
   S.sessions = new Map(); closeConsole();
+  S.loading = true;
   S.pos = savedLayout(spec) || autoLayout(spec);
   $("#title").innerHTML = `${esc(spec.name || name || "Untitled network")}${spec.about ? `<small>${esc(spec.about)}</small>` : ""}`;
-  rerun();
+  rerun(); S.loading = false;
   return true;
 }
+
+// ---------------------------------------------------------------- save, export, autosave
+
+const AUTOSAVE = "studio-autosave";
+/** Remember the network in this browser after every change (not after a plain load). Storage may be full or off: never throw. */
+function autosave() {
+  try { localStorage.setItem(AUTOSAVE, JSON.stringify({spec: S.spec, actions: S.actions, name: S.name, pos: S.pos})); showRestore(); } catch { /* ignore */ }
+}
+function readAutosave() {
+  try { const a = JSON.parse(localStorage.getItem(AUTOSAVE)); return a && a.spec && Array.isArray(a.spec.nodes) ? a : null; } catch { return null; }
+}
+function showRestore() { const b = $("#restore"); if (b) b.hidden = !readAutosave(); }
+export function restoreAutosave() {
+  const a = readAutosave(); if (!a) return false;
+  if (!load(a.spec, a.actions || [], a.name || "")) return false;
+  if (a.pos && a.spec.nodes.every(n => a.pos[n.name])) { S.pos = a.pos; drawMap(); }
+  $("#examples").value = ""; return true;
+}
+
+/** The spec as the JSON a file would hold (two-space indent, trailing newline). */
+export const specJson = () => JSON.stringify(S.spec, null, 2) + "\n";
+function download(filename, text) {
+  const url = URL.createObjectURL(new Blob([text], {type: "application/json"}));
+  const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+const fileBase = () => ((S.spec && S.spec.name) || S.name || "network").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "network";
 
 function showErrors(list) { const e = $("#errors"); e.hidden = !list.length; e.textContent = list.join("\n"); }
 
@@ -68,6 +96,7 @@ export function rerun() {
   } catch (e) { showErrors([String(e.message || e)]); S.sim = {actions: [], steps: [], routes: {}, final: {}}; }
   S.step = -1;
   drawMap(); drawStorm(); drawActions(); showStep(); drawDevice();
+  if (!S.loading) autosave();
 }
 
 const layoutKey = spec => "studio-layout:" + (spec.name || "") + ":" + spec.nodes.map(n => n.name).join(",");
@@ -331,6 +360,9 @@ async function init() {
     catch (err) { showErrors([`${e.target.files[0]?.name}: ${err.message}`]); }
     e.target.value = "";
   });
+  $("#saveSpec").addEventListener("click", () => S.spec && download(`${fileBase()}.spec.json`, specJson()));
+  $("#saveActions").addEventListener("click", () => S.spec && download(`${fileBase()}.actions.json`, JSON.stringify(S.actions, null, 2) + "\n"));
+  $("#restore").addEventListener("click", restoreAutosave); showRestore();
   $("#consoleInput").addEventListener("keydown", consoleKey);
   $("#consoleClose").addEventListener("click", closeConsole);
   $(".console-head").addEventListener("pointerdown", e => {         // drag the console by its title bar
@@ -436,5 +468,5 @@ function consoleKey(e) {
   }
 }
 
-window.studio = {S, load, rerun, goto, play, stop, select, toggleCut, openConsole};
+window.studio = {S, restoreAutosave, specJson, load, rerun, goto, play, stop, select, toggleCut, openConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });
