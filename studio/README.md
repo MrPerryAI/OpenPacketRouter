@@ -44,6 +44,11 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   refuses is reported with its path and nothing changes. Actions that no longer fit the network are dropped.
   The pure edit functions live in `editor.js`.
 
+- **Save and export**: *Save spec* downloads the network as spec JSON (what the editor and the console changed),
+  *Save actions* the actions; *Open spec…* reads such a file back. Every change is also autosaved in the browser's
+  storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. YAML export
+  waits until the CLI reads YAML specs.
+
 ## Files
 
 | File | What |

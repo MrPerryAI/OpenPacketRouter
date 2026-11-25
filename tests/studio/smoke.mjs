@@ -159,6 +159,28 @@ try {
   check(await page.evaluate(() => window.studio.S.spec.nodes.length + "/" + window.studio.S.spec.links.length) === "2/0", "delete tool removes a device and its cables");
   await page.click('[data-tool="select"]');
 
+  // save and export: download the spec, reopen it, autosave and restore
+  await page.evaluate(() => { localStorage.removeItem("studio-autosave"); window.studio.load({version: 1, name: "Saved net", nodes: [{name: "SW1", kind: "switch"}, {name: "PC1", kind: "host", ifaces: {eth0: "10.0.0.1/24"}}], links: [["PC1:eth0", "SW1:p1"]]}); });
+  check(await page.evaluate(() => !localStorage.getItem("studio-autosave")), "a plain load does not autosave");
+  await page.evaluate(() => { const c = URL.createObjectURL; URL.createObjectURL = b => { window.lastBlob = b; return c.call(URL, b); };
+    document.addEventListener("click", e => { if (e.target.download) window.lastName = e.target.download; }, true); });
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click("#saveSpec")]);
+  const saved = await page.evaluate(() => window.lastBlob.text());
+  check(dl.suggestedFilename() === "saved-net.spec.json" && JSON.parse(saved).nodes.length === 2, "Save spec downloads the network as JSON", dl.suggestedFilename());
+  await page.evaluate(() => window.studio.load({version: 1, name: "Other", nodes: [], links: []}));
+  await page.setInputFiles("#specFile", {name: "saved.json", mimeType: "application/json", buffer: Buffer.from(saved)});
+  await page.waitForFunction(() => window.studio.S.spec.nodes.length === 2);
+  check(await page.evaluate(() => window.studio.specJson()) === saved, "reopening the saved file gives the same spec back");
+  await page.evaluate(() => window.studio.toggleCut(0));                 // any change autosaves
+  check(await page.evaluate(() => !!localStorage.getItem("studio-autosave")) && !(await page.$eval("#restore", b => b.hidden)), "a change autosaves and shows Restore");
+  await page.evaluate(() => window.studio.load({version: 1, name: "Other", nodes: [], links: []}));
+  await page.click("#restore");
+  check(await page.evaluate(() => window.studio.S.spec.name) === "Saved net", "Restore autosave brings the network back");
+  await page.evaluate(() => { const s = Storage.prototype.setItem; Storage.prototype.setItem = () => { throw new Error("quota"); }; window.studio.toggleCut(0); Storage.prototype.setItem = s; });
+  check(true, "a full or disabled browser storage does not break the page");
+  await page.evaluate(() => localStorage.setItem("studio-autosave", "{not json")); 
+  check(await page.evaluate(() => window.studio.restoreAutosave()) === false, "a corrupt autosave is ignored");
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });
