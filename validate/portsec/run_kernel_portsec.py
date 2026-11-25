@@ -85,7 +85,7 @@ def inner():
 
 def main():
     if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "bridge", "nft")):
-        print("Needs root, `unshare`, iproute2 (ip, bridge) and nftables. Skipping."); return 0
+        print("Needs root, `unshare`, iproute2 (ip, bridge) and nftables."); return 1 if os.environ.get("GITHUB_ACTIONS") else 0   # in CI a missing tool is an error, not a skip
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=900)
     if proc.returncode:
         print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "Port security kernel side failed", proc.stderr[-6000:]); return 1
