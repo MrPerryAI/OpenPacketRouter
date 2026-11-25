@@ -186,7 +186,7 @@ def main():
             if not ok: detail[f"{name} step {i + 1}: {label}"] = {"engine": e, "kernel": k}
         if len(eng) != len(kern): ok_all = False; detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern)}
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
-    print("\n".join(md))
+    print("\n".join(md)); print("kernel bridges:", json.dumps(DIAG))
     if detail: print(json.dumps({**detail, "diag": DIAG}, indent=1)[:12000])
     return 0 if ok_all else 1
 
