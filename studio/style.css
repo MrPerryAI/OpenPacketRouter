@@ -93,3 +93,13 @@ main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap:
 .console-in input { flex: 1; background: transparent; border: 0; color: inherit; font: inherit; outline: none; }
 
 @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+
+.tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.tools .tl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
+.tools button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.edit label { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
+.edit label span { min-width: 56px; color: var(--muted); }
+.edit input { flex: 1; min-width: 0; font: inherit; padding: 2px 6px; border: 1px solid var(--line); border-radius: 4px; }
+.edit .del { color: #b42318; margin-top: 8px; }
+#map.tool-cable .node, #map.tool-delete .node, #map.tool-delete .cable-hit { cursor: crosshair; }
+.node.pending .shape { stroke: var(--accent); stroke-width: 3; }
