@@ -288,6 +288,8 @@ function convergeTime(spec) {
     const dead = Math.max(1, ...Object.keys(n.ifaces || {}).map(p => { const c = n.ospf.interfaces?.[p] || {}; return c.dead ?? 4 * (c.hello ?? 10); }));
     t = Math.max(t, Math.ceil(1.5 * dead) + 10);
   }
+  // RIP learns routes over a few update periods
+  for (const n of spec.nodes || []) if (n.rip) t = Math.max(t, 3 * (n.rip.timers?.update ?? 30));
   return t;
 }
 function freshNet(spec, cut) {
@@ -306,6 +308,7 @@ function routesOf(n) {
     routes.push({prefix: r.cidr || `${intToIp(r.net)}/${r.prefix}`, protocol: "static", nextHop: r.via, interface: out ? out.name : null});
   }
   if (n.ospf) for (const r of n.ospf.fib()) routes.push({prefix: r.cidr, protocol: "ospf", nextHop: r.gw, interface: r.iface, metric: r.metric});
+  if (n.rip) for (const r of n.rip.fib()) routes.push({prefix: r.cidr, protocol: "rip", nextHop: r.gw, interface: r.iface ?? null, metric: r.metric});
   return routes;
 }
 
@@ -334,6 +337,7 @@ export function stateOf(net, device, spec) {
     arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface})),
     ...(n.nat ? {nat: {translations: n.nat.translations(), hits: n.nat.hits, misses: n.nat.misses}} : {}),
     ospf: n.ospf ? {routerId: n.ospf.routerId(), neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), database: n.ospf.database()} : null,
+    ...(n.rip ? {rip: n.rip.describe()} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }

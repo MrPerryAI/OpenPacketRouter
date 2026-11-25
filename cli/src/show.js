@@ -35,13 +35,20 @@ export const SHOWS = {
 
   "show.ip-route": ctx => {
     const rows = ctx.state().routes || [];
-    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : "S";
-    const lines = [`Legend: C = connected network, S = static route${rows.some(r => r.protocol === "ospf") ? ", O = learned through OSPF" : ""}`, ""];
+    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : r.protocol === "rip" ? "R" : "S";
+    const legend = [rows.some(r => r.protocol === "ospf") && ", O = learned through OSPF", rows.some(r => r.protocol === "rip") && ", R = learned by RIP"].filter(Boolean).join("");
+    const lines = [`Legend: C = connected network, S = static route${legend}`, ""];
     for (const r of rows) lines.push(r.protocol === "connected"
       ? `C  ${r.prefix} on ${r.interface} (directly connected)`
-      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.metric !== undefined ? ` (cost ${r.metric})` : ""}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}`);
+      : `${code(r)}  ${r.prefix} via ${r.nextHop}${r.protocol === "ospf" && r.metric !== undefined ? ` (cost ${r.metric})` : ""}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}${r.protocol === "rip" ? ` [metric ${r.metric}]` : ""}`);
     if (!rows.length) lines.push("(no routes)");
     return {json: rows, text: lines.join("\n")};
+  },
+
+  "show.ip-rip": ctx => {
+    const rows = ctx.state().rip;
+    if (!rows) return {json: [], text: "RIP is not running on this device"};
+    return {json: rows, text: rows.length ? table(["Code", "Network", "Next hop", "Metric", "Interface"], rows.map(r => [r.type, r.network, r.type === "C" ? "-" : r.nextHop, r.metric, r.iface ?? "-"])) : "The RIP table is empty"};
   },
 
   "show.arp": ctx => {
