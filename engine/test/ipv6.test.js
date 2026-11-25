@@ -50,5 +50,5 @@ test("each action reports the ICMPv6 message types sent on every cable direction
   const [r] = runActions(lab(), [{do: "ping", src: "A", dst: "2001:db8:1::b"}]);
   assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [128, 135]);
   assert.deepEqual(r.icmp6["B:eth0>SW:p2"], [129, 136]);
-  assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [135]);   // the switch floods the solicitation, not the echo
+  assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [128, 135]);   // the switch floods the solicitation; the echo follows
 });
