@@ -3,7 +3,7 @@ name: RSTP vs mstpd
 # run on the runner host itself (no Docker, no unshare). Kept apart from ci.yml so it cannot disturb the other validators.
 on:
   push:
-    branches: [stp-vlan-rstp]
+    branches: [stp-vlan-rstp2]
   pull_request:
     paths: ["validate/rstp/**", "engine/src/rstp.js", ".github/workflows/rstp.yml"]
 concurrency:
