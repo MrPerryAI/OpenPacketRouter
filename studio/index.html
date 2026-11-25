@@ -19,6 +19,16 @@
   <section class="stage">
     <div id="title" class="title"></div>
     <div id="errors" class="errors" hidden></div>
+    <div id="tools" class="tools" role="toolbar" aria-label="Topology editor">
+      <span class="tl">Add</span>
+      <button data-add="switch" title="Add a switch">+ Switch</button><button data-add="router" title="Add a router">+ Router</button>
+      <button data-add="host" title="Add a host">+ Host</button><button data-add="server" title="Add a server">+ Server</button>
+      <span class="tl">Tool</span>
+      <button data-tool="select" class="on" title="Click a device to edit it; click a cable to unplug it">Select</button>
+      <button data-tool="cable" title="Click two devices to cable them together">Cable</button>
+      <button data-tool="delete" title="Click a cable or a device to delete it">Delete</button>
+      <span id="toolHint" class="tl"></span>
+    </div>
     <svg id="map" viewBox="0 0 900 560" role="img" aria-label="Network map"></svg>
     <div class="legend" id="legend"></div>
     <div class="player">

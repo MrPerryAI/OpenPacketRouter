@@ -36,6 +36,14 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   unplugs its cable, and `ping` and `traceroute` add their frames to the player. Commands: see `cli/README.md` and
   `docs/cli-design.md`.
 
+- **Topology editor**: the toolbar above the map adds a switch, router, host or server. The *Cable* tool joins two
+  devices (click one, then the other) on the next free ports; the *Delete* tool removes a cable or a device (with its
+  cables); *Select* is the usual mode. The device panel has an *Edit* form: hostname (cables follow a rename),
+  interface addresses (`10.0.0.1/24` or `dhcp`), default gateway, and for a switch the VLAN of each port (`10` for
+  access, `trunk 10,20 native 1`). Every edit goes through the same spec validator as `openpacketrouter check`; one it
+  refuses is reported with its path and nothing changes. Actions that no longer fit the network are dropped.
+  The pure edit functions live in `editor.js`.
+
 ## Files
 
 | File | What |
@@ -43,6 +51,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
 | `index.html`, `style.css` | The page |
 | `app.js` | Drawing, playback, panels, file loading |
 | `sim.js` | Runs a spec + actions and records frames, reasons and device tables per step (no DOM; Node can import it) |
+| `editor.js` | Pure spec edits behind the topology editor (add/remove devices and cables, rename, addresses, VLANs) |
 | `layout.js` | Automatic placement of devices |
 | `examples.js` | Built-in list of labs (used until `examples/index.json` exists) |
 

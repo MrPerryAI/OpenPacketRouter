@@ -129,6 +129,36 @@ try {
   check(/empty/.test((await page.textContent("#consoleOut")).split("show arp").pop()), "… and they are empty before the first frame");
   await page.click("#consoleClose");
 
+
+  // topology editor: build a small network from the palette, validate, edit, delete
+  await page.evaluate(() => window.studio.load({version: 1, name: "Empty", nodes: [], links: []}));
+  await page.click('[data-add="switch"]'); await page.click('[data-add="host"]'); await page.click('[data-add="host"]');
+  check(await page.$$eval("#map .node", n => n.length) === 3, "palette adds a switch and two hosts");
+  await page.click('[data-tool="cable"]');
+  await page.dispatchEvent('#map .node[data-node="PC1"]', "pointerdown"); await page.dispatchEvent('#map .node[data-node="SW1"]', "pointerdown");
+  await page.dispatchEvent('#map .node[data-node="PC2"]', "pointerdown"); await page.dispatchEvent('#map .node[data-node="SW1"]', "pointerdown");
+  check(await page.evaluate(() => JSON.stringify(window.studio.S.spec.links)) === '[["PC1:eth0","SW1:p1"],["PC2:eth0","SW1:p2"]]', "cable tool joins two devices on the next free ports");
+  await page.click('[data-tool="select"]'); await page.evaluate(() => window.studio.select("PC1"));
+  await page.fill('[data-f=addr][data-iface=eth0]', "10.0.0.1/24"); await page.press('[data-f=addr][data-iface=eth0]', "Enter");
+  await page.evaluate(() => window.studio.select("PC2"));
+  await page.fill('[data-f=addr][data-iface=eth0]', "10.0.0.2/24"); await page.press('[data-f=addr][data-iface=eth0]', "Enter");
+  check(await page.evaluate(() => window.studio.S.spec.nodes[2].ifaces.eth0) === "10.0.0.2/24", "interface address edited in the form");
+  await page.fill('[data-f=addr][data-iface=eth0]', "banana"); await page.press('[data-f=addr][data-iface=eth0]', "Enter");
+  check(/not an address/.test(await page.textContent("#errors")) && await page.evaluate(() => window.studio.S.spec.nodes[2].ifaces.eth0) === "10.0.0.2/24", "an invalid address is refused with the validator's message");
+  await page.evaluate(() => window.studio.select("SW1"));
+  await page.fill('[data-f=vlan][data-port=p1]', "10"); await page.press('[data-f=vlan][data-port=p1]', "Enter");
+  check(await page.evaluate(() => JSON.stringify(window.studio.S.spec.nodes[0].vlans)) === '{"p1":{"access":10}}', "switch port VLAN edited in the form");
+  await page.fill('[data-f=name]', "CORE"); await page.press('[data-f=name]', "Enter");
+  check(await page.evaluate(() => window.studio.S.spec.links[0][1]) === "CORE:p1", "renaming a device renames its cable ends");
+  await page.evaluate(() => window.studio.S.actions = []);
+  check(await page.evaluate(() => { const S = window.studio.S; return window.studio.edit({...S.spec, nodes: S.spec.nodes.map(n => ({...n}))}); }), "edit accepts a valid spec");
+  await page.click('[data-tool="delete"]');
+  await page.dispatchEvent('#map .cable-hit >> nth=0', "click");
+  check(await page.evaluate(() => window.studio.S.spec.links.length) === 1, "delete tool removes a cable");
+  await page.dispatchEvent('#map .node[data-node="PC2"]', "pointerdown");
+  check(await page.evaluate(() => window.studio.S.spec.nodes.length + "/" + window.studio.S.spec.links.length) === "2/0", "delete tool removes a device and its cables");
+  await page.click('[data-tool="select"]');
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });

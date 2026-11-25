@@ -2,6 +2,7 @@
 import {validateSpec, validateActions} from "../engine/src/spec.js";
 import {simulate, analyse} from "./sim.js";
 import {autoLayout} from "./layout.js";
+import * as ed from "./editor.js";
 import {EXAMPLES} from "./examples.js";
 import {createSession} from "../cli/src/index.js";
 import {engineBackend} from "../cli/src/backends/engine.js";
@@ -18,7 +19,7 @@ const HALF = {switch: [34, 16], router: [24, 24], server: [24, 22], host: [28, 1
 const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 3 : 1)} ms`;
 
 export const S = {sessions: new Map(), console: null, spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
-  playing: false, speed: 1, selected: null, timer: null, anim: null, error: null};
+  playing: false, speed: 1, selected: null, timer: null, anim: null, error: null, tool: "select", pending: null};
 
 // ---------------------------------------------------------------- loading
 
@@ -112,7 +113,7 @@ function drawMap() {
     const title = el("title", {}, g);
     title.textContent = `${l[0]} — ${l[1]}, ${info.delay} ms` + (info.trunk ? `, trunk VLANs ${info.trunk.join(", ")}` : info.access ? `, VLAN ${info.access}` : "") +
       (info.shape ? `, shaped ${info.shape.shape?.rate ?? ""}` : "") + (S.cut.has(i) ? " (unplugged: click to plug back in)" : " (click to unplug)");
-    hit.addEventListener("click", () => toggleCut(i));
+    hit.addEventListener("click", () => S.tool === "delete" ? edit(ed.removeLink(S.spec, i)) : S.tool === "select" ? toggleCut(i) : 0);
     S.cableEls[i] = line;
     const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
     if (S.cut.has(i)) { const t = el("text", {class: "cutmark", x: mx, y: my + 5, "text-anchor": "middle"}, g); t.textContent = "✂"; }
@@ -136,7 +137,7 @@ function drawMap() {
   });
   for (const n of S.spec.nodes) {
     const p = S.pos[n.name]; if (!p) continue;
-    const g = el("g", {class: `node ${n.kind}${S.selected === n.name ? " selected" : ""}`, "data-node": n.name, transform: `translate(${p.x},${p.y})`}, gn);
+    const g = el("g", {class: `node ${n.kind}${S.selected === n.name ? " selected" : ""}${S.pending === n.name ? " pending" : ""}`, "data-node": n.name, transform: `translate(${p.x},${p.y})`}, gn);
     if (n.kind === "switch") el("rect", {class: "shape", x: -34, y: -16, width: 68, height: 32, rx: 4}, g);
     else if (n.kind === "router") el("circle", {class: "shape", r: 24}, g);
     else if (n.kind === "server") el("rect", {class: "shape", x: -24, y: -22, width: 48, height: 44, rx: 3}, g);
@@ -145,7 +146,7 @@ function drawMap() {
     const sub = el("text", {class: "sub", y: n.kind === "router" ? 38 : 32}, g);
     const ip = n.ifaces ? Object.values(n.ifaces)[0] : null;
     sub.textContent = n.kind === "switch" ? (n.stp ? "switch · STP" : n.vlans ? "switch · VLANs" : "switch") : ip ? `${n.kind} · ${ip}` : n.kind;
-    g.addEventListener("pointerdown", e => startDrag(e, n.name));
+    g.addEventListener("pointerdown", e => S.tool === "select" ? startDrag(e, n.name) : toolClick(n.name));
     g.addEventListener("dblclick", () => openConsole(n.name));
   }
 }
@@ -304,9 +305,89 @@ function drawDevice() {
     h += `<h4>ARP cache</h4>` + table(["IP", "MAC", "iface"], (d.arp || []).map(a => [a.ip, a.mac, a.iface]));
     if (n.services && n.services.dhcp) h += `<h4>DHCP leases</h4>` + table(["MAC", "IP"], (d.leases || []).map(l => [l.mac, l.ip]));
   }
+  h += editForm(n);
   h += `<button class="open-console" data-console="${esc(n.name)}">Open console on ${esc(n.name)}</button>`;
   box.innerHTML = h;
   box.querySelector(".open-console").addEventListener("click", () => openConsole(n.name));
+  wireForm(box, n);
+}
+
+// ---------------------------------------------------------------- topology editor
+
+/** Apply an edited spec if the spec validator accepts it; otherwise show why and change nothing. Actions that no longer fit are dropped. */
+export function edit(spec, actions = S.actions, keepSessions = false) {
+  const v = validateSpec(spec);
+  if (!v.ok) { showErrors(v.errors.map(e => `spec ${e.path}: ${e.message}`)); return false; }
+  const kept = actions.filter(a => validateActions([a], spec).ok), dropped = actions.length - kept.length;
+  showErrors(v.warnings.map(w => `warning: spec ${w.path}: ${w.message}`).concat(dropped ? [`${dropped} action(s) no longer fit this network and were removed`] : []));
+  const pos = {}; for (const n of spec.nodes) pos[n.name] = S.pos[n.name] || freeSpot();
+  S.pos = pos; S.spec = spec; S.actions = kept; S.cut = new Set(); S.pending = null;
+  if (!spec.nodes.some(n => n.name === S.selected)) S.selected = null;
+  if (!keepSessions) { S.sessions = new Map(); closeConsole(); }
+  try { localStorage.setItem(layoutKey(spec), JSON.stringify(S.pos)); } catch {}
+  rerun(); return true;
+}
+
+function freeSpot() {
+  for (let r = 0; r < 20; r++) for (let a = 0; a < 12; a++) {
+    const x = 450 + r * 40 * Math.cos(a * Math.PI / 6), y = 280 + r * 25 * Math.sin(a * Math.PI / 6);
+    if (x > 60 && x < 840 && y > 50 && y < 510 && !Object.values(S.pos).some(p => Math.hypot(p.x - x, p.y - y) < 90)) return {x: Math.round(x), y: Math.round(y)};
+  }
+  return {x: 450, y: 280};
+}
+
+export function addDevice(kind) {
+  const name = ed.freeName(S.spec, kind);
+  S.pos[name] = freeSpot();
+  if (edit(ed.addNode(S.spec, kind, name), S.actions, true)) { S.selected = name; drawMap(); drawDevice(); return name; }
+  delete S.pos[name]; return null;
+}
+
+function toolClick(name) {
+  if (S.tool === "delete") { const r = ed.removeNode(S.spec, name, S.actions); edit(r.spec, r.actions); return; }
+  if (S.tool !== "cable") return;
+  if (!S.pending) { S.pending = name; drawMap(); setToolHint(); return; }
+  const a = S.pending; S.pending = null;
+  try { edit(ed.addLink(S.spec, a, name)); } catch (e) { showErrors([e.message]); drawMap(); }
+  setToolHint();
+}
+
+export function setTool(t) {
+  S.tool = t; S.pending = null;
+  for (const b of document.querySelectorAll("[data-tool]")) b.classList.toggle("on", b.dataset.tool === t);
+  $("#map").setAttribute("class", `tool-${t}`); setToolHint(); drawMap();
+}
+function setToolHint() {
+  $("#toolHint").textContent = S.tool === "cable" ? (S.pending ? `Cable from ${S.pending}: click the other device` : "Click the first device")
+    : S.tool === "delete" ? "Click a cable or a device" : "";
+}
+
+function editForm(n) {
+  let h = `<h4>Edit</h4><div class="edit"><label><span>Hostname</span><input data-f="name" value="${esc(n.name)}" aria-label="Hostname"></label>`;
+  if (n.kind === "switch") {
+    for (const p of [...new Set(ed.cabledPorts(S.spec, n.name))]) {
+      const c = n.vlans && n.vlans[p], v = !c ? "" : c.access !== undefined ? String(c.access) : `trunk ${c.trunk.join(",")}${c.native !== undefined ? ` native ${c.native}` : ""}`;
+      h += `<label><span>${esc(p)}</span><input data-f="vlan" data-port="${esc(p)}" value="${esc(v)}" placeholder="VLAN 1 (access)" aria-label="VLAN of ${esc(p)}"></label>`;
+    }
+  } else {
+    for (const [i, ip] of Object.entries(n.ifaces || {}))
+      h += `<label><span>${esc(i)}</span><input data-f="addr" data-iface="${esc(i)}" value="${esc(ip)}" placeholder="10.0.0.1/24 or dhcp" aria-label="Address of ${esc(i)}"></label>`;
+    h += `<label><span>Gateway</span><input data-f="gw" value="${esc(n.gw || "")}" placeholder="10.0.0.1" aria-label="Default gateway"></label>`;
+  }
+  return h + `<button class="del" data-f="delete">Delete ${esc(n.name)}</button></div>`;
+}
+
+function wireForm(box, n) {
+  for (const inp of box.querySelectorAll(".edit input")) inp.addEventListener("change", () => {
+    try {
+      const f = inp.dataset.f;
+      if (f === "name") { const r = ed.renameNode(S.spec, n.name, inp.value.trim(), S.actions); S.pos[inp.value.trim()] = S.pos[n.name]; S.selected = inp.value.trim(); if (!edit(r.spec, r.actions)) { S.selected = n.name; drawDevice(); } }
+      else if (f === "addr") { if (!edit(ed.setAddress(S.spec, n.name, inp.dataset.iface, inp.value), S.actions, true)) drawDevice(); }
+      else if (f === "gw") { if (!edit(ed.setGateway(S.spec, n.name, inp.value), S.actions, true)) drawDevice(); }
+      else if (f === "vlan") { if (!edit(ed.setVlan(S.spec, n.name, inp.dataset.port, inp.value), S.actions, true)) drawDevice(); }
+    } catch (e) { showErrors([e.message]); drawDevice(); }
+  });
+  box.querySelector("[data-f=delete]").addEventListener("click", () => { const r = ed.removeNode(S.spec, n.name, S.actions); edit(r.spec, r.actions); });
 }
 
 // ---------------------------------------------------------------- wiring
@@ -354,6 +435,8 @@ async function init() {
     else if (e.key === "ArrowLeft") { stop(); goto(S.step - 1); }
     else if (e.key === "Home") { stop(); goto(-1); }
   });
+  for (const b of document.querySelectorAll("[data-add]")) b.addEventListener("click", () => addDevice(b.dataset.add));
+  for (const b of document.querySelectorAll("[data-tool]")) b.addEventListener("click", () => setTool(b.dataset.tool));
   const want = new URLSearchParams(location.search).get("lab");
   const i = Math.max(0, list.findIndex(e => e.id === want)); sel.value = String(i);
   await loadExample(list[i]);
@@ -436,5 +519,5 @@ function consoleKey(e) {
   }
 }
 
-window.studio = {S, load, rerun, goto, play, stop, select, toggleCut, openConsole};
+window.studio = {S, edit, addDevice, setTool, load, rerun, goto, play, stop, select, toggleCut, openConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });
