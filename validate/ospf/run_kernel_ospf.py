@@ -396,7 +396,9 @@ def only_p2p_acks(detail, switches):
 def main():
     need = ["unshare", "ip", "tcpdump", "vtysh", f"{FRR}/ospfd", f"{FRR}/zebra"]
     if os.geteuid() != 0 or not all(shutil.which(x) or os.path.exists(x) for x in need):
-        print("Needs root, unshare, iproute2, tcpdump and FRRouting (zebra, ospfd, vtysh). Skipping."); return 0
+        msg = "Needs root, unshare, iproute2, tcpdump and FRRouting (zebra, ospfd, vtysh)."
+        if os.environ.get("GITHUB_ACTIONS"): print(msg + " Missing on the runner: failing.", file=sys.stderr); return 1
+        print(msg + " Skipping."); return 0
     names = sys.argv[1:] or SPECS
     kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner", *names], check=True,
                                      capture_output=True, text=True, timeout=1800).stdout)
@@ -418,6 +420,12 @@ def main():
     (HERE / "results.md").write_text("\n".join(md) + "\n")
     (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
+    chunk, part = [], 0   # the same table as annotations (the raw log can't be fetched): results.md is committed from a green run's
+    for row in md + [None]:
+        if row is None or sum(len(x) + 1 for x in chunk) + len(row) > 3000:
+            if chunk: part += 1; l3.gh_note("notice", f"OSPF results {part}", "\n".join(chunk))
+            chunk = []
+        if row is not None: chunk.append(row)
     if detail: print(json.dumps(detail, indent=1)[:8000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
