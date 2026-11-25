@@ -13,6 +13,11 @@ export function configLines(model, {kind, ports}) {
   const sw = kind === "switch";
 
   if (sw && M.fdb(model)["mac-aging-time"] !== undefined) out.push(`mac address-table aging-time ${M.fdb(model)["mac-aging-time"]}`, "!");
+  if (sw) for (const [n, s] of Object.entries(M.monitor(model, false))) {
+    if (s.destination) out.push(`monitor session ${n} destination interface ${s.destination}`);
+    for (const [p, d] of Object.entries(s.sources)) out.push(`monitor session ${n} source interface ${p} ${d}`);
+    out.push("!");
+  }
   if (sw && M.stpEnabled(model)) {
     out.push("spanning-tree");
     const g = M.stpGlobal(model);

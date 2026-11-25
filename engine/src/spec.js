@@ -233,7 +233,7 @@ export function validateSpec(spec) {
         else for (const [sn, s] of Object.entries(n.monitor)) {
           const q = `${p}.monitor.${sn}`;
           if (!/^\d+$/.test(sn)) err(q, `node "${n.name}": monitor session "${sn}": the session id is a number`);
-          if (!isObj(s) || typeof s.destination !== "string" || !isObj(s.sources) || !Object.keys(s.sources).length) { err(q, `node "${n.name}": monitor session ${sn} needs "destination": a port name and "sources": {"port": "rx"|"tx"|"both"}`); continue; }
+          if (!isObj(s) || typeof s.destination !== "string" || !isObj(s.sources)) { err(q, `node "${n.name}": monitor session ${sn} needs "destination": a port name and "sources": {"port": "rx"|"tx"|"both"}`); continue; }
           for (const k of Object.keys(s)) if (!["destination", "sources"].includes(k)) warn(`${q}.${k}`, `node "${n.name}": monitor session ${sn}: unknown key "${k}" (ignored)`);
           if (!cabled.has(s.destination) || chPorts.has(s.destination)) err(`${q}.destination`, `node "${n.name}": monitor session ${sn}: destination ${s.destination} must be a cabled port that is not in a channel`);
           if (dests.has(s.destination)) err(`${q}.destination`, `node "${n.name}": port ${s.destination} is the destination of two monitor sessions`);
