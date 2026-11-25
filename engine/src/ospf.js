@@ -692,7 +692,7 @@ export class Ospf {
     }
     const all = [...table.values()];
     // a static or connected route to the very same prefix has the better administrative distance: OSPF's route is not installed
-    const local = new Set([...this.node.routes.map(x => `${x.net}/${x.prefix}`), ...Object.values(this.node.ifaces).filter(i => i.ip).map(i => `${i.net}/${i.prefix}`)]);
+    const local = new Set([...this.node.routes.filter(x => this._viaUp(x.via)).map(x => `${x.net}/${x.prefix}`), ...Object.entries(this.node.ifaces).filter(([n, i]) => i.ip && this._linkUp(n)).map(([, i]) => `${i.net}/${i.prefix}`)]);
     const maskLen = m => [...m.split(".")].reduce((n, o) => n + (+o).toString(2).replace(/0/g, "").length, 0);
     const out = all.filter(r => !r.direct && r.hops.length && !local.has(`${ipToInt(r.net)}/${maskLen(r.mask)}`)).map(r => {
       r.hops.sort((a, b) => cmpIp(a.gw || "0.0.0.0", b.gw || "0.0.0.0") || a.iface.localeCompare(b.iface));
