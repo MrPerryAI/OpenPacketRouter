@@ -18,6 +18,6 @@
 | ring | 16. BPDU kinds per cable direction | 6 cable directions with BPDUs | ✓ |
 | ring | 17. BPDU kinds per cable direction | 5 cable directions with BPDUs | ✓ |
 | ring | 18. topology change SW1, SW2, SW3, SW4 | SW1: tc=1 aging=8s · SW2: tc=1 aging=8s · SW3: tc=1 aging=8s · SW4: tc=1 aging=8s | ✓ |
-| ring | 19. BPDU kinds per cable direction | 8 cable directions with BPDUs | ✓ |
+| ring | 19. BPDU kinds per cable direction | 6 cable directions with BPDUs | ✓ |
 | ring | 20. topology change SW1, SW2, SW3, SW4 | SW1: tc=0 aging=20s · SW2: tc=0 aging=20s · SW3: tc=0 aging=20s · SW4: tc=0 aging=20s | ✓ |
 | ring | 21. BPDU kinds per cable direction | 6 cable directions with BPDUs | ✓ |
