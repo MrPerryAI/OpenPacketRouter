@@ -73,7 +73,7 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, portSecurity = null, stormControl = null} = {}) {
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, portSecurity = null, stormControl = null, monitor = null} = {}) {
     super(net, name, "switch");
     /** portSecurity: {port: {max: N, violation: "protect"|"restrict"|"shutdown"}}. The first N source MACs heard on the port are secured for good
      *  (they never age); a frame from any other MAC is a violation: dropped before the switch learns it (protect, restrict) and counted;
@@ -82,7 +82,7 @@ export class Switch extends Device {
     /** stormControl: {port: {broadcast: {rate: "100kbit", burst: 400}}}: a policer on the port's ingress for broadcast frames (a Linux
      *  `tc filter ... flower dst_mac ff:ff:ff:ff:ff:ff action police`, which runs before the bridge sees the frame). Frames over the rate are dropped. */
     this.storm = new Map(Object.entries(stormControl || {}).map(([p, c]) => [p, {broadcast: c.broadcast ? new Police(c.broadcast) : null}]));
-    this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
+    this.forwardLldp = forwardLldp; this._setupMonitor(monitor); /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new (stp.mode === "rstp" ? Rstp : Stp)(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -102,8 +102,23 @@ export class Switch extends Device {
     return ch;
   }
   /** Ports the bridge itself sees: every interface except the cables that belong to a channel (the channel stands for them). */
-  bridgePorts() { return Object.keys(this.ifaces).filter(p => !this.memberOf.has(p)); }
-  send(ifname, frame) { const ch = this.channels.get(ifname); if (ch) return ch.transmit(frame); super.send(ifname, frame); }
+  bridgePorts() { return Object.keys(this.ifaces).filter(p => !this.memberOf.has(p) && !this.mirrorDest.has(p)); }
+  /** Port mirroring (SPAN): `monitor` is {"1": {destination: "p3", sources: {p1: "both", p2: "rx"}}}. Modeled on Linux
+   *  `tc filter add dev SRC ingress|egress matchall action mirred egress mirror dev DST`: every frame a source port receives (rx)
+   *  or sends (tx) is also sent out the destination port, which is no longer a bridge port. The copy is taken at the port itself:
+   *  before the bridge decides anything on receive (so it includes frames the bridge then drops), and for every frame sent. */
+  _setupMonitor(monitor) {
+    this.monitor = monitor || {}; this.mirrorDest = new Set(); this.mirrorIn = new Map(); this.mirrorOut = new Map();
+    const add = (m, k, d) => { if (!m.has(k)) m.set(k, []); m.get(k).push(d); };
+    for (const s of Object.values(this.monitor)) {
+      this.mirrorDest.add(s.destination);
+      for (const [port, dir] of Object.entries(s.sources || {})) { if (dir !== "tx") add(this.mirrorIn, port, s.destination); if (dir !== "rx") add(this.mirrorOut, port, s.destination); }
+    }
+  }
+  send(ifname, frame) {
+    const mir = this.mirrorOut.get(ifname); if (mir) for (const d of mir) { this.log("mirror", `${describe(frame)}: copy of what ${ifname} sends, out ${d}`); super.send(d, {...frame}); }
+    const ch = this.channels.get(ifname); if (ch) return ch.transmit(frame); super.send(ifname, frame);
+  }
   svi(vid) { return this.l3 ? Object.values(this.l3.ifaces).find(i => i.vid === vid) : null; }
   /** {pvid, member: Set, untagged: Set} for a port of a VLAN-aware switch. */
   vcfg(port) {
@@ -155,6 +170,8 @@ export class Switch extends Device {
   start() { if (this.stp) this.stp.start(); for (const c of this.channels.values()) c.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
 
   receive(ifname, f) {
+    if (this.mirrorDest.has(ifname)) return;   // a monitor port is not a bridge port: nothing it hears is switched
+    const mir = this.mirrorIn.get(ifname); if (mir) for (const d of mir) { this.log("mirror", `${describe(f)}: copy of what ${ifname} receives, out ${d}`); super.send(d, {...f}); }
     const sc = this.storm.get(ifname);
     if (sc?.broadcast && f.dst === BROADCAST_MAC && !sc.broadcast.admit(this.net, f)) { this.log("storm-control", `${describe(f)}: broadcast over the limit on ${ifname}, dropped`); return; }
     const ch = this.memberOf.get(ifname);
@@ -475,7 +492,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {
