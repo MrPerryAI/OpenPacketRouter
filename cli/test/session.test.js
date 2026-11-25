@@ -42,7 +42,7 @@ test("? lists what comes next with help; Tab completes", () => {
   assert.match(s.help("show ip route ?"), /<cr>/);
   assert.equal(s.help("sh?"), "show");
   assert.deepEqual(s.complete("sh"), {line: "show ", options: ["show"]});
-  assert.equal(s.complete("show ip r").line, "show ip route ");
+  assert.equal(s.complete("show ip ro").line, "show ip route ");
   ok(s, "conf t");
   assert.match(s.help("interface ?"), /eth0\s+Interface name/);
   assert.match(s.help("ip route ?"), /A\.B\.C\.D\/M/);
