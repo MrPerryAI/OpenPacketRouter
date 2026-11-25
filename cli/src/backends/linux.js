@@ -37,6 +37,7 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     if (stp) br.push(`priority ${g["bridge-priority"] ?? 32768}`, `hello_time ${centis(g["hello-time"] ?? 2)}`,
       `max_age ${centis(g["max-age"] ?? 20)}`, `forward_delay ${centis(g["forwarding-delay"] ?? 15)}`);
     if (M.fdb(model)["mac-aging-time"] !== undefined) br.push(`ageing_time ${centis(M.fdb(model)["mac-aging-time"])}`);
+    if (M.services(model).forwardLldp) br.push("group_fwd_mask 0x4000");   // let 01:80:c2:00:00:0e through the bridge
     if (vlanAware) br.push("vlan_filtering 1");
     out.push(br.join(" "));
     if (stp && g["openpacketrouter:bridge-address"]) out.push(`ip link set br0 address ${g["openpacketrouter:bridge-address"]}`);
