@@ -2,6 +2,7 @@
 // Each type: {hint, help, test(word, ctx) -> boolean, normalize?(word, ctx) -> value, complete?(ctx) -> [words]}.
 // `hint` is what `?` shows in place of the argument; `help` is the default help line for it.
 
+import {isIp6, isCidr6} from "../../engine/src/addr6.js";
 const IP_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 export const isIp = s => IP_RE.test(s) && s.split(".").every(o => +o <= 255);
 export const ipToInt = s => s.split(".").reduce((a, o) => a * 256 + +o, 0) >>> 0;
@@ -67,6 +68,8 @@ export const TYPES = {
   "ipv4-address": {hint: "A.B.C.D", help: "IPv4 address", test: isIp},
   "ipv4-mask": {hint: "A.B.C.D", help: "Network mask", test: s => maskToPrefix(s) !== null},
   "ipv4-prefix": {hint: "A.B.C.D/M", help: "IPv4 network and prefix length", test: isPrefix},
+  "ipv6-address": {hint: "X:X::X", help: "IPv6 address", test: isIp6},
+  "ipv6-prefix": {hint: "X:X::X/M", help: "IPv6 network and prefix length", test: isCidr6},
   "vlan-id": {...uint(1, 4094), help: "VLAN number"},
   "vlan-list": {hint: "VLAN-LIST", help: "VLANs, like 10,20,30-35", test: s => parseVlanList(s) !== null, normalize: parseVlanList},
   "word": {hint: "WORD", help: "Name", test: s => /^[A-Za-z][\w.-]*$/.test(s)},
