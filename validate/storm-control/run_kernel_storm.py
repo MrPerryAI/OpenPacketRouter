@@ -77,7 +77,7 @@ def inner():
 
 def main():
     if os.geteuid() != 0 or not shutil.which("unshare") or not shutil.which("ip") or not shutil.which("tc"):
-        print("Needs root, `unshare`, iproute2 and `tc`. Skipping."); return 0
+        print("Needs root, `unshare`, iproute2 and `tc`."); return 1 if os.environ.get("GITHUB_ACTIONS") else 0   # in CI a missing tool is an error, not a skip
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=600)
     if proc.returncode:
         print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "Storm control kernel side failed", proc.stderr[-6000:]); return 1
