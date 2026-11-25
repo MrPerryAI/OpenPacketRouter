@@ -69,7 +69,7 @@ export class Nat {
   }
 
   now() { return this.node.net.time; }
-  alive(c) { return this.now() - c.last < timeoutOf(c); }
+  alive(c) { return !c.dead && this.now() - c.last < timeoutOf(c); }
   /** Live entries, oldest first (expired ones are dropped here). */
   table() { this.conns = this.conns.filter(c => this.alive(c)); return this.conns; }
   clear() { this.conns = []; }
@@ -86,6 +86,8 @@ export class Nat {
   }
 
   touch(c, dir, p) {
+    // Linux kills the entry when the very first answer to the opening SYN is a reset (a refused connection leaves nothing behind).
+    if (dir === "reply" && c.proto === "tcp" && !c.replied && /R/.test(p.tcp.flags)) c.dead = true;
     c.last = this.now();
     if (dir === "reply") c.replied = true;
     if (c.proto === "tcp") { const f = p.tcp.flags; if (/R/.test(f)) c.closing = "R"; else if (/F/.test(f) && c.closing !== "R") c.closing = "F"; }
@@ -160,6 +162,9 @@ export class Nat {
     }
     return t.sport;
   }
+
+  /** The live entries as Linux conntrack lists them: original and reply tuples (validate/nat compares them with /proc/net/nf_conntrack). */
+  conntrack() { return this.table().map(c => ({proto: c.proto, orig: {...c.orig}, reply: {...c.reply}})); }
 
   /** `show ip nat translations`: one row per live entry. */
   translations() {

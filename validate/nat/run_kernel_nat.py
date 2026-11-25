@@ -63,13 +63,40 @@ class NatNet(tcpv.TcpNet):
         time.sleep(0.2)
 
 
+def read_conntrack(text):
+    """`conntrack -L` output -> [{proto, orig, reply}] for translated flows only (reply != reverse of orig)."""
+    rows = []
+    for line in text.splitlines():
+        f = line.split()
+        proto = next((w for w in f[:4] if w in ("tcp", "udp", "icmp")), None)   # `conntrack -L` starts with the protocol name, the /proc form with "ipv4 2"
+        if proto is None: continue
+        f = [None, None, proto, None] + f[next(i for i, w in enumerate(f) if w == proto) + 1:]   # fields after the protocol name
+        groups, cur = [], None
+        for w in f[4:]:
+            if "=" not in w: continue
+            k, v = w.split("=", 1)
+            if k == "src":
+                cur = {}; groups.append(cur)
+            if cur is not None and k in ("src", "dst", "sport", "dport", "id"): cur[k] = v if k in ("src", "dst") else int(v)
+        if len(groups) < 2: continue
+        t = []
+        for g in groups[:2]:
+            sp, dp = (g["id"], g["id"]) if f[2] == "icmp" else (g["sport"], g["dport"])
+            t.append({"proto": f[2], "src": g["src"], "sport": sp, "dst": g["dst"], "dport": dp})
+        o, r = t
+        if (r["src"], r["sport"], r["dst"], r["dport"]) != (o["dst"], o["dport"], o["src"], o["sport"]):
+            rows.append({"proto": f[2], "orig": o, "reply": r})
+    return rows
+
+
 def kernel_run(name):
     spec = json.loads((HERE / f"{name}.json").read_text()); actions = json.loads((HERE / f"{name}.actions.json").read_text())
     k = NatNet(spec); out = []
     try:
         for a in actions:
             k.flush(); before = k.counters(); r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
-            out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}})
+            nat = {n["name"]: read_conntrack(l3.nsx(k.ns[n["name"]], "conntrack", "-L", check=False)) for n in spec["nodes"] if n.get("nat")}
+            out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}, "nat": nat})
     finally:
         k.close()
     return out
@@ -81,32 +108,65 @@ def inner():
 
 
 comparable = tcpv.comparable
+EPH = 30000   # ports at or above this are ephemeral (the kernel picks its own); only their relations are compared
+
+
+def rawkey(c):
+    o = c["orig"]; return (c["proto"], o["src"], o["sport"], o["dst"], o["dport"])
+
+
+def norm(c):
+    """A tracking entry without the ephemeral port numbers (and ICMP ids): addresses and service ports only. Which port the kernel
+    picks for a flow is its own business (it keeps the client's port unless taken, then picks at random), so only the rest is compared."""
+    o, r = c["orig"], c["reply"]
+    eph = lambda p: "*" if p >= EPH or c["proto"] == "icmp" else p
+    return {"proto": c["proto"], "orig": [o["src"], eph(o["sport"]), o["dst"], eph(o["dport"])],
+            "reply": [r["src"], eph(r["sport"]), r["dst"], eph(r["dport"])]}
+
+
+def new_entries(runs):
+    """Per action, the tracking entries that did not exist after the previous one, normalised and sorted (per router)."""
+    seen, out = {}, []
+    for step in runs:
+        cur = {}
+        for router, rows in step.get("nat", {}).items():
+            fresh = [c for c in rows if rawkey(c) not in seen.get(router, set())]
+            seen.setdefault(router, set()).update(rawkey(c) for c in rows)
+            cur[router] = sorted((json.dumps(norm(c), sort_keys=True) for c in fresh))
+        out.append(cur)
+    return out
 
 
 def main():
-    if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "nft")):
-        print("Needs root, unshare, iproute2 and nftables.")
+    if os.geteuid() != 0 or not all(shutil.which(x) for x in ("unshare", "ip", "nft", "conntrack")):
+        print("Needs root, unshare, iproute2, nftables and conntrack-tools.")
         if os.environ.get("GITHUB_ACTIONS"): print("This check is required in CI: failing instead of skipping."); return 1   # run.sh passes GITHUB_ACTIONS into the container
         print("Skipping."); return 0
-    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=600).stdout)
+    child = subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], capture_output=True, text=True, timeout=600)
+    if child.returncode:
+        print(child.stderr[-3000:]); print("inner run failed"); return 1   # keep the child's traceback visible in CI
+    kern = json.loads(child.stdout)
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
-        for e, k in zip(eng, kern[name]):
+        engnew, kernnew = new_entries(eng), new_entries(kern[name])
+        for e, k, en, kn in zip(eng, kern[name], engnew, kernnew):
             a = e["action"]; same = comparable(e["result"]) == comparable(k["result"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))
             diffs = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
-            ok = same and not diffs
+            table = en == kn   # the same flows were translated the same way (addresses, service ports, port kept or changed)
+            ok = same and not diffs and table
             what = f'{a["do"]} {a["src"]} → {a.get("dst", a.get("server"))}' + (f' ({a["name"]})' if "name" in a else "") + (f' port {a["port"]}' if "port" in a else "")
             res = e["result"]
             summary = ("reached" if res.get("reached") else "not reached") + " · " + " → ".join(h["from"] or "*" for h in res["hops"]) if "hops" in res else \
                 ("ok" if res.get("ok") else res.get("error", "?")) + (f' from {res["from"]}' if res.get("from") else "")
-            rows.append((name, what, summary, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
-            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "linux": comparable(k["result"]), "frame_diffs": diffs}
-    md = ["| Network | Action | Engine result (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
+            flows = sum(len(v) for v in en.values())
+            rows.append((name, what, summary, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions; {flows} new tracked flow{"" if flows == 1 else "s"}', "✓" if ok else "✗"))
+            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "linux": comparable(k["result"]), "frame_diffs": diffs, "new_flows_engine": en, "new_flows_linux": kn}
+    md = ["| Network | Action | Engine result (same in Linux?) | Frames (engine = Linux, cable by cable?) and translation table | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
-    print("\n".join(md))
+    print("\n".join(md)); l3.gh_note("notice", "NAT results.md", "\n".join(md)); l3.gh_note("notice", "NAT mismatches.json", json.dumps(detail, indent=1))
     if detail: print(json.dumps(detail, indent=1)[:5000]); l3.gh_note("error", "NAT engine vs Linux mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
