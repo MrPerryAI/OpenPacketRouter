@@ -13,6 +13,7 @@ const cidrOf = (args) => {   // [prefix] or [ip, mask]
 };
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
 const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
+const lldp = ctx => { need(M.services(ctx.model).lldp, "LLDP is not running: use \"lldp run\" first"); return M.services(ctx.model).lldp; };
 const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
 const natSame = (a, b) => ["proto", "inside", "insidePort", "outside", "outsidePort"].every(k => a[k] === b[k]);
 function natStatic(ctx, e) {
@@ -161,6 +162,16 @@ export const HANDLERS = {
   "dhcp.range": (ctx, [a, b]) => { pool(ctx).range = [a, b]; },
   "dhcp.set": (ctx, [v], leaf) => { pool(ctx)[leaf] = leaf === "netmask" ? prefixToMask(maskToPrefix(v)) : v; },
   "dhcp.unset": (ctx, args, leaf) => { delete pool(ctx)[leaf]; },
+
+  // ---- LLDP (kept under services.lldp, shaped like the spec's lldp block)
+  "lldp.run": ctx => { const s = M.services(ctx.model); s.lldp ||= {}; },
+  "lldp.remove": ctx => { const s = M.services(ctx.model); need(s.lldp, "LLDP is not running"); delete s.lldp; },
+  "lldp.timer": (ctx, [n]) => { lldp(ctx).txInterval = +n; },
+  "lldp.no-timer": ctx => { delete lldp(ctx).txInterval; },
+  "lldp.hold": (ctx, [n]) => { lldp(ctx).holdMultiplier = +n; },
+  "lldp.no-hold": ctx => { delete lldp(ctx).holdMultiplier; },
+  "lldp.description": (ctx, [t]) => { lldp(ctx).description = t; },
+  "lldp.no-description": ctx => { delete lldp(ctx).description; },
 
   // ---- RIPv2 (kept under services.rip, shaped like the spec's rip block)
   "rip.enter": ctx => { const s = M.services(ctx.model); s.rip ||= {networks: []}; ctx.s.router = "rip"; },

@@ -89,6 +89,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     }
     if (sv.dhcpRelay) for (const c of sv.dhcpRelay.clients || Object.keys(n.ifaces || {})) M.relayHelpers(m, c).push(sv.dhcpRelay.server);
     if (sv.tcp) out.tcp = {...sv.tcp};
+    if (n.lldp) out.lldp = {...n.lldp};
     if (n.nat) {
       out.nat = {...(n.nat.overload ? {overload: n.nat.overload === true ? true : {...n.nat.overload}} : {}), ...(n.nat.static?.length ? {static: n.nat.static.map(x => ({...x}))} : {})};
       if (!Object.keys(out.nat).length) delete out.nat;
@@ -120,7 +121,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "rip", "acl", "nat", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "blocked", "stp", "vlans", "agingTime", "vlanNames", "channels"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -211,6 +212,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       svc.dhcpRelay = {server: [...servers][0], clients: relay.map(([p]) => p)};
     }
     if (s.tcp) svc.tcp = {...s.tcp};
+    if (s.lldp) n.lldp = {...s.lldp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
     if (s.acl) {
       const bind = {};
@@ -247,6 +249,7 @@ function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
+  if ((spec.nodes || []).some(n => n.lldp)) t = Math.max(t, 3);   // the first LLDPDU leaves 1 s after start
   return t;
 }
 function freshNet(spec, cut) {
@@ -291,6 +294,7 @@ export function stateOf(net, device, spec) {
     routes,
     arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface})),
     ...(n.nat ? {nat: {translations: n.nat.translations(), hits: n.nat.hits, misses: n.nat.misses}} : {}),
+    ...(n.lldp ? {lldp: {txInterval: n.lldp.txInterval, holdMultiplier: n.lldp.holdMultiplier, description: n.lldp.description, neighbors: n.lldp.neighbors()}} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }

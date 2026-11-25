@@ -95,6 +95,13 @@ export function configLines(model, {kind, ports}) {
     if (s.rip.triggered === false) out.push(" no triggered-updates");
     out.push("!");
   }
+  if (s.lldp) {
+    out.push("lldp run");
+    if (s.lldp.txInterval !== undefined) out.push(`lldp timer ${s.lldp.txInterval}`);
+    if (s.lldp.holdMultiplier !== undefined) out.push(`lldp hold-multiplier ${s.lldp.holdMultiplier}`);
+    if (typeof s.lldp.description === "string" && /^[A-Za-z][\w.-]*$/.test(s.lldp.description)) out.push(`lldp description ${s.lldp.description}`);
+    out.push("!");
+  }
   if (s.tcp) { for (const [port, app] of Object.entries(s.tcp)) if (app === "echo") out.push(`service tcp-echo ${port}`); out.push("!"); }
   out.push("end");
   return out;

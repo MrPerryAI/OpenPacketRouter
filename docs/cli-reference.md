@@ -275,6 +275,23 @@ Address translation on routers: mark interfaces ip nat inside / ip nat outside; 
 | `no ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | TCP port forward |
 | `no ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | UDP port forward |
 
+### Lldp
+
+LLDP (neighbor discovery) on routers, hosts and servers: `lldp run` turns it on, then timer and hold-multiplier set how often it speaks and how long neighbors are believed. Switches do not take part (a bridge never forwards LLDP).
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `lldp run` | config | routers, hosts, servers | Send and listen for LLDP on every cabled interface |
+| `no lldp run` | config | routers, hosts, servers | Turn LLDP off and forget its settings |
+| `lldp timer SECONDS` | config | routers, hosts, servers | 1 to 3600 |
+| `no lldp timer` | config | routers, hosts, servers | Back to the default of 30 seconds |
+| `lldp hold-multiplier COUNT` | config | routers, hosts, servers | 1 to 100 |
+| `no lldp hold-multiplier` | config | routers, hosts, servers | Back to the default of 4 |
+| `lldp description TEXT` | config | routers, hosts, servers | The text |
+| `no lldp description` | config | routers, hosts, servers | Back to the default description |
+| `show lldp` | user, privileged | routers, hosts, servers | Whether LLDP runs, its timers and neighbor count |
+| `show lldp neighbors` | user, privileged | routers, hosts, servers | Devices heard on each interface: name, port, capabilities, time left |
+
 ### Show
 
 Show commands. Every one also takes | json, | include WORD and | exclude WORD.

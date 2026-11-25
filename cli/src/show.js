@@ -20,6 +20,22 @@ export const SHOWS = {
     return {json, text: `OpenPacketRouter CLI (Apache-2.0)\nDevice ${ctx.device}, a ${ctx.kind}, running on the ${ctx.backend.name} backend`};
   },
 
+  "show.lldp": ctx => {
+    const cfg = M.services(ctx.model).lldp, live = ctx.state().lldp;
+    if (!cfg) return {json: {enabled: false}, text: "LLDP is not running (use \"lldp run\" in configuration mode)"};
+    const json = {enabled: true, txInterval: cfg.txInterval ?? 30, holdMultiplier: cfg.holdMultiplier ?? 4,
+      ttl: (cfg.txInterval ?? 30) * (cfg.holdMultiplier ?? 4), ...(cfg.description !== undefined ? {description: cfg.description} : {}),
+      ...(live ? {neighbors: live.neighbors.length} : {})};
+    return {json, text: [`LLDP is running: advertisement every ${json.txInterval} s, hold multiplier ${json.holdMultiplier} (neighbors keep us ${json.ttl} s)`,
+      ...(live ? [`${live.neighbors.length} neighbor${live.neighbors.length === 1 ? "" : "s"} heard`] : [])].join("\n")};
+  },
+  "show.lldp-neighbors": ctx => {
+    if (!M.services(ctx.model).lldp) return {json: [], text: "LLDP is not running (use \"lldp run\" in configuration mode)"};
+    const rows = ctx.state().lldp?.neighbors || [];
+    return {json: rows, text: rows.length ? table(["Interface", "Neighbor", "Neighbor port", "Port description", "Capabilities", "TTL"],
+      rows.map(r => [r.iface, r.sysName, r.portId, r.portDescr, (r.caps || []).join(","), r.ttl])) : "No neighbors heard"};
+  },
+
   "show.interface-brief": ctx => {
     const st = ctx.state().interfaces || [];
     const rows = ctx.ports().map(p => {
