@@ -64,6 +64,9 @@ export const vlans = m => ni(m).vlans.vlan;
 /** MAC table settings (openconfig-network-instance fdb): config["mac-aging-time"] in seconds; absent = the default (300). */
 export const fdb = m => (ni(m).fdb ||= {config: {}}).config;
 
+/** Port mirroring sessions (openconfig-mirror-like): {"1": {destination: "p3", sources: {p1: "rx"|"tx"|"both"}}}; absent = none. */
+export const monitor = (m, make = true) => make ? (m.monitor ||= {}) : (m.monitor || {});
+
 /** Link aggregation (openconfig-if-aggregate / openconfig-lacp): a member port has ethernet.config["aggregate-id"] = "Po1";
  *  the port-channel is an interface of its own (type ieee8023adLag); its LACP interval (FAST/SLOW) lives under lacp.interfaces. */
 export const lagOf = ifc => ifc?.ethernet?.config?.["aggregate-id"];
