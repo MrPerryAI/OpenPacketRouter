@@ -123,6 +123,11 @@ export const HANDLERS = {
     const ifc = curIface(ctx); need(M.isLagName(ifc.config.name), "lacp rate is set on a port-channel (interface Po1)");
     if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
   },
+  // ---- storm control (engine/src/link.js Police; stored as an extension on the interface)
+  "storm.broadcast": (ctx, [rate, burst]) => {
+    curIface(ctx)["openpacketrouter:storm-control"] = {broadcast: {rate, burst}};
+  },
+  "storm.off": ctx => { const i = curIface(ctx); need(i["openpacketrouter:storm-control"], "Storm control is not on for this port"); delete i["openpacketrouter:storm-control"]; },
   // ---- MAC address table aging (openconfig fdb mac-aging-time)
   "fdb.aging": (ctx, [v]) => { M.fdb(ctx.model)["mac-aging-time"] = v; },
   "fdb.aging.unset": ctx => { delete M.fdb(ctx.model)["mac-aging-time"]; },

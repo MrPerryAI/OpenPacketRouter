@@ -27,7 +27,7 @@ import {Channel, LACP_MAC} from "./lacp.js";
 import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput, tcpIcmpError} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
-import {shape} from "./link.js";
+import {shape, Police} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
@@ -72,8 +72,11 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false} = {}) {
-    super(net, name, "switch"); this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, stormControl = null} = {}) {
+    super(net, name, "switch");
+    /** stormControl: {port: {broadcast: {rate: "100kbit", burst: 400}}}: a policer on the port's ingress for broadcast frames (a Linux
+     *  `tc filter ... flower dst_mac ff:ff:ff:ff:ff:ff action police`, which runs before the bridge sees the frame). Frames over the rate are dropped. */
+    this.storm = new Map(Object.entries(stormControl || {}).map(([p, c]) => [p, {broadcast: c.broadcast ? new Police(c.broadcast) : null}])); this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
@@ -146,6 +149,8 @@ export class Switch extends Device {
   start() { if (this.stp) this.stp.start(); for (const c of this.channels.values()) c.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
 
   receive(ifname, f) {
+    const sc = this.storm.get(ifname);
+    if (sc?.broadcast && f.dst === BROADCAST_MAC && !sc.broadcast.admit(this.net, f)) { this.log("storm-control", `${describe(f)}: broadcast over the limit on ${ifname}, dropped`); return; }
     const ch = this.memberOf.get(ifname);
     if (ch) { if (f.type === "lacpdu") return ch.receivePdu(ifname, f); if (!ch.collecting(ifname)) return; ifname = ch.name; }   // a collecting member delivers as the channel
     else if (f.type === "lacpdu") return;   // slow-protocol frames are never bridged
@@ -187,6 +192,8 @@ export class Switch extends Device {
     for (const p of ports) emit(p);
     if (svi && f.dst === BROADCAST_MAC) { const g = {...f}; delete g.vlan; this.l3.receive(svi.name, g); }   // and up to the SVI
   }
+  /** Storm control per port: [{port, broadcast: {rate, burst, passed, dropped}}]. */
+  stormControl() { return [...this.storm].map(([port, c]) => ({port, ...(c.broadcast ? {broadcast: {rate: c.broadcast.rateSpec, burst: c.broadcast.burstBytes, passed: c.broadcast.passed, dropped: c.broadcast.dropped}} : {})})); }
   flush() { this.table.clear(); this.seen.clear(); if (this.l3) this.l3.flush(); }
 }
 
@@ -342,6 +349,10 @@ export class IpNode extends Device {
 
   /** Originate a packet from this node. Returns false if there is no route. */
   sendIp(p) {
+    if (p.dst === "255.255.255.255") {   // limited broadcast: out the first addressed interface (a Linux socket bound to that device), no route or ARP
+      const i = Object.values(this.ifaces).find(x => x.ip && x.link); if (!i) return false;
+      this.send(i.name, {src: i.mac, dst: BROADCAST_MAC, type: "ipv4", ip: {...p, src: p.src || i.ip}}); return true;
+    }
     const r = this.route(p.dst);
     if (!r) { this.log("no-route", `no route to ${p.dst}`); return false; }
     if (!p.src) p = {...p, src: this.ifaces[r.iface].ip};
@@ -445,7 +456,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, stormControl: n.stormControl};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

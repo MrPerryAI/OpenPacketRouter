@@ -56,6 +56,11 @@ export const SHOWS = {
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 
+  "show.storm-control": ctx => {
+    const rows = ctx.state().stormControl || [];
+    return {json: rows, text: rows.length ? table(["Port", "Type", "Rate", "Burst (bytes)", "Passed", "Dropped"], rows.filter(r => r.broadcast).map(r => [r.port, "broadcast", r.broadcast.rate, r.broadcast.burst, r.broadcast.passed, r.broadcast.dropped])) : "Storm control is not on for any port (storm-control broadcast rate RATE burst BYTES, on a switch port)"};
+  },
+
   "show.etherchannel": ctx => {
     const ch = ctx.state().lacp || [];
     if (!ch.length) return {json: [], text: "No port-channels on this switch (channel-group N mode active on two or more ports makes one)"};

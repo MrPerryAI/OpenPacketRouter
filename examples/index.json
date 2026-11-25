@@ -83,6 +83,14 @@
    "readme": "mac-aging/README.md"
   },
   {
+   "id": "storm-control",
+   "name": "Storm control",
+   "about": "A switch port limits broadcasts to 8 kbit/s with a 400-byte burst. A broadcast burst from the host behind it gets only its first frames through; the rest are dropped.",
+   "spec": "storm-control/spec.json",
+   "actions": "storm-control/actions.json",
+   "readme": "storm-control/README.md"
+  },
+  {
    "id": "rip-chain",
    "name": "RIP on a chain of three routers (poisoned reverse)",
    "about": "Three routers learn each other's networks with RIPv2. Cut a cable: the route is poisoned (metric 16), then garbage collected, and returns when the cable is restored.",

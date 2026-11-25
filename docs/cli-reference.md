@@ -163,6 +163,8 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `lacp rate slow` | interface | switches | Every 30 seconds (the default) |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
+| `storm-control broadcast rate RATE burst BYTES` | interface | switches | Bytes |
+| `no storm-control broadcast` | interface | switches | Broadcast frames |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
 | `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
 | `spanning-tree priority PRIORITY` | config | switches | Priority (default 32768) |
@@ -296,6 +298,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
+| `show storm-control` | user, privileged | switches | Broadcast limits per switch port, and how many frames each let through or dropped |
 | `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
