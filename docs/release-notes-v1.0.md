@@ -4,7 +4,7 @@
 
 OpenPacketRouter is a free, CLI-first network simulator for teaching, a Packet Tracer alternative under Apache-2.0.
 What sets it apart is that every protocol it models is checked frame for frame against real Linux software in CI. That
-means kernel bridges and routing, FRRouting, dnsmasq, lldpd, mstpd, nftables and `tc`. If the engine and Linux disagree on
+means kernel bridges and routing, FRRouting, dnsmasq, keepalived, lldpd, mstpd, nftables and `tc`. If the engine and Linux disagree on
 one frame, one counter or one table row, the check fails.
 
 Get started with the [README quick start](../README.md). The full list of changes is in [CHANGELOG.md](../CHANGELOG.md).
@@ -26,7 +26,7 @@ Get started with the [README quick start](../README.md). The full list of change
 | Links | capacity, queues and drops, delay, deterministic loss, broadcast storm math | `tbf`, `netem`, kernel bridges |
 | IPv4 | ARP, ICMP, static routes, inter-VLAN routing, ACLs, NAT | kernel, nftables, conntrack |
 | Services | DHCP and DHCP relay, TCP (retransmission, receive window), HTTP GET, syslog, NTP | dnsmasq, udhcpc, Linux sockets, util-linux `logger`, `ntpdate` |
-| Routing | RIPv2, OSPFv2 (several areas, ABRs) | FRRouting ripd, ospfd |
+| Routing | RIPv2, OSPFv2 (several areas, ABRs), VRRP first-hop redundancy | FRRouting ripd, ospfd, keepalived |
 | IPv6 | global addresses, neighbor discovery, ICMPv6 echo, static routes | kernel |
 
 ## Not validatable, so not built
@@ -47,7 +47,7 @@ built unchecked:
 ## Still open for v1.0
 
 The checklist in `docs/STATUS.md` is the source of truth. At the time of writing these items are still open: OSPF
-redistribution, BGP basics, VRRP, RIPng/OSPFv3, the TCP receive window, NTP, full CLI coverage of every spec key, the
+redistribution, BGP basics, RIPng/OSPFv3, full CLI coverage of every spec key, the
 remaining FRR backend protocols, and the Studio editor's finishing work.
 
 ## Later, not in v1.0

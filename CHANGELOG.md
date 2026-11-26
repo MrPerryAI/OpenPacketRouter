@@ -38,6 +38,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - IPv4 access lists against nftables (#74). NAT (overload, static 1:1, port forwarding) against nftables, with the translation table compared to conntrack (#79, #83).
 - RIPv2 against FRRouting ripd (#70).
 - OSPFv2 against FRRouting ospfd: point-to-point and broadcast, DR election, passive interfaces, timers (#59, #71, #75, #77); several areas with ABRs, type 3 summary LSAs and inter-area routes (#90).
+- VRRP v2 first-hop redundancy on routers against keepalived: master election, preemption on and off, takeover when the master fails, ping to the virtual address, advertisements counted exactly on every cable; CLI `vrrp` commands and `show vrrp` (#180).
 - IPv6 basics against Linux: global addresses, neighbor discovery, ICMPv6 echo, static routes (#155).
 
 ### Spec format
@@ -48,7 +49,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 ### Device CLI (`cli/`, `opr-cli`)
 
 - Our own device CLI: modes, `?` and Tab help, `| json` on show commands, an OpenConfig-shaped model and a running-config round trip (#46, #84).
-- Commands for VLANs, inter-VLAN routing, LLDP, RIP, OSPF (including areas), NAT, ACLs, port security, storm control, DHCP snooping, SPAN, HTTP pages, IPv6 and MAC aging (#62, #64, #65, #68, #109, #114, #116, #152, and the feature PRs above).
+- Commands for VLANs, inter-VLAN routing, LLDP, RIP, OSPF (including areas), VRRP, NAT, ACLs, port security, storm control, DHCP snooping, SPAN, HTTP pages, IPv6 and MAC aging (#62, #64, #65, #68, #109, #114, #116, #152, and the feature PRs above).
 - Backends: engine, Linux (devices configured only by the CLI match the engine frame for frame, #56), FRR (rendered `frr.conf` runs in real ospfd/ripd, #68, #134) and OpenWrt (rendered UCI applied by real `uci` in the OpenWrt rootfs container, #156).
 - Generated CLI reference with a freshness check (#54).
 - Every node key of the spec format has a CLI command, checked by a test over a fixture that uses each key (#175).
