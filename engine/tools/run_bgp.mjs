@@ -19,7 +19,7 @@ net.taps.add((n, i, f) => {
   if (!m) return;
   const p = {t, cable, src: f.ip.src, dst: f.ip.dst, type: m.type};
   if (m.type === "open") Object.assign(p, {as: m.as, hold: m.hold, routerId: m.routerId});
-  if (m.type === "update") Object.assign(p, {nlri: [...m.nlri].sort(), withdrawn: [...m.withdrawn].sort(), ...(m.attrs ? {asPath: m.attrs.asPath.join(" "), nextHop: m.attrs.nextHop, origin: m.attrs.origin} : {})});
+  if (m.type === "update") Object.assign(p, {nlri: [...m.nlri].sort(), withdrawn: [...m.withdrawn].sort(), ...(m.attrs ? {asPath: m.attrs.asPath.join(" "), nextHop: m.attrs.nextHop, origin: m.attrs.origin, ...(m.attrs.localPref !== undefined ? {localPref: m.attrs.localPref} : {})} : {})});
   packets.push(p);
 });
 for (const s of steps) {
