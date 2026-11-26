@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "Link loss",
+  "about": "A's uplink loses every second frame it sends (a deterministic loss model), C's uplink loses everything. B is a normal neighbor.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}},
+    {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.3/24"}}
+  ],
+  "links": [
+    ["A:eth0", "SW:p1", 2, {"loss": {"toBad": 1, "toGood": 1, "inBad": 1, "inGood": 0}}],
+    ["B:eth0", "SW:p2", 2],
+    ["C:eth0", "SW:p3", 2, {"loss": {"toBad": 0, "toGood": 0, "inBad": 0, "inGood": 1}}]
+  ]
+}
