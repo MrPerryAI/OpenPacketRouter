@@ -283,6 +283,12 @@ def up_text(r): return ", ".join(f'{n["ip"]} {"Established" if n["up"] else "dow
 
 def compare(name, eng, kr):
     rows, detail = [], {}
+    # the engine and Linux must have run the same steps: zip() alone would hide a missing snapshot or ping
+    for what, e, k in (("snapshots", [s for s in eng["steps"] if "snapshot" in s], [s for s in kr["steps"] if "snapshot" in s]),
+                       ("pings", [s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s])):
+        if len(e) != len(k):
+            rows.append((name, what, f"engine {len(e)}, Linux {len(k)}", "same number of steps", "✗")); detail[f"{name}: {what}"] = {"engine": len(e), "linux": len(k)}
+    if detail: return rows, detail
     for (es, ewin, eupto), (ks, kwin, kupto) in zip(phases(eng), phases(kr)):
         checks = {}
         for part in ("neighbors", "routes", "fib"): checks[part] = all(es["routers"][r][part] == ks["routers"][r][part] for r in es["routers"])
