@@ -41,7 +41,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [dhcp-tcp]: HTTP GET and syslog done (HTTP/1.0 server vs a Python socket server and client, in validate/tcp; segments per direction, like tcp-loss); syslog: UDP 514 receiver vs util-linux `logger`, validate/services; NTP still open
 
 **F. CLI**
-- [ ] Every spec key has a configure command and a show with `| json` [docs]
+- [x] Every spec key has a configure command and a show with `| json` [stp-vlan]: the last gaps were closed here (cable `delay N`, `loss pattern`, a Layer 3 switch's default route as `ip route 0.0.0.0/0`, and `network interface` under `router ospf` replaying in order); `cli/test/allkeys.test.js` fails when a node key of the spec format has no command in `cli/test/fixtures/all-keys.json`; lab `examples/link-loss`. Known gap: a shaped cable crashes in `frameBytes` (engine/src/link.js) when a non-IP frame (LLDP, BPDU) crosses it
 - [x] YAML spec input (PR #93; Studio opens and saves YAML, PR #121) [docs]
 - [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables (OSPF PR #68 and RIP PR #134 done; static routes and new protocols as they land) [docs]
 - [x] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs] (`validate/openwrt/`, PR #156). Covers addresses, static and default routes; `uci` accepts and stores them. netifd is not booted; VLAN/firewall rendering not yet proven.

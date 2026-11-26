@@ -1,0 +1,7 @@
+{"version": 1, "name": "A lossy, slow cable",
+ "about": "Hosts A and B on a cable with 40 ms delay. A's end drops every second frame it sends (a good/bad loss pattern that flips after each frame and loses in the bad state).",
+ "nodes": [
+  {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+  {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+ ],
+ "links": [["A:eth0", "B:eth0", 40, {"loss": {"toBad": 1, "toGood": 1, "inBad": 1, "inGood": 0}}]]}

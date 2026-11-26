@@ -11,6 +11,7 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [MAC address aging](mac-aging.md) | A switch forgets a host that has been silent for the aging time, and floods traffic to it until it learns again. |
 | [Port security](port-security.md) | A switch port that accepts only a limited number of source MAC addresses; the others are dropped and counted. |
 | [Storm control](storm-control.md) | A switch port that rate-limits broadcasts: a burst gets only its first frames through and the rest are dropped. |
+| [A lossy, slow cable](link-loss.md) | A cable with 40 ms delay whose one end drops every second frame: pings time out and the drops are counted. |
 | [DHCP snooping](dhcp-snooping.md) | A switch accepts DHCP server messages only from its trusted port, so a rogue DHCP server is ignored. |
 | [Two VLANs across a trunk](vlans.md) | How VLANs split one switch network into separate broadcast domains, and how one trunk cable carries several of them. |
 | [LACP port-channel](lacp-channel.md) | Several cables between two switches behaving as one fat link, negotiated with LACP. |

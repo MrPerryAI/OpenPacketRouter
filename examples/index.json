@@ -169,6 +169,14 @@
    "spec": "nat-lab/spec.json",
    "actions": "nat-lab/actions.json",
    "readme": "nat-lab/README.md"
+  },
+  {
+   "id": "link-loss",
+   "name": "A lossy, slow cable",
+   "about": "A cable with 40 ms delay whose one end drops every second frame it sends: pings time out, and the result counts the drops.",
+   "spec": "link-loss/spec.json",
+   "actions": "link-loss/actions.json",
+   "readme": "link-loss/README.md"
   }
  ]
 }

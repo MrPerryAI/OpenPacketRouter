@@ -148,7 +148,7 @@ test("hosted backend: the host owns the spec and the unplugged cables (Studio's 
   ok(s, "interface eth1"); ok(s, "shutdown");
   const i = host.spec.links.findIndex(l => l.includes("R1:eth1"));
   assert.ok(host.cut.has(i));
-  assert.match(s.exec("do show running-config").output, /interface eth1\n ip address 10\.1\.0\.1\/24\n shutdown/);
+  assert.match(s.exec("do show running-config").output, /interface eth1\n ip address 10\.1\.0\.1\/24\n delay 2\n shutdown/);
   host.cut = new Set();                                   // the user plugs the cable back in on the map
   assert.doesNotMatch(s.exec("do show running-config").output, /shutdown/);
   ok(s, "end"); ok(s, "ping 10.1.0.53");
