@@ -4,7 +4,7 @@
 FROM node:22-bookworm-slim
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      python3 python3-numpy python3-pytest python3-jsonschema iproute2 util-linux procps kmod tcpdump ca-certificates dnsmasq-base busybox frr nftables lldpd conntrack ntpdate \
+      python3 python3-numpy python3-pytest python3-jsonschema iproute2 util-linux procps kmod tcpdump ca-certificates dnsmasq-base busybox frr nftables lldpd conntrack ntpdate keepalived iputils-ping \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 CMD ["bash"]

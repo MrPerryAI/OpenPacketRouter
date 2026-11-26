@@ -24,7 +24,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor", "dhcpSnooping"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
+  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp", "vrrp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],
 };
@@ -180,6 +180,28 @@ function checkLldp(n, p, err) {
   if (l.txInterval !== undefined && !(Number.isInteger(l.txInterval) && l.txInterval >= 1 && l.txInterval <= 3600)) err(`${p}.lldp.txInterval`, `node "${n.name}": txInterval is whole seconds, 1 to 3600`);
   if (l.holdMultiplier !== undefined && !(Number.isInteger(l.holdMultiplier) && l.holdMultiplier >= 1 && l.holdMultiplier <= 100)) err(`${p}.lldp.holdMultiplier`, `node "${n.name}": holdMultiplier is a whole number, 1 to 100`);
   if (l.description !== undefined && typeof l.description !== "string") err(`${p}.lldp.description`, `node "${n.name}": description is text`);
+}
+const VRRP_KEYS = ["iface", "vrid", "ip", "priority", "interval", "preempt", "virtualMac"];
+function checkVrrp(n, p, err) {
+  const v = n.vrrp, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+  if (!Array.isArray(v)) return err(`${p}.vrrp`, `node "${n.name}": vrrp is a list of groups like [{"iface": "eth0", "vrid": 1, "ip": "10.0.0.254", "priority": 100}]`);
+  const seen = new Set();
+  v.forEach((g, j) => {
+    const q = `${p}.vrrp[${j}]`;
+    if (!isObj(g)) return err(q, `node "${n.name}": a vrrp group is an object`);
+    for (const k of Object.keys(g)) if (!VRRP_KEYS.includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown vrrp key "${k}" (${VRRP_KEYS.join(", ")})`);
+    if (!names.includes(g.iface)) err(`${q}.iface`, `node "${n.name}": vrrp iface must be one of its interfaces (${names.join(", ")})`);
+    if (!(Number.isInteger(g.vrid) && g.vrid >= 1 && g.vrid <= 255)) err(`${q}.vrid`, `node "${n.name}": vrid is a whole number from 1 to 255`);
+    if (seen.has(`${g.iface}/${g.vrid}`)) err(`${q}.vrid`, `node "${n.name}": vrid ${g.vrid} is used twice on ${g.iface}`);
+    seen.add(`${g.iface}/${g.vrid}`);
+    const own = isObj(n.ifaces) && typeof n.ifaces[g.iface] === "string" && isCidr(n.ifaces[g.iface]) ? parseCidr(n.ifaces[g.iface]) : null;
+    if (!isIp(g.ip)) err(`${q}.ip`, `node "${n.name}": ip is the shared virtual address, like "10.0.0.254"`);
+    else if (own && !inSubnet(g.ip, own.net, own.mask)) err(`${q}.ip`, `node "${n.name}": ${g.ip} is not in the subnet of ${g.iface} (${n.ifaces[g.iface]})`);
+    else if (own && g.ip === own.ip && g.priority !== 255 && g.priority !== undefined) err(`${q}.ip`, `node "${n.name}": ${g.ip} is the address of ${g.iface} itself; only priority 255 may own it`);
+    if (g.priority !== undefined && !(Number.isInteger(g.priority) && g.priority >= 1 && g.priority <= 255)) err(`${q}.priority`, `node "${n.name}": priority is a whole number from 1 to 255`);
+    if (g.interval !== undefined && !(typeof g.interval === "number" && g.interval > 0 && g.interval <= 40)) err(`${q}.interval`, `node "${n.name}": interval is seconds, more than 0 and at most 40`);
+    for (const k of ["preempt", "virtualMac"]) if (g[k] !== undefined && typeof g[k] !== "boolean") err(`${q}.${k}`, `node "${n.name}": ${k} is true or false`);
+  });
 }
 function checkRip(n, p, err) {
   const r = n.rip, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
@@ -351,6 +373,7 @@ export function validateSpec(spec) {
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
     if (n.lldp !== undefined) checkLldp(n, p, err);
+    if (n.vrrp !== undefined) checkVrrp(n, p, err);
     if (n.acl !== undefined) checkAcl(n, p, err);
     if (n.nat !== undefined) checkNat(n, p, err);
     if (n.services !== undefined) {
@@ -472,6 +495,7 @@ export const ACTIONS = {
 // carrier); read a router's RIP table.
 ACTIONS.link = {required: ["end", "up"], run: (net, a) => { net.setLink(a.end, !!a.up); return {end: a.end, up: !!a.up}; }};
 // A node's LLDP neighbor table: {t, neighbors: [{iface, chassisId, portId, portDescr, sysName, sysDescr, caps, ttl}]}
+ACTIONS.vrrpState = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, groups: n.vrrp ? n.vrrp.describe() : []}; }};
 ACTIONS.lldpNeighbors = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, neighbors: n.lldp ? n.lldp.neighbors() : []}; }};
 ACTIONS.ripTable = {required: ["src"], run: (net, a) => { const n = net.node(a.src); return {t: net.time, routes: n.rip ? n.rip.describe() : []}; }};
 // One network across every RIP router: {t, routers: {R1: {metric, nextHop, type} | null}}

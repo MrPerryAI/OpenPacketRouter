@@ -1,0 +1,1 @@
+[{"wait": 8}, {"snapshot": "elected", "ping": ["H1", "10.0.0.254"]}, {"linkDown": "R2:eth0"}, {"wait": 8}, {"snapshot": "backup cable cut", "ping": ["H1", "10.0.0.254"]}, {"linkUp": "R2:eth0"}, {"wait": 8}, {"snapshot": "backup cable back", "ping": ["H1", "10.0.0.254"]}]
