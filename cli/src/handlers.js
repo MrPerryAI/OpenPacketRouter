@@ -25,6 +25,8 @@ const vrrpGroup = (ctx, id, make = false) => {
   need(g, `VRRP group ${id} is not set up on ${ifn}`);
   return g;
 };
+const bgp = ctx => { need(ctx.s.router === "bgp" && M.services(ctx.model).bgp, "Not in BGP configuration"); return M.services(ctx.model).bgp; };
+const bgpPeer = (ctx, ip) => { const p = bgp(ctx).neighbors.find(x => x.ip === ip); need(p, `No BGP neighbor ${ip}: use neighbor ${ip} remote-as ASN first`); return p; };
 const lldp = ctx => { need(M.services(ctx.model).lldp, "LLDP is not running: use \"lldp run\" first"); return M.services(ctx.model).lldp; };
 const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
 const natSame = (a, b) => ["proto", "inside", "insidePort", "outside", "outsidePort"].every(k => a[k] === b[k]);
@@ -295,6 +297,23 @@ export const HANDLERS = {
   "ripng.no-timers": ctx => { delete ripng(ctx).timers; },
   "ripng.split": (ctx, args, v) => { const r = ripng(ctx); if (v === "simple") delete r.splitHorizon; else r.splitHorizon = v; },
   "ripng.triggered": (ctx, args, v) => { const r = ripng(ctx); if (v === "true") delete r.triggered; else r.triggered = false; },
+  // ---- BGP-4 (kept under services.bgp, shaped like the spec's bgp block)
+  "bgp.enter": (ctx, [asn]) => { const s = M.services(ctx.model); need(!s.bgp || s.bgp.asn === +asn, `BGP is already running as AS ${s.bgp && s.bgp.asn}`); s.bgp ||= {asn: +asn, networks: [], neighbors: []}; ctx.s.router = "bgp"; },
+  "bgp.remove": ctx => { const s = M.services(ctx.model); need(s.bgp, "BGP is not running"); delete s.bgp; },
+  "bgp.router-id": (ctx, [a]) => { bgp(ctx).routerId = a; },
+  "bgp.no-router-id": ctx => { delete bgp(ctx).routerId; },
+  "bgp.neighbor": (ctx, [ip, asn]) => { const b = bgp(ctx), p = b.neighbors.find(x => x.ip === ip); if (p) p.remoteAs = +asn; else b.neighbors.push({ip, remoteAs: +asn}); },
+  "bgp.no-neighbor": (ctx, [ip]) => { const b = bgp(ctx); bgpPeer(ctx, ip); b.neighbors = b.neighbors.filter(x => x.ip !== ip); },
+  "bgp.next-hop-self": (ctx, [ip]) => { bgpPeer(ctx, ip).nextHopSelf = true; },
+  "bgp.no-next-hop-self": (ctx, [ip]) => { delete bgpPeer(ctx, ip).nextHopSelf; },
+  "bgp.local-preference": (ctx, [ip, n]) => { bgpPeer(ctx, ip).localPref = +n; },
+  "bgp.no-local-preference": (ctx, [ip]) => { delete bgpPeer(ctx, ip).localPref; },
+  "bgp.network": (ctx, [n]) => { const b = bgp(ctx); if (!b.networks.includes(n)) b.networks.push(n); },
+  "bgp.no-network": (ctx, [n]) => { const b = bgp(ctx); need(b.networks.includes(n), `BGP does not advertise ${n}`); b.networks = b.networks.filter(x => x !== n); },
+  "bgp.timers": (ctx, [k, h]) => { need(+h >= 3, "The hold time is at least 3 seconds"); need(+k <= +h, "The keepalive time must not exceed the hold time"); const b = bgp(ctx); b.timers = {...(b.timers || {}), keepalive: +k, hold: +h}; },
+  "bgp.no-timers": ctx => { const b = bgp(ctx); if (b.timers) { delete b.timers.keepalive; delete b.timers.hold; if (!Object.keys(b.timers).length) delete b.timers; } },
+  "bgp.connect-timer": (ctx, [s]) => { const b = bgp(ctx); b.timers = {...(b.timers || {}), connect: +s}; },
+  "bgp.no-connect-timer": ctx => { const b = bgp(ctx); if (b.timers) { delete b.timers.connect; if (!Object.keys(b.timers).length) delete b.timers; } },
 
   // ---- RIPv2 (kept under services.rip, shaped like the spec's rip block)
   "rip.enter": ctx => { const s = M.services(ctx.model); s.rip ||= {networks: []}; ctx.s.router = "rip"; },

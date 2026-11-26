@@ -14,5 +14,6 @@ import vrrp from "./vrrp.json" with {type: "json"};
 import nat from "./nat.json" with {type: "json"};
 import exec from "./exec.json" with {type: "json"};
 import ospf from "./ospf.json" with {type: "json"};
+import bgp from "./bgp.json" with {type: "json"};
 
-export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, ripng, acl, nat, lldp, vrrp, show, exec, ospf];
+export const DEFINITIONS = [base, interfaces, ipRouting, switching, services, rip, ripng, acl, nat, lldp, vrrp, show, exec, ospf, bgp];

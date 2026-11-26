@@ -159,6 +159,20 @@ export function configLines(model, {kind, ports}) {
     if (s.rip.triggered === false) out.push(" no triggered-updates");
     out.push("!");
   }
+  if (s.bgp) {
+    const b = s.bgp, t = b.timers || {};
+    out.push(`router bgp ${b.asn}`);
+    if (b.routerId) out.push(` bgp router-id ${b.routerId}`);
+    for (const x of b.neighbors) {
+      out.push(` neighbor ${x.ip} remote-as ${x.remoteAs}`);
+      if (x.nextHopSelf) out.push(` neighbor ${x.ip} next-hop-self`);
+      if (x.localPref !== undefined) out.push(` neighbor ${x.ip} local-preference ${x.localPref}`);
+    }
+    for (const n of b.networks) out.push(` network ${n}`);
+    if (t.keepalive !== undefined) out.push(` timers bgp ${t.keepalive} ${t.hold}`);
+    if (t.connect !== undefined) out.push(` timers connect ${t.connect}`);
+    out.push("!");
+  }
   if (s.lldp) {
     out.push("lldp run");
     if (s.lldp.txInterval !== undefined) out.push(`lldp timer ${s.lldp.txInterval}`);
