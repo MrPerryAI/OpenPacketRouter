@@ -68,7 +68,9 @@ def kernel_run(name):
             # A spanning-tree window's hello count depends on the phase of the kernel's hello timer, so start the tree at a known
             # moment (half a second after a wall-clock second) and keep every action on the engine's schedule: the engine's tree
             # starts at time 0 with the first action, and hellos then fall in the same windows on both sides. The first window
-            # begins before the tree starts, so it holds the start-up BPDU too, as the engine's does.
+            # begins before the tree starts, so it holds the start-up BPDU too, as the engine's does. The kernel re-arms its hello timer
+            # from when it fires, and the timer wheel rounds a 2 s timer up, so its hellos drift late; the windows therefore end a
+            # full second from a hello (7 s and 11 s), not half a second after one, and are still compared exactly.
             time.sleep(1 - time.time() % 1); t_base = int(time.time()) + 0.5; time.sleep(max(t_base - time.time(), 0))
         started = False
         for a in actions:
