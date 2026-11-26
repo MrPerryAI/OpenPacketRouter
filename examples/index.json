@@ -99,6 +99,14 @@
    "readme": "storm-control/README.md"
   },
   {
+   "id": "dhcp-snooping",
+   "name": "DHCP snooping",
+   "about": "A switch trusts DHCP server messages only on the port of the real server; a rogue server on another port is ignored and its offers are counted as drops.",
+   "spec": "dhcp-snooping/spec.json",
+   "actions": "dhcp-snooping/actions.json",
+   "readme": "dhcp-snooping/README.md"
+  },
+  {
    "id": "rip-chain",
    "name": "RIP on a chain of three routers (poisoned reverse)",
    "about": "Three routers learn each other's networks with RIPv2. Cut a cable: the route is poisoned (metric 16), then garbage collected, and returns when the cable is restored.",

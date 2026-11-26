@@ -27,7 +27,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 **C. Switching**
 - [x] Port security, or recorded here as not validatable [stp-vlan]
 - [x] Storm control, or recorded here as not validatable [stp-vlan]
-- [ ] DHCP snooping, or recorded here as not validatable [stp-vlan]
+- [x] DHCP snooping, or recorded here as not validatable [stp-vlan]
 - [x] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
 
 **D. Mirroring and IPv6**
@@ -137,6 +137,7 @@ Each step counts as done only when it matches real Linux (or real FRRouting) fra
 12. **LLDP: engine done** (PR #82): LLDP on routers, hosts and servers (`lldp` spec key, `engine/src/lldp.js`); switches drop LLDP unless `forwardLldp` is set (bridge `group_fwd_mask`). Validated against lldpd in namespaces: neighbor tables, LLDPDU contents per cable direction and exact LLDPDU counts per cable (PR #87; the engine's start-up LLDPDU is left out of the first window, because lldpd sends its own before capture starts), through cable cuts, TTL expiry and restores, 7/7 snapshots (`validate/lldp/`, in CI). Not yet: CLI commands (`lldp run`, `show lldp neighbors`) and an example lab.
 13. **Port security: done** (PR #128): `portSecurity: {port: {max, violation}}` on a switch (CLI `switchport port-security maximum N`, `violation protect|restrict|shutdown`, `show port-security`). The first N source MACs on a port are secured for good; others are dropped before learning and counted. Validated against Linux nftables (bridge-family prerouting with a dynamic set of `size N`; Linux bridges have no per-port MAC limit of their own): `validate/portsec/`. `shutdown` (err-disable) has no netfilter equivalent and is covered by engine tests only. Example lab `examples/port-security`.
 14. **Storm control (broadcast): done** (PR #141): `stormControl: {port: {broadcast: {rate, burst}}}` on a switch (CLI `storm-control broadcast rate RATE burst BYTES`, `show storm-control`): a token-bucket policer on the port's ingress that drops broadcast frames over the rate, before the switch sees them. Validated against Linux `tc ... flower dst_mac ff:ff:ff:ff:ff:ff action police` on bridge ports (`validate/storm-control/`: frames per cable and policer drops). Multicast limits are not modeled (no engine host originates multicast to compare). Hosts can now send to the limited broadcast address 255.255.255.255. Example lab `examples/storm-control`.
+15. **DHCP snooping (server-message filtering): done** (`stp-vlan-snoop`): `dhcpSnooping: {trusted: [ports]}` on a switch (CLI `ip dhcp snooping`, `ip dhcp snooping trust`, `show ip dhcp snooping`): a DHCP server message (UDP 67 to 68) on any untrusted port is dropped and counted, so rogue servers are ignored. Validated against nftables bridge rules (`udp sport 67 udp dport 68 drop`) with dnsmasq servers (one rogue) and udhcpc clients: client results, frames per cable and per-port drop counts (`validate/dhcp-snooping/`, in CI). **Not validatable, so not built:** the binding table, dynamic ARP inspection and IP source guard (Linux has no equivalent). Example lab `examples/dhcp-snooping`.
 
 ### Routing protocol decisions
 

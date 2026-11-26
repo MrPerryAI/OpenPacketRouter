@@ -72,6 +72,8 @@ jobs:
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: Link delay and loss vs Linux tc netem (RTTs, frames, drops)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/netem/run_kernel_netem.py
+      - name: DHCP snooping vs Linux nftables (rogue server dropped on untrusted ports, frame for frame)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp-snooping/run_kernel_snoop.py
       - name: TCP vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
       - name: Access lists vs Linux nftables (frames, pings, UDP and TCP connects)
