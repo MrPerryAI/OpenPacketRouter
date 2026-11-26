@@ -18,14 +18,17 @@ function ospfIfLines(oi) {
   return l;
 }
 
+const RIP_SPLIT = {simple: " ip rip split-horizon", poisoned: " ip rip split-horizon poisoned-reverse", off: " no ip rip split-horizon"};
+
 export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}) {
   const out = [`hostname ${M.hostname(model)}`, "!"];
+  const rip = M.services(model).rip;
   for (const p of ports) {
     const ifc = M.iface(model, p, false); if (!ifc) continue;
     const addrs = M.addressesOf(ifc);
     const oi = M.ospfIf(model, p, false);
     if (!addrs.length && ifc.config.enabled !== false && !oi) continue;
-    out.push(`interface ${p}`, ...addrs.map(a => ` ip address ${a.ip}/${a.prefixLength}`), ...(ifc.config.enabled === false ? [" shutdown"] : []), ...ospfIfLines(oi), "exit", "!");
+    out.push(`interface ${p}`, ...addrs.map(a => ` ip address ${a.ip}/${a.prefixLength}`), ...(ifc.config.enabled === false ? [" shutdown"] : []), ...ospfIfLines(oi), ...(rip && rip.splitHorizon && RIP_SPLIT[rip.splitHorizon] ? [RIP_SPLIT[rip.splitHorizon]] : []), "exit", "!");
   }
   for (const r of M.staticList(model)) out.push(`ip route ${r.prefix} ${r.nextHop}`);
   const og = M.ospf(model);
@@ -38,6 +41,13 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
       for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area 0`);
     }
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
+    out.push("exit");
+  }
+  if (rip) {   // `triggered: false` is a teaching switch of the engine; ripd has no such setting, so it is not rendered
+    out.push("router rip", " version 2");
+    if (rip.timers) out.push(` timers basic ${rip.timers.update} ${rip.timers.timeout} ${rip.timers.garbage}`);
+    for (const n of rip.networks) out.push(` network ${n}`);
+    for (const i of rip.passive || []) out.push(` passive-interface ${i}`);
     out.push("exit");
   }
   out.push("!", "end");
