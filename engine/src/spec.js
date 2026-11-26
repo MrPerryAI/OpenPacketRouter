@@ -359,8 +359,8 @@ export function validateSpec(spec) {
         err(`${p}.services.dns`, `node "${n.name}": dns must map names to IPv4 addresses`);
       if (isObj(n.services) && n.services.tcp !== undefined) {
         const t = n.services.tcp;
-        if (!isObj(t) || !Object.entries(t).every(([port, kind]) => /^[0-9]{1,5}$/.test(port) && ["echo", "discard", "http"].includes(kind)))
-          err(`${p}.services.tcp`, `node "${n.name}": tcp maps a port to "echo", "discard" or "http" (like {"80": "http"})`);
+        if (!isObj(t) || !Object.entries(t).every(([port, kind]) => /^[0-9]{1,5}$/.test(port) && ["echo", "discard", "http", "slow"].includes(kind)))
+          err(`${p}.services.tcp`, `node "${n.name}": tcp maps a port to "echo", "discard", "slow" or "http" (like {"80": "http"})`);
       }
       if (isObj(n.services) && n.services.http !== undefined && !(isObj(n.services.http) && Object.entries(n.services.http).every(([path, body]) => path.startsWith("/") && typeof body === "string")))
         err(`${p}.services.http`, `node "${n.name}": http maps a path starting with / to the page text`);

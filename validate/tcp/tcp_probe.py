@@ -7,7 +7,7 @@ import json, os, select, socket, struct, sys, threading, time
 
 iface, dst, port, size, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
 discard, pause = (sys.argv[6] == "1", float(sys.argv[7])) if len(sys.argv) > 7 else (False, 0)
-wire, times, stop = [], [], threading.Event()
+wire, times, wins, stop = [], [], [], threading.Event()
 t0 = time.time()
 
 
@@ -27,7 +27,7 @@ def sniff(s):
         if d[12:14] != b"\x08\x00" or d[23] != 6: continue
         ihl = (d[14] & 15) * 4; total = struct.unpack("!H", d[16:18])[0]; t = 14 + ihl
         plen = total - ihl - (d[t + 12] >> 4) * 4
-        wire.append(("out " if pkttype == 4 else "in ") + flag_name(d[t + 13], plen) + (f" {plen}" if plen else "")); times.append(round(time.time() - t0, 2))
+        wire.append(("out " if pkttype == 4 else "in ") + flag_name(d[t + 13], plen) + (f" {plen}" if plen else "")); times.append(round(time.time() - t0, 2)); wins.append(struct.unpack("!H", d[t + 14:t + 16])[0])
 
 
 s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3)); s.bind((iface, 0))
@@ -58,5 +58,5 @@ except ConnectionRefusedError: out = {"ok": False, "error": "refused", "from": d
 except (socket.timeout, TimeoutError): out = {"ok": False, "error": "timeout"}
 except OSError as e: out = {"ok": False, "error": f"os error {e.errno}"}
 time.sleep(0.8); stop.set(); th.join()
-out["wire"] = wire; out["times_s"] = times   # timing is informational, not compared
+out["wire"] = wire; out["times_s"] = times; out["win"] = [w for w, x in zip(wins, wire) if x.startswith("in ")]   # timing is informational, not compared
 print(json.dumps(out))

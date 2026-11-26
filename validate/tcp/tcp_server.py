@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Echo servers: tcp_server.py PORT [PORT...] — echo everything back, close when the client closes.
 PORT 9 is a discard service: read and never answer (same close behavior)."""
-import json, os, socket, sys, threading
+import json, os, socket, sys, threading, time
 
 KINDS = json.loads(os.environ.get("OPR_KINDS", "{}"))      # port -> "echo" | "discard" | "http"
 PAGES = json.loads(os.environ.get("OPR_PAGES", "{}"))      # path -> page text, for "http" ports
@@ -21,7 +21,8 @@ def http(c):
     c.close()
 
 
-def serve(c, discard=False):
+def serve(c, discard=False, delay=0):
+    time.sleep(delay)      # "slow": a reader that reads nothing for one second (small receive buffer)
     while True:
         d = c.recv(65535)
         if not d: break
@@ -30,9 +31,11 @@ def serve(c, discard=False):
 
 
 def listen(port):
-    s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("0.0.0.0", port)); s.listen(16)
+    s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if KINDS.get(str(port)) == "slow": s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+    s.bind(("0.0.0.0", port)); s.listen(16)
     while True:
-        c, _ = s.accept(); threading.Thread(target=http if KINDS.get(str(port)) == "http" else serve, args=(c,) if KINDS.get(str(port)) == "http" else (c, port == 9 or KINDS.get(str(port)) == "discard"), daemon=True).start()
+        c, _ = s.accept(); threading.Thread(target=http if KINDS.get(str(port)) == "http" else serve, args=(c,) if KINDS.get(str(port)) == "http" else (c, port == 9 or KINDS.get(str(port)) in ("discard", "slow"), 1.0 if KINDS.get(str(port)) == "slow" else 0), daemon=True).start()
 
 
 for p in sys.argv[1:]: threading.Thread(target=listen, args=(int(p),), daemon=True).start()

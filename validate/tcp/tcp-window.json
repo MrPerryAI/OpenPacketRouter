@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "TCP receive window",
+  "about": "C writes 10000 bytes to a service on S whose application reads nothing for one second (small receive buffer). The sender fills the advertised window, stalls, probes the closed window with doubling timeouts, and continues when the application reads and S sends a window update.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "S", "kind": "server", "ifaces": {"eth0": "10.0.0.2/24"}, "services": {"tcp": {"10": "slow"}}}
+  ],
+  "links": [
+    ["C:eth0", "SW:p1", 0],
+    ["SW:p2", "S:eth0", 0]
+  ]
+}

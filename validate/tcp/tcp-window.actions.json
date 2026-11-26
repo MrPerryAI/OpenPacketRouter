@@ -1,0 +1,3 @@
+[
+  {"do": "tcp", "src": "C", "dst": "10.0.0.2", "port": 10, "size": 10000, "discard": true, "pause": 2, "settle": 1}
+]

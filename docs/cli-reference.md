@@ -216,7 +216,7 @@ Access and trunk ports, spanning tree. Common industry syntax.
 
 ### Services
 
-What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discard.
+What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo, discard and slow reader.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
@@ -248,6 +248,8 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no http page PATH` | config | routers, hosts, servers | URL path |
 | `service syslog` | config | routers, hosts, servers | Collect log messages sent to UDP port 514 |
 | `no service syslog` | config | routers, hosts, servers | Stop collecting log messages |
+| `service tcp-slow PORT` | config | routers, hosts, servers | TCP port |
+| `no service tcp-slow PORT` | config | routers, hosts, servers | Stop the TCP slow-reader service on a port |
 
 ### Rip
 
