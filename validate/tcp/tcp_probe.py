@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run inside a client's namespace: connect, send SIZE bytes, read the echo, close, print JSON.
-usage: tcp_probe.py IFACE DST PORT SIZE TIMEOUT
+usage: tcp_probe.py IFACE DST PORT SIZE TIMEOUT [DISCARD PAUSE]
+DISCARD=1: the server never answers; write, wait PAUSE seconds, close.
 Also records every TCP segment on IFACE (AF_PACKET) as "out FLAGS [LEN]" / "in FLAGS [LEN]"."""
 import json, select, socket, struct, sys, threading, time
 
 iface, dst, port, size, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
+discard, pause = (sys.argv[6] == "1", float(sys.argv[7])) if len(sys.argv) > 7 else (False, 0)
 wire, times, stop = [], [], threading.Event()
 t0 = time.time()
 
@@ -33,11 +35,17 @@ th = threading.Thread(target=sniff, args=(s,), daemon=True); th.start(); time.sl
 c = socket.socket(); c.settimeout(timeout)
 try:
     c.connect((dst, port)); c.sendall(b"x" * size); got = b""
-    while len(got) < size:
+    if discard: time.sleep(pause)
+    while not discard and len(got) < size:
         d = c.recv(65535)
         if not d: break
         got += d
-    c.close(); out = {"ok": True, "from": dst, "bytes": len(got)}
+    if discard:     # nothing comes back: what the kernel says about the data it sent (struct tcp_info)
+        ti = c.getsockopt(socket.IPPROTO_TCP, socket.TCP_INFO, 192)
+        unacked, total_retrans = struct.unpack_from("I", ti, 8 + 4 * 4)[0], struct.unpack_from("I", ti, 8 + 23 * 4)[0]
+        c.close(); out = {"ok": True, "from": dst, "bytes": size, "unacked": unacked, "retransmits": total_retrans}
+    else:
+        c.close(); out = {"ok": True, "from": dst, "bytes": len(got)}
 except ConnectionRefusedError: out = {"ok": False, "error": "refused", "from": dst}
 except (socket.timeout, TimeoutError): out = {"ok": False, "error": "timeout"}
 except OSError as e: out = {"ok": False, "error": f"os error {e.errno}"}

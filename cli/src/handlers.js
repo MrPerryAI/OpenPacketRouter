@@ -259,5 +259,6 @@ export const HANDLERS = {
 
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },
+  "tcp.discard": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "discard"; },
   "tcp.no-echo": (ctx, [port]) => { const t = M.services(ctx.model).tcp; need(t && t[port], `Nothing listens on TCP port ${port}`); delete t[port]; if (!Object.keys(t).length) delete M.services(ctx.model).tcp; },
 };

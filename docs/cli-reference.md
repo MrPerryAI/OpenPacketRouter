@@ -196,7 +196,7 @@ Access and trunk ports, spanning tree. Common industry syntax.
 
 ### Services
 
-What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.
+What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discard.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
@@ -220,6 +220,8 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.
 | `no ip helper-address ADDRESS` | interface | routers | DHCP server address |
 | `service tcp-echo PORT` | config | routers, hosts, servers | TCP port |
 | `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
+| `service tcp-discard PORT` | config | routers, hosts, servers | TCP port |
+| `no service tcp-discard PORT` | config | routers, hosts, servers | Stop the TCP discard service on a port |
 
 ### Rip
 
