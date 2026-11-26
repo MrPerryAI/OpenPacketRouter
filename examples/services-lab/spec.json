@@ -1,0 +1,39 @@
+{
+ "version": 1,
+ "name": "Syslog and NTP services",
+ "about": "A server runs a syslog receiver (UDP 514) and an NTP server (UDP 123, stratum 2). Client A sends a log message and asks the time.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "SRV",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.10/24"
+   },
+   "services": {
+    "syslog": true,
+    "ntp": 2
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1"
+  ],
+  [
+   "SRV:eth0",
+   "SW:p2"
+  ]
+ ]
+}
