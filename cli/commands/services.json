@@ -1,6 +1,6 @@
 {
   "feature": "services",
-  "about": "What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discard.",
+  "about": "What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo, discard and slow reader.",
   "commands": [
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip dns server", "handler": "dns.server",
      "help": {"ip": "IPv4 settings", "dns": "DNS service", "server": "Answer DNS questions for the names set with ip host"}},
@@ -56,6 +56,10 @@
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service syslog", "handler": "syslog.on",
      "help": {"service": "Programs this device runs", "syslog": "Collect log messages sent to UDP port 514"}},
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service syslog", "handler": "syslog.off",
-     "help": {"service": "Stop a program", "syslog": "Stop collecting log messages"}}
+     "help": {"service": "Stop a program", "syslog": "Stop collecting log messages"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-slow PORT", "args": {"PORT": "port"}, "handler": "tcp.slow",
+     "help": {"service": "Programs this device runs", "tcp-slow": "Listen on a TCP port with a small receive buffer; the application reads nothing for one second", "PORT": "TCP port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-slow PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
+     "help": {"service": "Stop a program", "tcp-slow": "Stop the TCP slow-reader service on a port"}}
   ]
 }
