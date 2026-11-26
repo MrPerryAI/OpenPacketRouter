@@ -25,6 +25,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Storm math inside the engine, including steady per-cable storm rates and shaped link capacity (#6, #18, #19).
 - Link capacity, queues and drops against `tbf` (#13).
 - Link delay and deterministic loss against `tc netem` (#135). Random loss can't be matched frame for frame, so the engine rejects it.
+  Cable delay and loss patterns are set from the CLI (`delay`, `loss pattern`) and round-trip in the running-config (#175).
 
 ### Engine: routing and services
 
@@ -32,6 +33,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - DHCP against dnsmasq and udhcpc (#17); DHCP relay (#38).
 - TCP against Linux sockets: handshake, data, close (#30); segments and data retransmission over a lossy hop (#133).
 - HTTP GET (HTTP/1.0 server and client) over the engine's TCP (#168).
+- Syslog: a UDP 514 receiver and a `syslog` action, against util-linux `logger` (#173).
 - IPv4 access lists against nftables (#74). NAT (overload, static 1:1, port forwarding) against nftables, with the translation table compared to conntrack (#79, #83).
 - RIPv2 against FRRouting ripd (#70).
 - OSPFv2 against FRRouting ospfd: point-to-point and broadcast, DR election, passive interfaces, timers (#59, #71, #75, #77); several areas with ABRs, type 3 summary LSAs and inter-area routes (#90).
@@ -48,6 +50,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Commands for VLANs, inter-VLAN routing, LLDP, RIP, OSPF (including areas), NAT, ACLs, port security, storm control, DHCP snooping, SPAN, HTTP pages, IPv6 and MAC aging (#62, #64, #65, #68, #109, #114, #116, #152, and the feature PRs above).
 - Backends: engine, Linux (devices configured only by the CLI match the engine frame for frame, #56), FRR (rendered `frr.conf` runs in real ospfd/ripd, #68, #134) and OpenWrt (rendered UCI applied by real `uci` in the OpenWrt rootfs container, #156).
 - Generated CLI reference with a freshness check (#54).
+- Every node key of the spec format has a CLI command, checked by a test over a fixture that uses each key (#175).
 
 ### Studio (browser)
 
@@ -56,6 +59,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Save and reopen as JSON or YAML, with autosave (#105, #121).
 - Protocol panels for RIP/OSPF, NAT, ACL hits, LLDP, LACP and MAC aging (#98); playback filters and an event list (#131).
 - Keyboard access, labels, reduced motion and a phone-width layout (#139).
+- IPv6 panels and filters, DHCP snooping ports and drops, lossy cables, HTTP request lines and OSPF areas (#177).
 
 ### Labs and docs
 
