@@ -82,6 +82,15 @@ class RipNgNet(v6.Net6):
 
     def write_conf(self, n):
         d = self.conf_dir(n["name"]); os.makedirs(d)
+        if os.environ.get("RIPNG_RENDER") == "cli":   # ripngd's config comes only from the device CLI: the model -> FRR rendering
+            sf = f"{self.tmp2}/spec.json"; Path(sf).write_text(json.dumps(self.spec))
+            out = subprocess.run(["node", str(ROOT / "cli/bin/opr-cli.mjs"), sf, n["name"], "--render", "frr"], capture_output=True, text=True, check=True).stdout
+            # addresses, routes and "end" belong to the namespace setup, not to ripngd's own config
+            keep = [l for l in out.splitlines() if not l.strip().startswith(("ip address", "ipv6 address", "ip route", "ipv6 route", "end", "shutdown")) and l.strip()]
+            assert any(l.strip() == "router ripng" for l in keep), f"{n['name']}: the rendering has no router ripng:\n{out}"
+            Path(f"{d}/ripngd.conf").write_text("\n".join(keep) + "\n")
+            Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
+            return self._finish_conf(n, d)
         r = n["ripng"]; t = {**DEFAULT_TIMERS, **(r.get("timers") or {})}
         conf = [f"hostname {n['name']}"]
         for ifn in n["ifaces6"]: conf += [f"interface {ifn}", SPLIT[r.get("splitHorizon", "simple")], "!"]
@@ -89,6 +98,9 @@ class RipNgNet(v6.Net6):
         conf += [f" network {x}" for x in r["networks"]] + [f" passive-interface {x}" for x in r.get("passive", [])] + ["!"]
         Path(f"{d}/ripngd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
+        return self._finish_conf(n, d)
+
+    def _finish_conf(self, n, d):
         shutil.chown(d, "frr", "frr")
         for f in os.listdir(d): shutil.chown(f"{d}/{f}", "frr", "frr"); os.chmod(f"{d}/{f}", 0o666)
         os.chmod(d, 0o777)
