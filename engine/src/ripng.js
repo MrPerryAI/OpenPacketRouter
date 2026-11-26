@@ -9,9 +9,10 @@
 //   - Enabled interfaces: the `networks` list names an interface or a prefix that holds one of its global addresses. Each global
 //     prefix on such an interface is a connected route, metric 1.
 //
-//   - Every response starts with a next-hop entry (the sender's own link-local address, length 0, metric 255), as ripngd sends it.
+//   - A next-hop entry (length 0, metric 255) is sent only for a route whose next hop is the neighbour on the outgoing link (the
+//     poisoned-reverse ones), just before the first of them; it never names the sender itself (checked against ripngd).
 //
-// Not modeled: next-hop entries naming another router, route maps, redistribution, offset lists, ECMP,
+// Not modeled: route maps, redistribution, offset lists, ECMP,
 // the update jitter (FRR moves each periodic update by up to ±update/4 at random; the engine is exact).
 // Teaching knob, not in FRR: `triggered: false` turns triggered updates off.
 
@@ -139,24 +140,24 @@ export class RipNg {
       this._output(ifname, null, kind);
     }
   }
-  /** The routes to send out of `ifname`, after split horizon. */
+  /** The entries to send out of `ifname`, after split horizon, with a next-hop entry before a route learned from the neighbour on that link. */
   entries(ifname, kind = "all") {
     const out = [];
+    let hop = null;
     for (const r of this.sorted()) {
       if (kind === "changed" && !r.changed) continue;
       // ripngd applies split horizon only to routes learned from a neighbour on that interface; the interface's own
       // (connected) prefix is always advertised with its real metric, even with poisoned reverse (checked against ripngd).
       const back = r.type === "ripng" && r.iface === ifname;
       if (this.split === "simple" && back) continue;
+      if (back && r.gw !== hop) { hop = r.gw; out.push({prefix: hop, len: 0, tag: 0, metric: 255}); }
       out.push({prefix: intToIp6(r.net), len: r.len, tag: 0, metric: this.split === "poisoned" && back ? INFINITY : r.metric});
     }
     return out;
   }
   _output(ifname, to, kind) {
     const all = this.entries(ifname, kind);
-    // ripngd starts every response with a next-hop RTE (RFC 2080 2.1.1): the sender's own link-local address, prefix length 0, metric 255.
-    const hop = {prefix: this.v6.linkLocal(ifname), len: 0, tag: 0, metric: 255};
-    for (let k = 0; k < all.length; k += MAX_RTE - 1) this._send(ifname, to, {command: "response", version: 1, entries: [hop, ...all.slice(k, k + MAX_RTE - 1)]});
+    for (let k = 0; k < all.length; k += MAX_RTE) this._send(ifname, to, {command: "response", version: 1, entries: all.slice(k, k + MAX_RTE)});
   }
   _send(ifname, to, ripng) {
     const i = this.node.ifaces[ifname], src = this.v6.linkLocal(ifname);
@@ -188,7 +189,7 @@ export class RipNg {
     if (p.udp.sport !== RIPNG_PORT) { this.log("ripng-drop", `response from ${p.src} not from port 521`); return; }
     let nh = null;
     for (const e of m.entries) {
-      if (e.metric === 0xff) { nh = e.prefix === "::" || !isLinkLocal(e.prefix) ? null : e.prefix; continue; }   // next-hop entry (RFC 2080 2.1.1)
+      if (e.metric === 0xff) { nh = e.prefix === "::" || !isLinkLocal(e.prefix) || e.prefix === this.v6.linkLocal(ifname) ? null : e.prefix; continue; }   // next-hop entry (RFC 2080 2.1.1); one naming this router means "the sender"
       this._rte(ifname, p.src, nh, e);
     }
   }
