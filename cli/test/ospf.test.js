@@ -99,3 +99,11 @@ test("passive-interface lands in the spec, running-config and FRR config", () =>
   ok(run(s, ["configure terminal", "router ospf", "no passive-interface eth0", "end"]));
   assert.equal(b.spec().nodes[0].ospf.passive, undefined);
 });
+
+test("network ... area puts interfaces in another area; it renders and reaches the FRR config", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "network 10.0.0.0/24 area 1", "network interface eth0 area 0.0.0.2", "network 10.9.0.0/24", "exit", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf.networks, [{network: "10.0.0.0/24", area: "0.0.0.1"}, {network: "eth0", area: "0.0.0.2"}, "10.9.0.0/24"]);
+  assert.match(s.exec("show running-config").output, / network 10\.0\.0\.0\/24 area 0\.0\.0\.1\n network interface eth0 area 0\.0\.0\.2\n network 10\.9\.0\.0\/24\n/);
+  assert.match(s.exec("show running-config").output, /area 0\.0\.0\.1/);
+});

@@ -34,6 +34,16 @@ function natUnstatic(ctx, e) {
 const pool = ctx => { need(ctx.s.pool, "No DHCP pool selected"); return M.services(ctx.model)["dhcp-server"].pools[ctx.s.pool]; };
 const STP_LEAVES = {"bridge-priority": 1, "hello-time": 1, "max-age": 1, "forwarding-delay": 1, "openpacketrouter:bridge-address": 1};
 
+const netName = x => typeof x === "object" ? x.network : x;
+function ospfNet(ctx, p, area) {
+  const l = ospfG(ctx)["openpacketrouter:networks"], e = area && area !== "0.0.0.0" ? {network: p, area} : p;
+  const at = l.findIndex(x => netName(x) === p);
+  if (at < 0) l.push(e); else l[at] = e;       // naming it again moves it to the new area
+}
+function ospfNoNet(ctx, p) {
+  const g = ospfG(ctx), l = g["openpacketrouter:networks"]; need(l.some(x => netName(x) === p), `OSPF is not running on ${p}`);
+  g["openpacketrouter:networks"] = l.filter(x => netName(x) !== p);
+}
 export const HANDLERS = {
   "system.hostname": (ctx, [name]) => { ctx.model.system.config.hostname = name; },
 
@@ -143,10 +153,11 @@ export const HANDLERS = {
   "ospf.no-router-id": ctx => { delete ospfG(ctx).global.config["router-id"]; },
   "ospf.passive": (ctx, [i]) => { need(M.iface(ctx.model, i, false), `No interface named ${i}`); M.ospfIf(ctx.model, i).config.passive = true; },
   "ospf.no-passive": (ctx, [i]) => { const e = M.ospfIf(ctx.model, i, false); if (e) delete e.config.passive; },
-  "ospf.network": (ctx, [p]) => { const l = ospfG(ctx)["openpacketrouter:networks"]; if (!l.includes(p)) l.push(p); },
-  "ospf.network-if": (ctx, [p]) => { const l = ospfG(ctx)["openpacketrouter:networks"]; if (!l.includes(p)) l.push(p); },
-  "ospf.no-network": (ctx, [p]) => { const g = ospfG(ctx), l = g["openpacketrouter:networks"]; need(l.includes(p), `OSPF is not running on ${p}`); g["openpacketrouter:networks"] = l.filter(x => x !== p); },
-  "ospf.no-network-if": (ctx, [p]) => { const g = ospfG(ctx), l = g["openpacketrouter:networks"]; need(l.includes(p), `OSPF is not running on ${p}`); g["openpacketrouter:networks"] = l.filter(x => x !== p); },
+  // a network entry is the bare name for area 0, {network, area} for any other area
+  "ospf.network": (ctx, [p, area]) => ospfNet(ctx, p, area),
+  "ospf.network-if": (ctx, [p, area]) => ospfNet(ctx, p, area),
+  "ospf.no-network": (ctx, [p]) => ospfNoNet(ctx, p),
+  "ospf.no-network-if": (ctx, [p]) => ospfNoNet(ctx, p),
   "ospf.set": (ctx, [v], leaf) => { const e = ospfIfCtx(ctx); (TIMERS.has(leaf) ? e.timers.config : e.config)[leaf] = v; },
   "ospf.network-type": (ctx, args, type) => { ospfIfCtx(ctx).config["network-type"] = type; },
   "ospf.unset": (ctx, args, leaf) => { const e = ospfIfCtx(ctx); delete (TIMERS.has(leaf) ? e.timers.config : e.config)[leaf]; },

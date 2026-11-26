@@ -1,6 +1,6 @@
 {
  "feature": "ospf",
- "about": "OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and the show commands.",
+ "about": "OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), per-interface timers and cost, and the show commands.",
  "commands": [
   {
    "modes": [
@@ -128,6 +128,47 @@
     "network": "Run OSPF on interfaces inside this network",
     "interface": "Pick one interface by name",
     "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network PREFIX area AREA",
+   "args": {
+    "PREFIX": "ipv4-prefix",
+    "AREA": "ospf-area"
+   },
+   "handler": "ospf.network",
+   "help": {
+    "network": "Run OSPF on interfaces inside this network",
+    "PREFIX": "Network, like 10.0.0.0/8",
+    "area": "Put these interfaces in an area",
+    "AREA": "Area, like 1 or 0.0.0.1"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network interface IFNAME area AREA",
+   "args": {
+    "IFNAME": "ifname",
+    "AREA": "ospf-area"
+   },
+   "handler": "ospf.network-if",
+   "help": {
+    "network": "Run OSPF on interfaces inside this network",
+    "interface": "Pick one interface by name",
+    "IFNAME": "Interface name",
+    "area": "Put this interface in an area",
+    "AREA": "Area, like 1 or 0.0.0.1"
    }
   },
   {
