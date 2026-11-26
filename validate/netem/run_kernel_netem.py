@@ -90,7 +90,8 @@ def main():
             a = e["action"]
             same = l3.comparable(e["result"]) == l3.comparable(k["result"])
             er, kr = e["result"].get("rtt_ms"), k["result"].get("rtt_ms")
-            rtt_ok = er is None or (kr is not None and round(kr) == round(er))
+            if a["do"] == "ping" and e["result"].get("ok"): rtt_ok = er is not None and kr is not None and int(kr) == int(er)   # a missing RTT on either side fails
+            else: rtt_ok = er is None and kr is None
             keys = sorted(set(e["frames"]) | set(k["frames"]))
             fd = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
             ed, kd = e.get("drops", {}), k["drops"]
