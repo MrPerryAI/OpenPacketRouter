@@ -43,6 +43,6 @@ A> ping 10.0.0.10
 
 - The syslog message arrives at SRV on UDP 514 with the tag `netmon`.
 - The NTP query is answered at stratum 2.
-- Remove `service syslog` from SRV and send the message again: the server answers with ICMP port unreachable instead of storing it.
+- Run `no service syslog` on SRV (configure mode) and send the message again: the server answers with ICMP port unreachable instead of storing it.
 
 More detail for the curious: [the lab's own README](../../examples/services-lab/README.md).
