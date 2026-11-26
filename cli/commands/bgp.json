@@ -1,0 +1,290 @@
+{
+ "feature": "bgp",
+ "about": "BGP-4 in FRRouting's style: router bgp ASN, then bgp router-id, neighbor ADDRESS remote-as ASN, network PREFIX and timers bgp. A neighbor in our own AS is an iBGP peer, in another AS an eBGP peer. neighbor ... local-preference is this CLI's short form of an inbound route-map that sets the local preference (the FRR rendering writes the route-map).",
+ "commands": [
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "router bgp ASN",
+   "args": {
+    "ASN": "uint:1-65535"
+   },
+   "handler": "bgp.enter",
+   "enter": "config-bgp",
+   "help": {
+    "router": "Routing protocols",
+    "bgp": "Border Gateway Protocol (BGP-4)",
+    "ASN": "This router's AS number (1-65535)"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no router bgp",
+   "handler": "bgp.remove",
+   "help": {
+    "no": "Undo a setting",
+    "router": "Routing protocols",
+    "bgp": "Turn BGP off"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "bgp router-id ADDRESS",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "bgp.router-id",
+   "help": {
+    "bgp": "BGP settings",
+    "router-id": "Router ID",
+    "ADDRESS": "Like 1.1.1.1 (default: the highest interface address)"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no bgp router-id",
+   "handler": "bgp.no-router-id",
+   "help": {
+    "no": "Undo a setting",
+    "bgp": "BGP settings",
+    "router-id": "Go back to the default router ID"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "neighbor ADDRESS remote-as ASN",
+   "args": {
+    "ADDRESS": "ipv4-address",
+    "ASN": "uint:1-65535"
+   },
+   "handler": "bgp.neighbor",
+   "help": {
+    "neighbor": "A BGP peer",
+    "ADDRESS": "The peer's address on a shared network",
+    "remote-as": "The peer's AS number",
+    "ASN": "1-65535: the same as ours is an iBGP session, another one is eBGP"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no neighbor ADDRESS",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "bgp.no-neighbor",
+   "help": {
+    "no": "Undo a setting",
+    "neighbor": "A BGP peer",
+    "ADDRESS": "Remove this peer"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "neighbor ADDRESS next-hop-self",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "bgp.next-hop-self",
+   "help": {
+    "neighbor": "A BGP peer",
+    "ADDRESS": "The peer's address",
+    "next-hop-self": "Advertise ourselves as the next hop to this peer"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no neighbor ADDRESS next-hop-self",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "bgp.no-next-hop-self",
+   "help": {
+    "no": "Undo a setting",
+    "neighbor": "A BGP peer",
+    "ADDRESS": "The peer's address",
+    "next-hop-self": "Keep the next hop of routes we pass on"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "neighbor ADDRESS local-preference N",
+   "args": {
+    "ADDRESS": "ipv4-address",
+    "N": "uint:0-1000000"
+   },
+   "handler": "bgp.local-preference",
+   "help": {
+    "neighbor": "A BGP peer",
+    "ADDRESS": "The peer's address",
+    "local-preference": "Give the routes this peer sends this local preference",
+    "N": "Local preference (default 100; higher wins)"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no neighbor ADDRESS local-preference",
+   "args": {
+    "ADDRESS": "ipv4-address"
+   },
+   "handler": "bgp.no-local-preference",
+   "help": {
+    "no": "Undo a setting",
+    "neighbor": "A BGP peer",
+    "ADDRESS": "The peer's address",
+    "local-preference": "Back to the default (100)"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network PREFIX",
+   "args": {
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "bgp.network",
+   "help": {
+    "network": "Advertise this prefix while the router has it in its table",
+    "PREFIX": "Network and prefix length, like 10.1.0.0/24"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no network PREFIX",
+   "args": {
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "bgp.no-network",
+   "help": {
+    "no": "Undo a setting",
+    "network": "Stop advertising this prefix",
+    "PREFIX": "Network and prefix length"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "timers bgp KEEPALIVE HOLD",
+   "args": {
+    "KEEPALIVE": "seconds",
+    "HOLD": "seconds"
+   },
+   "handler": "bgp.timers",
+   "help": {
+    "timers": "BGP timers",
+    "bgp": "Keepalive and hold time",
+    "KEEPALIVE": "Seconds between keepalives (default 60)",
+    "HOLD": "Hold time in seconds, 3 or more (default 180)"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no timers bgp",
+   "handler": "bgp.no-timers",
+   "help": {
+    "no": "Undo a setting",
+    "timers": "BGP timers",
+    "bgp": "Back to 60 s keepalive, 180 s hold"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "timers connect SECONDS",
+   "args": {
+    "SECONDS": "seconds"
+   },
+   "handler": "bgp.connect-timer",
+   "help": {
+    "timers": "BGP timers",
+    "connect": "Seconds before a failed connection is tried again (default 120)",
+    "SECONDS": "Seconds"
+   }
+  },
+  {
+   "modes": [
+    "config-bgp"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no timers connect",
+   "handler": "bgp.no-connect-timer",
+   "help": {
+    "no": "Undo a setting",
+    "timers": "BGP timers",
+    "connect": "Back to 120 s"
+   }
+  }
+ ]
+}
