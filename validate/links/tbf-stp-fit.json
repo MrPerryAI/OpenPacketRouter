@@ -1,0 +1,42 @@
+{
+ "version": 1,
+ "name": "tbf-stp-fit",
+ "about": "Two STP bridges on one cable; S1's port is shaped with a queue of 52 bytes, exactly the size of a config BPDU (14 Ethernet + 3 LLC + 35), so every BPDU gets through.",
+ "nodes": [
+  {
+   "name": "S1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:01",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "priority": 4096
+   }
+  },
+  {
+   "name": "S2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:02",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  }
+ ],
+ "links": [
+  [
+   "S1:p1",
+   "S2:p1",
+   1,
+   {
+    "shape": {
+     "rate": "1mbit",
+     "burst": 3000,
+     "limit": 52
+    }
+   }
+  ]
+ ]
+}
