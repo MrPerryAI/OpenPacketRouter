@@ -308,17 +308,45 @@ const table = (head, rows) => rows.length
   ? `<table><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c ?? "")}</td>`).join("")}</tr>`).join("")}</table>`
   : `<div class="empty">empty</div>`;
 
+const ruleText = r => `${r.action} ${r.proto || "ip"} ${r.src || "any"}${r.sport !== undefined ? ":" + r.sport : ""} → ${r.dst || "any"}${r.dport !== undefined ? ":" + r.dport : ""}${r.icmpType !== undefined ? " type " + r.icmpType : ""}${r.established ? " established" : ""}`;
+
+/** Tables for the routing, NAT, ACL and LLDP features a device has, from the snapshot at the current frame. */
+function featurePanels(n, d) {
+  let h = "";
+  if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
+  if (d.ospf) {
+    h += `<h4>OSPF neighbors</h4>` + table(["router ID", "address", "iface", "state", "role"], d.ospf.neighbors.map(x => [x.routerId, x.address, x.iface, x.state, x.role]));
+    h += `<h4>OSPF interfaces</h4>` + table(["iface", "state", "type", "cost", "DR", "BDR"], d.ospf.interfaces.map(x => [x.iface, x.state, x.type, x.cost, x.dr, x.bdr]));
+    h += `<h4>OSPF routes</h4>` + table(["network", "cost", "via"], d.ospf.routes.map(x => [x.network, x.cost, x.via.map(v => `${v.gw} (${v.iface})`).join(", ")]));
+  }
+  if (d.nat) h += `<h4>NAT translations</h4>` + table(["proto", "inside global", "inside local", "outside global", "left"], d.nat.map(x => [x.proto, x.insideGlobal, x.insideLocal, x.outsideGlobal, x.static ? "static" : x.secondsLeft === undefined ? "" : `${x.secondsLeft} s`]));
+  if (n.acl && n.acl.lists) {
+    const hits = d.aclHits || {};
+    for (const [name, rules] of Object.entries(n.acl.lists)) {
+      const binds = Object.entries(n.acl.bind || {}).flatMap(([i, b]) => Object.entries(b).filter(([, l]) => l === name).map(([dir]) => `${i} ${dir}`));
+      h += `<h4>ACL ${esc(name)}${binds.length ? ` <small>(${esc(binds.join(", "))})</small>` : ""}</h4>` +
+        table(["#", "rule", "hits"], rules.map((r, i) => [i + 1, ruleText(r), hits[`${name}:${i}`] || 0]).concat([["", "implicit deny", hits[`${name}:deny`] || 0]]));
+    }
+  }
+  if (d.lldp) h += `<h4>LLDP neighbors</h4>` + table(["iface", "system", "port", "description"], d.lldp.map(x => [x.iface, x.sysName, x.portId, x.portDescr]));
+  return h;
+}
+
 function drawDevice() {
   const box = $("#device");
   const n = S.spec && S.spec.nodes.find(x => x.name === S.selected);
   if (!n) { box.innerHTML = `<h2>Device</h2><p class="hint">Click a device to see its tables, double-click it for its console. Drag to move it. Click a cable to unplug it (or plug it back in).</p>`; return; }
   const st = currentState(), d = (st && st[n.name]) || {};
   const when = S.step >= 0 ? `As frame ${S.step + 1} leaves (each action starts with empty caches).` :
-    S.an && S.an.converged ? `At rest, after spanning tree settles (${S.an.converged} s).` : "At rest, before any action.";
+    S.an && S.an.converged ? `At rest, after the network settles (${S.an.converged} s: spanning tree, LACP, routing protocols, LLDP).` : "At rest, before any action.";
   let h = `<h2>Device</h2><h3>${esc(n.name)} <small>${esc(n.kind)}</small></h3><div class="when">${esc(when)}</div>`;
   if (n.kind === "switch") {
-    h += `<h4>MAC address table</h4>` + table(n.vlans ? ["VLAN", "MAC", "port"] : ["MAC", "port"],
-      (d.mac || []).map(m => n.vlans ? [m.vlan, m.mac, m.port] : [m.mac, m.port]));
+    const left = m => m.stale ? "aged out (waiting for the collector)" : `${Math.max(0, Math.round(((d.aging ? d.aging.hold : 300) - m.age) * 10) / 10)} s`;
+    h += `<h4>MAC address table</h4>` + (d.aging ? `<div class="when">Aging time ${d.aging.time} s${d.aging.hold !== d.aging.time ? ` (shortened to ${d.aging.hold} s by a topology change)` : ""}.</div>` : "") +
+      table(n.vlans ? ["VLAN", "MAC", "port", "age", "expires in"] : ["MAC", "port", "age", "expires in"],
+        (d.mac || []).map(m => (n.vlans ? [m.vlan, m.mac, m.port] : [m.mac, m.port]).concat([`${m.age} s`, left(m)])));
+    if ((d.channels || []).length) h += `<h4>Port-channels (LACP)</h4>` + table(["channel", "member", "link", "mux", "partner state", "bundled"],
+      d.channels.flatMap(c => c.members.map(m => [`${c.name} (${c.rate})`, m.port, m.up ? "up" : "down", m.mux, `0x${(m.partner.state || 0).toString(16)}`, m.aggregated ? "yes" : "no"])));
     const ports = S.spec.links.flat().filter(r => typeof r === "string" && r.startsWith(n.name + ":")).map(r => r.split(":")[1]);
     if (d.stp) {
       h += `<h4>Spanning tree</h4><div class="when">Bridge ${esc(d.stp.bridgeId)} · root ${esc(d.stp.root)}${d.stp.isRoot ? " (this switch is the root)" : ` · root port ${esc(d.stp.rootPort)}, cost ${d.stp.rootCost}`}</div>`;
@@ -335,6 +363,7 @@ function drawDevice() {
     h += `<h4>ARP cache</h4>` + table(["IP", "MAC", "iface"], (d.arp || []).map(a => [a.ip, a.mac, a.iface]));
     if (n.services && n.services.dhcp) h += `<h4>DHCP leases</h4>` + table(["MAC", "IP"], (d.leases || []).map(l => [l.mac, l.ip]));
   }
+  h += featurePanels(n, d);
   h += editForm(n);
   h += `<button class="open-console" data-console="${esc(n.name)}">Open console on ${esc(n.name)}</button>`;
   box.innerHTML = h;
