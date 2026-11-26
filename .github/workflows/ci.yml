@@ -70,6 +70,8 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null)
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
+      - name: Link delay and loss vs Linux tc netem (RTTs, frames, drops)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/netem/run_kernel_netem.py
       - name: TCP vs real Linux (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
       - name: Access lists vs Linux nftables (frames, pings, UDP and TCP connects)

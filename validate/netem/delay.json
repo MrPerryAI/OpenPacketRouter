@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "Link delay",
+  "about": "A and B on one switch with different cable delays: 5 ms on A's cable, 10 ms on B's. Round trips take the sum of the delays on the way.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}}
+  ],
+  "links": [
+    ["A:eth0", "SW:p1", 5],
+    ["B:eth0", "SW:p2", 10]
+  ]
+}
