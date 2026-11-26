@@ -22,6 +22,7 @@ import run_kernel_l3 as l3  # noqa: E402
 from run_kernel_l2 import Net  # noqa: E402
 
 CASES = [("aging", "aging.steps")]
+ALIGN = None   # seconds after a wall-clock second at which the bridges start and every step runs (validate/tcn sets 0.5); see below
 WATCH = [("SW1", "p3")]   # (set to [] by validators that do not need the sniffer)
 
 
@@ -57,6 +58,13 @@ def kernel(name, steps_name, here=HERE):
             for l in json.loads(sh("ip", "-n", k.ns[n["name"]], "-j", "link", "show")):
                 if l["ifname"] != "lo": nsx(k.ns[n["name"]], "sh", "-c", f"echo 100000 > /proc/sys/net/ipv4/neigh/{l['ifname']}/delay_first_probe_time")
         time.sleep(1.0)
+        if ALIGN is not None:
+            # The kernel arms the spanning-tree hold timer with round_jiffies(), which rounds to whole wall-clock seconds, so
+            # a pending BPDU leaves on a second boundary. Start the bridges ALIGN seconds after one and keep every step on
+            # the engine's schedule from there (engine/src/stp.js _holdTime models the same rounding with jiffyHolds = ALIGN).
+            time.sleep(1 - time.time() % 1)
+            t_base = int(time.time()) + ALIGN; cum = 0.0
+            time.sleep(max(t_base - time.time(), 0))
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
             if n["kind"] == "switch":
                 sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "up")
@@ -75,14 +83,17 @@ def kernel(name, steps_name, here=HERE):
             time.sleep(0.2); now = sent(); m = marks[who]; w = {c: now[c][m[c]:] for c in cables}; m.update({c: len(now[c]) for c in cables}); return w
         time.sleep(0.3)
         for s in steps:
+            if ALIGN is not None: time.sleep(max(t_base + cum - time.time(), 0))   # not before the engine's time for this step
+            if "wait" in s: cum += s["wait"]
             if s.get("flush"): k.flush()
             elif s.get("gcReset"):
                 for n in spec["nodes"]:
                     if n["kind"] == "switch": sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "type", "bridge", "ageing_time", str(int(n.get("agingTime", 300) * 100)))
-            elif "wait" in s: time.sleep(s["wait"])
+            elif "wait" in s:
+                if ALIGN is None: time.sleep(s["wait"])   # (aligned: the next step sleeps until its scheduled time)
             elif "ping" in s:
                 if s.get("frames") == "data": window("ping")
-                before = k.counters(); r = k.ping(*s["ping"]); time.sleep(s.get("settle", 1)); after = k.counters()
+                before = k.counters(); r = k.ping(*s["ping"]); cum += s.get("settle", 1); time.sleep(s.get("settle", 1) if ALIGN is None else max(t_base + cum - time.time(), 0)); after = k.counters()
                 if s.get("frames") == "data": fr = {c: v.count("data") for c, v in window("ping").items() if v.count("data")}   # not counting spanning-tree frames
                 else: fr = {x: after[x] - before.get(x, 0) for x in after if after[x] - before.get(x, 0)}
                 out.append({"ping": s["ping"], "ok": bool(r.get("ok")), "wire": {f"{sw}:{p}": open(f"/tmp/aging-{sw}-{p}.txt").read().splitlines()[-40:] for sw, p in WATCH}, **({} if s.get("frames") is False else {"frames": fr})})

@@ -14,6 +14,7 @@ import {Network, ping} from "../src/index.js";
 const args = process.argv.slice(2), macsOnly = args[0] === "--macs";
 const [specFile, stepsFile] = macsOnly ? args.slice(1) : args;
 const net = Network.fromSpec(JSON.parse(fs.readFileSync(specFile, "utf8")));
+if (process.env.OPR_JIFFY_HOLDS) net.jiffyHolds = +process.env.OPR_JIFFY_HOLDS;   // model Linux's round_jiffies on the STP hold timer (engine/src/stp.js, _holdTime); the validator aligns the kernel to whole seconds
 const out = [];
 const owner = new Map();   // MAC -> "node:iface"
 for (const n of net.nodes.values()) for (const i of Object.values(n.ifaces)) if (!i.channel) owner.set(i.mac, `${n.name}:${i.name}`);   // a channel's members share one MAC; the channel is not a cable
