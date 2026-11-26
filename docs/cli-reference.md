@@ -165,6 +165,11 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
 | `lldp forward` | config | switches | Pass LLDP frames through this switch instead of dropping them (the switch itself does not speak LLDP) |
 | `no lldp forward` | config | switches | Drop LLDP frames again (the default) |
+| `switchport port-security maximum COUNT` | interface | switches | Number of addresses |
+| `switchport port-security violation protect` | interface | switches | Drop it and keep counting |
+| `switchport port-security violation restrict` | interface | switches | Drop it, count it and log it |
+| `switchport port-security violation shutdown` | interface | switches | Drop it and take the port down (err-disabled) |
+| `no switchport port-security` | interface | switches | Remove the address limit from this port |
 | `mac address-table aging-time SECONDS` | config | switches | Seconds |
 | `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
 | `spanning-tree mode stp` | config | switches | Classic spanning tree (802.1D): timers decide when a port may forward |
@@ -321,6 +326,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
+| `show port-security` | user, privileged | switches | Limits on how many hosts a switch port accepts, and the violations so far |
 | `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | The port to describe |
