@@ -53,6 +53,13 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
   members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+- **IPv6, DHCP snooping, lossy cables, HTTP, OSPF areas**: the device panel lists a device's IPv6 addresses, routes and
+  neighbor cache (filled by neighbor discovery); IPv6 frames get two filters, *ICMPv6* and *IPv6 ND* (neighbor solicitation
+  and advertisement), and the event list describes them. A switch with `dhcpSnooping` shows its trusted ports and how many
+  DHCP server messages each port dropped. A cable with a loss model is drawn dotted, and an action that lost frames on it
+  says how many in the action list (a lost frame never reaches the wire, so it has no playback step). A TCP segment that
+  carries an HTTP request or response names its first line. The OSPF panel shows the router's areas (and says when it is
+  an area border router), each interface's area, and marks routes as intra-area or inter-area.
 - **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
   play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per

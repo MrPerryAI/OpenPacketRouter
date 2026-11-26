@@ -267,6 +267,41 @@ try {
   check(c, "the console fits a phone screen");
   await page.setViewportSize({width: 1440, height: 950});
 
+  // features merged later: IPv6, DHCP snooping, lossy cables, HTTP, OSPF areas (the engine's own validation specs and examples)
+  const vfile = f => JSON.parse(fs.readFileSync(path.join(root, "validate", f)));
+  const vload = async (specFile, actionsFile) => page.evaluate(([sp, ac]) => { const ok = window.studio.load(sp, ac, "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; },
+    [vfile(specFile), actionsFile ? vfile(actionsFile) : []]);
+  let r6 = await vload("ipv6/ipv6-lab.json", "ipv6/ipv6-lab.actions.json");
+  check(r6.ok && !/spec /.test(r6.errors), "IPv6 lab loads and runs", r6.errors.slice(0, 120));
+  const kinds6 = await page.$$eval("#filters input[data-kind]", i => i.map(x => x.dataset.kind));
+  check(kinds6.includes("icmp6") && kinds6.includes("ndp"), "IPv6 frames get their own filters (ICMPv6, IPv6 ND)", kinds6.join(","));
+  check((await page.$$eval("#events li", l => l.map(x => x.textContent)).catch(() => [])).some(t => /neighbor solicitation/.test(t)) ||
+        (await page.evaluate(() => window.studio.S.sim.steps.some(st => /neighbor solicitation/.test(st.desc)))), "IPv6 neighbor solicitation shows in playback");
+  await page.evaluate(() => window.studio.select("A"));
+  const dev6 = await page.textContent("#device");
+  check(/IPv6 addresses/.test(dev6) && /2001:db8:1::a/.test(dev6) && /IPv6 neighbors/.test(dev6), "device panel lists IPv6 addresses and neighbors");
+
+  await page.goto(BASE + "?lab=dhcp-snooping"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  const swName = await page.evaluate(() => window.studio.S.spec.nodes.find(n => n.dhcpSnooping).name);
+  await page.evaluate(n => window.studio.select(n), swName);
+  const snoop = await page.textContent("#device");
+  check(/DHCP snooping/.test(snoop) && /trusted/.test(snoop) && /server messages dropped/.test(snoop), "switch panel shows DHCP snooping trusted ports and drop counts");
+
+  const rl = await vload("netem/loss.json", "netem/loss.actions.json");
+  check(rl.ok && !/spec /.test(rl.errors), "lossy-cable spec loads", rl.errors.slice(0, 120));
+  check(await page.$$eval("#map line.cable.lossy", l => l.length) >= 1, "a lossy cable is drawn dotted");
+  check((await page.$$eval("#actions li small", l => l.map(x => x.textContent))).some(t => /lost on a lossy cable/.test(t)), "the action list counts frames a lossy cable dropped");
+
+  const rh = await vload("tcp/tcp-http.json", "tcp/tcp-http.actions.json");
+  check(rh.ok && !/spec /.test(rh.errors), "HTTP spec loads", rh.errors.slice(0, 120));
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /\(GET \//.test(st.desc))), "an HTTP GET request is named in the frame description");
+
+  const ro = await vload("ospf/ospf-areas.net");
+  check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
+  await page.evaluate(() => window.studio.select("R2"));
+  const osp = await page.textContent("#device");
+  check(/Area border router/.test(osp) && /inter-area/.test(osp) && /0\.0\.0\.1/.test(osp), "OSPF panel marks the ABR, shows areas and inter-area routes");
+
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
     return {ok, text: document.querySelector("#errors").textContent}; });
