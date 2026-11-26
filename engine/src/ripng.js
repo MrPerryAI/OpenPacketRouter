@@ -9,7 +9,9 @@
 //   - Enabled interfaces: the `networks` list names an interface or a prefix that holds one of its global addresses. Each global
 //     prefix on such an interface is a connected route, metric 1.
 //
-// Not modeled: next-hop entries on the sending side (ripngd sends none by default), route maps, redistribution, offset lists, ECMP,
+//   - Every response starts with a next-hop entry (the sender's own link-local address, length 0, metric 255), as ripngd sends it.
+//
+// Not modeled: next-hop entries naming another router, route maps, redistribution, offset lists, ECMP,
 // the update jitter (FRR moves each periodic update by up to ±update/4 at random; the engine is exact).
 // Teaching knob, not in FRR: `triggered: false` turns triggered updates off.
 
