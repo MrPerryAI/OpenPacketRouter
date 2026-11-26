@@ -302,6 +302,11 @@ try {
   const svcPanel = await page.textContent("#device");
   check(/Services/.test(svcPanel) && /Syslog receiver/.test(svcPanel), "a server's panel lists its syslog receiver", svcPanel.slice(0, 80));
 
+  const rw = await vload("tcp/tcp-window.json", "tcp/tcp-window.actions.json");
+  check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
   await page.evaluate(() => window.studio.select("R2"));
