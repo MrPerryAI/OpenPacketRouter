@@ -215,6 +215,7 @@ def parse_update(b):
                 asp += [int.from_bytes(v[2 + w * i:2 + w * (i + 1)], "big") for i in range(cnt)]; v = v[2 + w * cnt:]
             pk["asPath"] = " ".join(map(str, asp))
         elif code == 3: pk["nextHop"] = ip4(v)
+        elif code == 5: pk["localPref"] = int.from_bytes(v[:4], "big")   # only on iBGP sessions
     return pk
 
 
@@ -255,13 +256,13 @@ def phases(run):
 
 
 def told(pkts):
-    """What every router has told every neighbor, as the neighbor sees it: per cable direction, prefix -> (AS path, next hop, origin) of the last announcement not withdrawn since."""
+    """What every router has told every neighbor, as the neighbor sees it: per cable direction, prefix -> (AS path, next hop, origin, LOCAL_PREF on iBGP) of the last announcement not withdrawn since."""
     t = {}
     for p in pkts:
         if p["type"] != "update": continue
         d = t.setdefault(p["cable"], {})
         for x in p["withdrawn"]: d.pop(x, None)
-        for x in p["nlri"]: d[x] = [p.get("asPath"), p.get("nextHop"), p.get("origin")]
+        for x in p["nlri"]: d[x] = [p.get("asPath"), p.get("nextHop"), p.get("origin"), p.get("localPref")]
     return {c: v for c, v in sorted(t.items()) if v}
 
 
@@ -277,6 +278,36 @@ def kinds(win):
     for p in win:
         if p["type"] != "keepalive": t.setdefault(p["cable"], set()).add(p["type"])
     return {c: sorted(v) for c, v in sorted(t.items())}
+
+
+def counts(win):
+    """How many OPEN and NOTIFICATION messages crossed each cable direction (one per session event, so exact)."""
+    t = {}
+    for p in win:
+        if p["type"] in ("open", "notification"): c = t.setdefault(p["cable"], {}); c[p["type"]] = c.get(p["type"], 0) + 1
+    return {c: v for c, v in sorted(t.items())}
+
+
+def keepalives(wins):
+    """KEEPALIVEs per cable direction over a window aligned on both sides: from the first KEEPALIVE after the snapshot, over whole
+    intervals, ending mid-interval (the interval is the cable's median gap). The window length is the shorter of the two runs'."""
+    per = []
+    for win in wins:
+        d = {}
+        for p in win:
+            if p["type"] == "keepalive": d.setdefault(p["cable"], []).append(p["t"])
+        per.append(d)
+    out = [{}, {}]
+    for c in sorted(set(per[0]) & set(per[1])):
+        info = []
+        for d, win in zip(per, wins):
+            ts = sorted(d[c]); gaps = sorted(b - a for a, b in zip(ts, ts[1:]))
+            if len(ts) < 3: info = None; break
+            info.append((ts, gaps[len(gaps) // 2], max(p["t"] for p in win) - ts[0]))
+        if not info: continue
+        iv = info[0][1]; m = int(min(i[2] for i in info) / iv) - 1
+        for k, (ts, _, _) in enumerate(info): out[k][c] = sum(1 for x in ts if x < ts[0] + m * iv + iv / 2)
+    return out
 
 
 def up_text(r): return ", ".join(f'{n["ip"]} {"Established" if n["up"] else "down"}' for n in r["neighbors"]) or "no neighbors"
@@ -296,6 +327,8 @@ def compare(name, eng, kr):
         checks["announced to every neighbor"] = told(eupto) == told(kupto)
         checks["OPEN on every cable"] = opens(eupto) == opens(kupto)
         checks["message types on every cable"] = kinds(ewin) == kinds(kwin)
+        checks["OPEN and NOTIFICATION counts"] = counts(ewin) == counts(kwin)
+        eka, kka = keepalives((ewin, kwin)); checks["KEEPALIVE counts (aligned window)"] = eka == kka
         ok = all(checks.values())
         rows.append((name, es["snapshot"], "; ".join(f"{r}: {up_text(v)}" for r, v in es["routers"].items()),
                      ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()), "✓" if ok else "✗"))
@@ -313,6 +346,11 @@ def compare(name, eng, kr):
                 et, kt = kinds(ewin), kinds(kwin)
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p["type"], p.get("nlri"), p.get("withdrawn")] for p in win if p["cable"] == c and p["type"] != "keepalive"][:10]
                 d["message types"] = {c: {"engine": et.get(c), "linux": kt.get(c), "engine trace": trace(ewin, c), "linux trace": trace(kwin, c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
+            if not checks["OPEN and NOTIFICATION counts"]:
+                ec_, kc_ = counts(ewin), counts(kwin)
+                d["counts"] = {c: {"engine": ec_.get(c), "linux": kc_.get(c)} for c in sorted(set(ec_) | set(kc_)) if ec_.get(c) != kc_.get(c)}
+            if not checks["KEEPALIVE counts (aligned window)"]:
+                d["keepalives"] = {c: {"engine": eka.get(c), "linux": kka.get(c)} for c in sorted(set(eka) | set(kka)) if eka.get(c) != kka.get(c)}
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
