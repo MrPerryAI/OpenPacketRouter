@@ -10,8 +10,10 @@ pairs, the switch is a Linux bridge), configured from the spec: state BACKUP, pr
     only while master);
   - whether a host can ping the virtual address (a real ping on Linux);
   - the advertisements on every cable direction between two snapshots: the set of distinct ones (source address,
-    vrid, priority, interval, TTL, destination MAC) and how many there were (within 2: keepalived's timers run in
-    real time and its start is not exactly the engine's).
+    vrid, priority, interval, TTL, destination MAC) and how many there were (within 1: keepalived's timers run in
+    real time and its start is not exactly the engine's);
+  - the gratuitous ARPs on every cable direction (exact frames and exact counts). keepalived is pinned to one ARP
+    per takeover (garp_master_repeat 1, no delayed second burst, no refresh), which is what the engine sends.
 
 Snapshots sit on plateaus (several seconds after each change), because the instant of a takeover differs by a
 fraction of a second between a real kernel under load and the engine.
@@ -45,6 +47,13 @@ def read_pcap(path):
     while off + 16 <= len(data):
         sec, frac, incl, _ = struct.unpack(e + "IIII", data[off:off + 16]); off += 16
         frame = data[off:off + incl]; off += incl
+        if len(frame) >= 42 and frame[12:14] == b"\x08\x06":
+            ip = lambda b: ".".join(str(x) for x in b)
+            spa, tpa = ip(frame[28:32]), ip(frame[38:42])
+            if spa == tpa:  # gratuitous only: ordinary ARP for the ping depends on the host's neighbor timers
+                out.append({"t": sec + frac * scale, "kind": "arp", "dst": mac_s(frame[0:6]), "src": mac_s(frame[6:12]), "op": struct.unpack(">H", frame[20:22])[0],
+                            "sha": mac_s(frame[22:28]), "spa": spa, "tha": mac_s(frame[32:38]), "tpa": tpa})
+            continue
         if len(frame) < 34 or frame[12:14] != b"\x08\x00" or frame[23] != 112: continue
         ihl = (frame[14] & 0x0f) * 4; v = frame[14 + ihl:]
         if len(v) < 8: continue
@@ -60,7 +69,7 @@ class VrrpNet(l3.KernelNet):
         for n in self.talkers:
             for ifn in self.ifaces(n):
                 f = f"{self.tmp}/{n['name']}-{ifn}.pcap"
-                p = subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], "tcpdump", "-i", ifn, "-Q", "out", "-U", "-n", "-s", "0", "-Z", "root", "-w", f, "ip proto 112"],
+                p = subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], "tcpdump", "-i", ifn, "-Q", "out", "-U", "-n", "-s", "0", "-Z", "root", "-w", f, "ip proto 112 or arp"],
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 self.caps.append((f"{n['name']}:{ifn}>{self.ifmap[(n['name'], ifn)]}", f, p))
         time.sleep(1.5)
@@ -76,6 +85,9 @@ vrrp_instance VI_1 {{
   virtual_router_id {g['vrid']}
   priority {g.get('priority', 100)}
   advert_int {g.get('interval', 1)}
+  garp_master_repeat 1
+  garp_master_delay 0
+  garp_master_refresh 0
 {'' if g.get('preempt', True) else '  nopreempt' + chr(10)}  virtual_ipaddress {{
     {g['ip']}/{n['ifaces'][g['iface']].split('/')[1]} dev {g['iface']}
   }}
@@ -137,7 +149,9 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in sys.argv[2:] or SPECS}))
 
 
-def canon(f): return json.dumps({k: f[k] for k in ("src", "dst", "vrid", "priority", "interval", "ttl")}, sort_keys=True)
+ADVERT_KEYS = ("src", "dst", "vrid", "priority", "interval", "ttl")
+ARP_KEYS = ("src", "dst", "op", "sha", "spa", "tha", "tpa")
+def canon(f): return json.dumps({k: f[k] for k in (ARP_KEYS if f.get("kind") == "arp" else ADVERT_KEYS)}, sort_keys=True)
 
 
 def phases(run):
@@ -168,11 +182,15 @@ def main():
     for name in names:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_vrrp.mjs"), str(netfile(name)), str(HERE / f"{name}.steps.json")))
         kr = kern[name]
-        for (es, ewin), (ks, kwin) in zip(phases(eng), phases(kr)):
-            ef, kf = per_cable(ewin), per_cable(kwin)
+        pe, pk = phases(eng), phases(kr)
+        assert len(pe) == len(pk), f"{name}: engine has {len(pe)} snapshots, keepalived run {len(pk)}"
+        for (es, ewin), (ks, kwin) in zip(pe, pk):
+            ef, kf = per_cable([f for f in ewin if f.get("kind") != "arp"]), per_cable([f for f in kwin if f.get("kind") != "arp"])
+            ea, ka = per_cable([f for f in ewin if f.get("kind") == "arp"]), per_cable([f for f in kwin if f.get("kind") == "arp"])
             checks = {"master": es["states"] == ks["states"], "ping": es.get("ping") == ks.get("ping"),
                       "advertisements": {c: sorted(set(v)) for c, v in ef.items()} == {c: sorted(set(v)) for c, v in kf.items()},
-                      "advert counts": all(abs(len(ef.get(c, [])) - len(kf.get(c, []))) <= 2 for c in set(ef) | set(kf))}
+                      "advert counts": all(abs(len(ef.get(c, [])) - len(kf.get(c, []))) <= 1 for c in set(ef) | set(kf)),
+                      "gratuitous ARP": {c: sorted(v) for c, v in ea.items()} == {c: sorted(v) for c, v in ka.items()}}
             ok = all(checks.values())
             master = ", ".join(n for n, s in es["states"].items() if s == "master") or "none"
             rows.append((name, es["snapshot"], master, f'{"✓" if es.get("ping") else "✗"}', ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()) +
