@@ -4,6 +4,8 @@
   "commands": [
     {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "ping ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.ping",
      "help": {"ping": "Send one echo request from this device and wait for the reply", "ADDRESS": "Address to ping"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "ping ADDRESS", "args": {"ADDRESS": "ipv6-address"}, "handler": "tools.ping",
+     "help": {"ping": "Send one echo request from this device and wait for the reply", "ADDRESS": "IPv6 address to ping"}},
     {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "traceroute ADDRESS", "args": {"ADDRESS": "ipv4-address"}, "handler": "tools.traceroute",
      "help": {"traceroute": "List the routers on the way to an address, one probe per hop", "ADDRESS": "Destination address"}}
   ]
