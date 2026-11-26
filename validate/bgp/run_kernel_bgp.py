@@ -288,9 +288,20 @@ def counts(win):
     return {c: v for c, v in sorted(t.items())}
 
 
-def keepalives(wins):
-    """KEEPALIVEs per cable direction over a window aligned on both sides: from the first KEEPALIVE after the snapshot, over whole
-    intervals, ending mid-interval (the interval is the cable's median gap). The window length is the shorter of the two runs'."""
+def updates(win):
+    """Every UPDATE per cable direction, in order: (NLRI, withdrawn, AS path, next hop, origin, LOCAL_PREF). Count and order must match exactly."""
+    t = {}
+    for p in win:
+        if p["type"] == "update":
+            t.setdefault(p["cable"], []).append([sorted(p["nlri"]), sorted(p["withdrawn"]), p.get("asPath"), p.get("nextHop"), p.get("origin"), p.get("localPref")])
+    return {c: v for c, v in sorted(t.items())}
+
+
+def keepalives(wins, end):
+    """KEEPALIVEs per cable direction over a window aligned on both sides, as the VRRP validator counts adverts: from the first KEEPALIVE
+    in the window, over a whole number of intervals that ends before `end` (mid-interval). The number of intervals is the same on both
+    sides (computed from the later of the two first KEEPALIVEs), so both count the same span however the timers are phased. A cable
+    with KEEPALIVEs on one side only is a mismatch (the other side counts 0), never skipped."""
     per = []
     for win in wins:
         d = {}
@@ -298,15 +309,18 @@ def keepalives(wins):
             if p["type"] == "keepalive": d.setdefault(p["cable"], []).append(p["t"])
         per.append(d)
     out = [{}, {}]
-    for c in sorted(set(per[0]) & set(per[1])):
-        info = []
-        for d, win in zip(per, wins):
-            ts = sorted(d[c]); gaps = sorted(b - a for a, b in zip(ts, ts[1:]))
-            if len(ts) < 3: info = None; break
-            info.append((ts, gaps[len(gaps) // 2], max(p["t"] for p in win) - ts[0]))
-        if not info: continue
-        iv = info[0][1]; m = int(min(i[2] for i in info) / iv) - 1
-        for k, (ts, _, _) in enumerate(info): out[k][c] = sum(1 for x in ts if x < ts[0] + m * iv + iv / 2)
+    for c in sorted(set(per[0]) | set(per[1])):
+        ts = [sorted(d.get(c, [])) for d in per]
+        ivs = []
+        for x in ts:
+            g = sorted(b - a for a, b in zip(x, x[1:]))
+            ivs.append(g[len(g) // 2] if g else None)
+        iv = max([i for i in ivs if i] or [None]) if any(ivs) else None
+        if not all(ts) or iv is None:
+            for k in (0, 1): out[k][c] = len(ts[k])
+            continue
+        n = max(0, int((end - max(x[0] for x in ts)) / iv) - 1)
+        for k in (0, 1): out[k][c] = sum(1 for x in ts[k] if x < ts[k][0] + n * iv)
     return out
 
 
@@ -328,7 +342,8 @@ def compare(name, eng, kr):
         checks["OPEN on every cable"] = opens(eupto) == opens(kupto)
         checks["message types on every cable"] = kinds(ewin) == kinds(kwin)
         checks["OPEN and NOTIFICATION counts"] = counts(ewin) == counts(kwin)
-        eka, kka = keepalives((ewin, kwin)); checks["KEEPALIVE counts (aligned window)"] = eka == kka
+        checks["UPDATE count and order on every cable"] = updates(ewin) == updates(kwin)
+        eka, kka = keepalives((ewin, kwin), min(es["t"], ks["t"])); checks["KEEPALIVE counts (aligned window)"] = eka == kka
         ok = all(checks.values())
         rows.append((name, es["snapshot"], "; ".join(f"{r}: {up_text(v)}" for r, v in es["routers"].items()),
                      ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()), "✓" if ok else "✗"))
@@ -349,6 +364,9 @@ def compare(name, eng, kr):
             if not checks["OPEN and NOTIFICATION counts"]:
                 ec_, kc_ = counts(ewin), counts(kwin)
                 d["counts"] = {c: {"engine": ec_.get(c), "linux": kc_.get(c)} for c in sorted(set(ec_) | set(kc_)) if ec_.get(c) != kc_.get(c)}
+            if not checks["UPDATE count and order on every cable"]:
+                eu, ku = updates(ewin), updates(kwin)
+                d["updates"] = {c: {"engine": eu.get(c), "linux": ku.get(c)} for c in sorted(set(eu) | set(ku)) if eu.get(c) != ku.get(c)}
             if not checks["KEEPALIVE counts (aligned window)"]:
                 d["keepalives"] = {c: {"engine": eka.get(c), "linux": kka.get(c)} for c in sorted(set(eka) | set(kka)) if eka.get(c) != kka.get(c)}
             detail[f'{name}: {es["snapshot"]}'] = d

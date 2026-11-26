@@ -139,7 +139,11 @@ export class Bgp {
     const l = (this.paths.get(cidr) || []).filter(x => x.from !== from);
     if (l.length) this.paths.set(cidr, l); else this.paths.delete(cidr);
   }
-  _addPath(path) { this._removePath(path.cidr, path.from); this.paths.set(path.cidr, [...(this.paths.get(path.cidr) || []), path]); }
+  _addPath(path) {
+    // an unchanged re-advertisement keeps the path's age (it still counts as the oldest for the tie-break), as in bgpd
+    const old = (this.paths.get(path.cidr) || []).find(x => x.from === path.from);
+    if (old && old.origin === path.origin && old.nextHop === path.nextHop && old.localPref === path.localPref && old.ebgp === path.ebgp && old.rid === path.rid && JSON.stringify(old.asPath) === JSON.stringify(path.asPath)) path.t = old.t;
+    this._removePath(path.cidr, path.from); this.paths.set(path.cidr, [...(this.paths.get(path.cidr) || []), path]); }
   /** A prefix with the exact length is in the router's table (not through BGP). */
   _inTable(n) {
     for (const i of Object.values(this.node.ifaces)) if (i.ip && i.net === n.net && i.mask === n.mask && i.link && i.link.up) return true;

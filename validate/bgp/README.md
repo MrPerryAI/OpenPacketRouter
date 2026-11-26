@@ -12,4 +12,4 @@ Files carry the `.net` extension so the CLI's round-trip test (which reads every
 | bgp-paths | shortest AS path wins; fall back and return |
 | bgp-localpref | a higher local preference beats a shorter AS path |
 
-Not modelled: MED, weight, communities, route maps, multipath, route reflectors, confederations, IPv6, graceful restart.
+Not modelled: the IGP metric to the next hop (a best-path step after eBGP-over-iBGP), MED, weight, communities, route maps, multipath, route reflectors, confederations, IPv6, graceful restart.
