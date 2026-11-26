@@ -23,6 +23,7 @@
 // Every decision is written to `net.trace` with a plain-English reason.
 
 import {Stp} from "./stp.js";
+import {Rstp} from "./rstp.js";
 import {Channel, LACP_MAC} from "./lacp.js";
 import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput, tcpIcmpError} from "./tcp.js";
@@ -74,7 +75,7 @@ export class Switch extends Device {
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
   constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false} = {}) {
     super(net, name, "switch"); this.forwardLldp = forwardLldp; /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
-    this.stp = stp ? new Stp(this, {mac: net._mac(), ...stp}) : null;
+    this.stp = stp ? new (stp.mode === "rstp" ? Rstp : Stp)(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
     this.l3 = null;
     if (ifaces && Object.keys(ifaces).length) {

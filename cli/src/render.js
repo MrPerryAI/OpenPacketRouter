@@ -17,6 +17,7 @@ export function configLines(model, {kind, ports}) {
   if (sw && M.stpEnabled(model)) {
     out.push("spanning-tree");
     const g = M.stpGlobal(model);
+    if (g["enabled-protocol"][0] === "RSTP") out.push("spanning-tree mode rstp");
     for (const [leaf, word] of STP_GLOBAL) if (g[leaf] !== undefined) out.push(`spanning-tree ${word} ${g[leaf]}`);
     out.push("!");
   }
@@ -67,6 +68,7 @@ export function configLines(model, {kind, ports}) {
       const sp = M.stpPort(model, name, false);
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
+      if (sp && sp["edge-port"] === "EDGE_ENABLE") out.push(" spanning-tree portfast");
       if (ifc["openpacketrouter:nat"]) out.push(` ip nat ${ifc["openpacketrouter:nat"]}`);
       for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
       const oi = M.ospfIf(model, name, false);

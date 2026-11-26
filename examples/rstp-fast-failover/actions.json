@@ -1,0 +1,12 @@
+[
+ {"do": "wait", "seconds": 10},
+ {"do": "stp", "switch": "SW3"},
+ {"do": "ping", "src": "A", "dst": "10.0.0.2"},
+ {"do": "link", "end": "SW1:p2", "up": false, "settle": 0},
+ {"do": "stp", "switch": "SW3"},
+ {"do": "ping", "src": "A", "dst": "10.0.0.2"},
+ {"do": "link", "end": "SW1:p2", "up": true, "settle": 0},
+ {"do": "wait", "seconds": 4},
+ {"do": "stp", "switch": "SW3"},
+ {"do": "ping", "src": "A", "dst": "10.0.0.2"}
+]

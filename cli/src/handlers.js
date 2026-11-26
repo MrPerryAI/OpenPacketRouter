@@ -103,7 +103,11 @@ export const HANDLERS = {
   "switchport.remove": ctx => { const ifc = curIface(ctx); if (ifc.ethernet) delete ifc.ethernet["switched-vlan"]; },
 
   // ---- spanning tree (openconfig-spanning-tree)
-  "stp.enable": ctx => { M.stpGlobal(ctx.model)["enabled-protocol"] = ["STP"]; },
+  "stp.enable": ctx => { if (!M.stpEnabled(ctx.model)) M.stpGlobal(ctx.model)["enabled-protocol"] = ["STP"]; },
+  "stp.mode": (ctx, args, mode) => { M.stpGlobal(ctx.model)["enabled-protocol"] = [mode]; },
+  "stp.mode.unset": ctx => { if (M.stpEnabled(ctx.model)) M.stpGlobal(ctx.model)["enabled-protocol"] = ["STP"]; },
+  "stp.portfast": ctx => { need(M.stpEnabled(ctx.model), "Turn spanning tree on first (spanning-tree)"); M.stpPort(ctx.model, curIface(ctx).config.name)["edge-port"] = "EDGE_ENABLE"; },
+  "stp.portfast.unset": ctx => { const c = M.stpPort(ctx.model, curIface(ctx).config.name, false); if (c) delete c["edge-port"]; },
   "stp.disable": ctx => { ctx.model.stp = M.emptyModel("").stp; },
   "stp.set": (ctx, [v], leaf) => { need(STP_LEAVES[leaf], `unknown setting ${leaf}`); M.stpGlobal(ctx.model)[leaf] = v; },
   "stp.unset": (ctx, args, leaf) => { delete M.stpGlobal(ctx.model)[leaf]; },

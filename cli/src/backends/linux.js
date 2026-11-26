@@ -33,8 +33,9 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     const svis = ports.filter(isSvi); ports = ports.filter(p => !isSvi(p));
     const g = M.stpGlobal(model), stp = M.stpEnabled(model);
     const vlanAware = ports.some(p => ifs[p] && M.switchedVlan(ifs[p], false)?.["interface-mode"]);
-    const br = ["ip link add br0 type bridge", `stp_state ${stp ? 1 : 0}`];
-    if (stp) br.push(`priority ${g["bridge-priority"] ?? 32768}`, `hello_time ${centis(g["hello-time"] ?? 2)}`,
+    const rstp = stp && g["enabled-protocol"][0] === "RSTP";   // Linux hands RSTP to the userspace daemon mstpd (stp_state 2, in the initial network namespace)
+    const br = ["ip link add br0 type bridge", `stp_state ${rstp ? 2 : stp ? 1 : 0}`];
+    if (stp && !rstp) br.push(`priority ${g["bridge-priority"] ?? 32768}`, `hello_time ${centis(g["hello-time"] ?? 2)}`,
       `max_age ${centis(g["max-age"] ?? 20)}`, `forward_delay ${centis(g["forwarding-delay"] ?? 15)}`);
     if (M.fdb(model)["mac-aging-time"] !== undefined) br.push(`ageing_time ${centis(M.fdb(model)["mac-aging-time"])}`);
     if (M.services(model).forwardLldp) br.push("group_fwd_mask 0x4000");   // let 01:80:c2:00:00:0e through the bridge
@@ -42,6 +43,8 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
     out.push(br.join(" "));
     if (stp && g["openpacketrouter:bridge-address"]) out.push(`ip link set br0 address ${g["openpacketrouter:bridge-address"]}`);
     out.push("ip link set br0 up");
+    if (rstp) out.push("mstpctl setforcevers br0 rstp", `mstpctl settreeprio br0 0 ${(g["bridge-priority"] ?? 32768) >> 12}`, `mstpctl sethello br0 ${g["hello-time"] ?? 2}`,
+      `mstpctl setmaxage br0 ${g["max-age"] ?? 20}`, `mstpctl setfdelay br0 ${g["forwarding-delay"] ?? 15}`);
     // port-channels: a bond in 802.3ad mode is the bridge port; its member cables are enslaved to it (their MAC becomes the bond's)
     const bonds = [...new Set(ports.map(p => ifs[p] && M.lagOf(ifs[p])).filter(Boolean))];
     for (const b of bonds) {
@@ -54,7 +57,9 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       const sp = M.stpPort(model, p, false);
       // Always set the cost: the engine's default is 19 (802.1D, 100 Mbit/s), the kernel's depends on the link speed.
       // The kernel's port priority is 6 bits shifted by 10 in the port ID, the model's 8 bits shifted by 8: 128 -> 32.
-      if (stp) out.push(`ip link set ${p} type bridge_slave cost ${sp?.cost ?? 19}${sp?.["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
+      if (rstp) out.push(`mstpctl setportpathcost br0 ${p} ${sp?.cost ?? 20000}`, ...(sp?.["port-priority"] !== undefined ? [`mstpctl settreeportprio br0 ${p} 0 ${sp["port-priority"] >> 4}`] : []),
+        ...(sp?.["edge-port"] === "EDGE_ENABLE" ? [`mstpctl setportadminedge br0 ${p} yes`] : []));
+      else if (stp) out.push(`ip link set ${p} type bridge_slave cost ${sp?.cost ?? 19}${sp?.["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
       const sv = ifc && M.switchedVlan(ifc, false);
       if (vlanAware) {
         const mode = sv?.["interface-mode"] || "ACCESS";

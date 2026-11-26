@@ -59,11 +59,12 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       if (c.rate === "fast") M.lacpInterval(m, cn).interval = "FAST";
     }
     if (n.stp) {
-      const g = M.stpGlobal(m); g["enabled-protocol"] = ["STP"];
+      const g = M.stpGlobal(m); g["enabled-protocol"] = [n.stp.mode === "rstp" ? "RSTP" : "STP"];
       const map = {priority: "bridge-priority", hello: "hello-time", maxAge: "max-age", forwardDelay: "forwarding-delay", mac: "openpacketrouter:bridge-address"};
       for (const [k, leaf] of Object.entries(map)) if (n.stp[k] !== undefined) g[leaf] = n.stp[k];
       for (const [p, v] of Object.entries(n.stp.cost || {})) M.stpPort(m, p).cost = v;
       for (const [p, v] of Object.entries(n.stp.portPriority || {})) M.stpPort(m, p)["port-priority"] = v;
+      for (const [p, v] of Object.entries(n.stp.edge || {})) if (v) M.stpPort(m, p)["edge-port"] = "EDGE_ENABLE";
     }
   } else {
     for (const [name, a] of Object.entries(n.ifaces || {})) {
@@ -176,14 +177,16 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     const g = M.stpGlobal(m), portCfg = m.stp.interfaces.interface;
     if (M.stpEnabled(m)) {
       const s = {};
+      if (g["enabled-protocol"][0] === "RSTP") s.mode = "rstp";
       const map = {"bridge-priority": "priority", "hello-time": "hello", "max-age": "maxAge", "forwarding-delay": "forwardDelay", "openpacketrouter:bridge-address": "mac"};
       for (const [leaf, k] of Object.entries(map)) if (g[leaf] !== undefined) s[k] = g[leaf];
       for (const [p, e] of Object.entries(portCfg)) {
         if (e.config.cost !== undefined) (s.cost ||= {})[p] = e.config.cost;
         if (e.config["port-priority"] !== undefined) (s.portPriority ||= {})[p] = e.config["port-priority"];
+        if (e.config["edge-port"] === "EDGE_ENABLE") (s.edge ||= {})[p] = true;
       }
       n.stp = s;
-    } else if (Object.values(portCfg).some(e => e.config.cost !== undefined || e.config["port-priority"] !== undefined) || Object.keys(g).length)
+    } else if (Object.values(portCfg).some(e => e.config.cost !== undefined || e.config["port-priority"] !== undefined || e.config["edge-port"] !== undefined) || Object.keys(g).length)
       throw new Error("Spanning tree is off on this switch: turn it on first (spanning-tree)");
   } else {
     const ifaces = {};

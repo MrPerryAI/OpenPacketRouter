@@ -99,6 +99,14 @@
    "readme": "routed-lan-dns/README.md"
   },
   {
+   "id": "rstp-fast-failover",
+   "name": "Rapid spanning tree: fast failover",
+   "about": "A triangle of rapid-spanning-tree switches: cut the root port's cable and the blocked (alternate) port takes over at once, with no forward-delay wait. Edge ports (portfast) forward immediately.",
+   "spec": "rstp-fast-failover/spec.json",
+   "actions": "rstp-fast-failover/actions.json",
+   "readme": "rstp-fast-failover/README.md"
+  },
+  {
    "id": "stp-topology-change",
    "name": "STP topology change",
    "about": "Cut a cable in a spanning-tree triangle: TCN BPDUs and the topology-change flag make every switch age out MAC entries after one forward delay instead of the normal aging time.",

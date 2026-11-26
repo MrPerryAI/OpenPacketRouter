@@ -1,0 +1,28 @@
+name: RSTP vs mstpd
+# CI only: Linux hands RSTP to the userspace daemon mstpd only in the initial network namespace, so the bridges
+# run on the runner host itself (no Docker, no unshare). Kept apart from ci.yml so it cannot disturb the other validators.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["validate/rstp/**", "engine/src/**", "engine/tools/run_rstp.mjs", ".github/workflows/rstp.yml"]
+concurrency:
+  group: rstp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rstp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build mstpd from source
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends autoconf automake libtool pkg-config libmnl-dev tcpdump >/dev/null
+          git clone -q https://github.com/mstpd/mstpd /tmp/mstpd-src && git -C /tmp/mstpd-src checkout -q 2e747d80ad48ffd32ec2f918b48a7c7a3916253b
+          cd /tmp/mstpd-src && ./autogen.sh >/dev/null 2>&1 && ./configure --prefix=/usr --sysconfdir=/etc >/dev/null && make -j4 >/dev/null && sudo make install >/dev/null
+          mstpd -h 2>&1 | head -1 || true; git log --oneline -1
+      - name: RSTP engine vs mstpd
+        run: sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py
