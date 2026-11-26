@@ -133,6 +133,8 @@ class OspfNet(l3.KernelNet):
         dbg = {"kernel": [f'{r.get("dst")} via {r.get("gateway")} dev {r.get("dev")} proto {r.get("protocol")}' for r in json.loads(l3.nsx(self.ns[name], "ip", "-j", "route", "show"))],
                "zebra": {pfx: [f'{r.get("protocol")}{" selected" if r.get("selected") else ""} {[(n.get("ip"), n.get("interfaceName"), "active" if n.get("active") else "inactive") for n in r.get("nexthops", [])]}' for r in rs]
                          for pfx, rs in json.loads(self.vty(name, "show ip route json") or "{}").items()}}   # not compared: what zebra and the kernel hold, for reading a mismatch
+        ext = db["external"].get("asExternalLinkStates", []); ext = ext.get("lsas", []) if isinstance(ext, dict) else ext
+        dbg["external"] = [[x.get("linkStateId"), x.get("advertisingRouter"), x.get("lsaAge"), x.get("lsaSeqNumber"), x.get("metric")] for x in ext]   # age and sequence number: is it a leftover?
         return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db), "debug": dbg}
 
     def routes(self, name):
@@ -386,7 +388,10 @@ def compare(name, eng, kr):
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:12]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
-            if not (checks["routes"] and checks["database"]): d["linux debug (zebra RIB and kernel routes)"] = {r: v.get("debug") for r, v in ks["routers"].items()}
+            if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
+                pf = lambda r: {x["network"] for x in ec[r]["routes"] + kc[r]["routes"]} | {f'{x["id"]}/{x["maskLen"]}' for x in ec[r]["database"] + kc[r]["database"] if "maskLen" in x}
+                d["linux debug (zebra RIB and kernel routes)"] = {r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": v["debug"].get("external")}
+                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
