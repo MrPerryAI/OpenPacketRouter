@@ -18,19 +18,21 @@ function ospfIfLines(oi) {
   return l;
 }
 
+const RIPNG_SPLIT = {simple: " ipv6 ripng split-horizon", poisoned: " ipv6 ripng split-horizon poisoned-reverse", off: " no ipv6 ripng split-horizon"};
 const RIP_SPLIT = {simple: " ip rip split-horizon", poisoned: " ip rip split-horizon poisoned-reverse", off: " no ip rip split-horizon"};
 
 export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}) {
   const out = [`hostname ${M.hostname(model)}`, "!"];
-  const rip = M.services(model).rip;
+  const rip = M.services(model).rip, ripng = M.services(model).ripng;
   for (const p of ports) {
     const ifc = M.iface(model, p, false); if (!ifc) continue;
-    const addrs = M.addressesOf(ifc);
+    const addrs = M.addressesOf(ifc), addrs6 = M.addressesOf6(ifc);
     const oi = M.ospfIf(model, p, false);
-    if (!addrs.length && ifc.config.enabled !== false && !oi) continue;
-    out.push(`interface ${p}`, ...addrs.map(a => ` ip address ${a.ip}/${a.prefixLength}`), ...(ifc.config.enabled === false ? [" shutdown"] : []), ...ospfIfLines(oi), ...(rip && rip.splitHorizon && RIP_SPLIT[rip.splitHorizon] ? [RIP_SPLIT[rip.splitHorizon]] : []), "exit", "!");
+    if (!addrs.length && !addrs6.length && ifc.config.enabled !== false && !oi) continue;
+    out.push(`interface ${p}`, ...addrs.map(a => ` ip address ${a.ip}/${a.prefixLength}`), ...addrs6.map(a => ` ipv6 address ${a.ip}/${a.prefixLength}`), ...(ifc.config.enabled === false ? [" shutdown"] : []), ...ospfIfLines(oi), ...(rip && rip.splitHorizon && RIP_SPLIT[rip.splitHorizon] ? [RIP_SPLIT[rip.splitHorizon]] : []), ...(ripng && addrs6.length && ripng.splitHorizon && RIPNG_SPLIT[ripng.splitHorizon] ? [RIPNG_SPLIT[ripng.splitHorizon]] : []), "exit", "!");
   }
   for (const r of M.staticList(model)) out.push(`ip route ${r.prefix} ${r.nextHop}`);
+  for (const r of M.staticList6(model)) out.push(`ipv6 route ${r.prefix} ${r.nextHop}`);
   const og = M.ospf(model);
   if (og && og["openpacketrouter:networks"].length) {
     out.push("router ospf");
@@ -49,6 +51,13 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
     if (rip.timers) out.push(` timers basic ${rip.timers.update} ${rip.timers.timeout} ${rip.timers.garbage}`);
     for (const n of rip.networks) out.push(` network ${n}`);
     for (const i of rip.passive || []) out.push(` passive-interface ${i}`);
+    out.push("exit");
+  }
+  if (ripng) {   // `triggered: false` is a teaching switch of the engine; ripngd has no such setting, so it is not rendered
+    out.push("router ripng");
+    if (ripng.timers) out.push(` timers basic ${ripng.timers.update} ${ripng.timers.timeout} ${ripng.timers.garbage}`);
+    for (const n of ripng.networks) out.push(` network ${n}`);
+    for (const i of ripng.passive || []) out.push(` passive-interface ${i}`);
     out.push("exit");
   }
   out.push("!", "end");
