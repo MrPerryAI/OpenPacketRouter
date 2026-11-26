@@ -44,7 +44,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [ ] Every spec key has a configure command and a show with `| json` [docs]
 - [ ] YAML spec input [docs]
 - [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables [docs]
-- [ ] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs]
+- [x] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs] (`validate/openwrt/`, PR #150). Covers addresses, static and default routes; `uci` accepts and stores them. netifd is not booted; VLAN/firewall rendering not yet proven.
 - [ ] A student guide for every example lab [docs]
 
 **G. Studio**
