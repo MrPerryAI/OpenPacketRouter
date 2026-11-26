@@ -130,6 +130,19 @@ try {
   await page.click("#consoleClose");
 
 
+  // several consoles in tabs
+  await page.dblclick('#map .node[data-node="CORE"]');
+  const other = await page.evaluate(() => window.studio.S.spec.nodes.find(n => n.name !== "CORE" && n.kind !== "switch").name);
+  await page.evaluate(n => window.studio.openConsole(n), other);
+  check(await page.$$eval("#consoleTabs .tab", t => t.length) >= 2 && await page.$eval("#consoleTabs .tab.on", t => t.dataset.tab) === other, "each opened device gets a console tab");
+  await page.click('#consoleTabs .tab[data-tab="CORE"] span');
+  check(/^CORE/.test(await page.textContent("#consolePrompt")) && /hostname CORE/.test(await page.textContent("#consoleOut")), "clicking a tab switches to that console and keeps its history");
+  await type("conf t"); await type("hostname EDGE");
+  check(await page.$$eval('#consoleTabs .tab[data-tab="EDGE"]', t => t.length) === 1 && await page.$$eval('#map .node[data-node="EDGE"]', n => n.length) === 1, "configuring in a tab updates the map and the tab name");
+  await page.click(`#consoleTabs .tab[data-tab="${other}"] button`);
+  check(await page.$$eval("#consoleTabs .tab", t => t.length) === 1 && await page.isVisible("#console"), "closing a tab leaves the others open");
+  await page.click("#consoleTabs .tab button");
+  check(!(await page.isVisible("#console")), "closing the last tab closes the console window");
   // topology editor: build a small network from the palette, validate, edit, delete
   await page.evaluate(() => window.studio.load({version: 1, name: "Empty", nodes: [], links: []}));
   await page.click('[data-add="switch"]'); await page.click('[data-add="host"]'); await page.click('[data-add="host"]');
