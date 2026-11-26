@@ -34,6 +34,7 @@ import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
 import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
 import {Lldp, LLDP_MAC} from "./lldp.js";
+import {Ip6} from "./ipv6.js";
 
 class Heap {
   constructor() { this.a = []; }
@@ -51,7 +52,7 @@ class Heap {
 }
 
 const tcpName = t => ({S: "SYN", SA: "SYN+ACK", A: "ACK", PA: "PSH+ACK", FA: "FIN+ACK", R: "RST", RA: "RST+ACK"})[t.flags] || t.flags;
-const describe = f => f.type === "lldp" ? `LLDP from ${f.lldp.sysName} (${f.lldp.portDescr})` : f.type === "bpdu" ? (f.bpdu.tcn ? "STP TCN" : `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}${f.bpdu.tc ? " [topology change]" : ""}${f.bpdu.tca ? " [TC ack]" : ""}`) : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
+const describe = f => f.type === "ipv6" ? `IPv6 ${f.ip6.src} → ${f.ip6.dst} ${f.ip6.proto === "icmp6" ? `ICMPv6 type ${f.ip6.icmp.type}` : f.ip6.proto}` : f.type === "lldp" ? `LLDP from ${f.lldp.sysName} (${f.lldp.portDescr})` : f.type === "bpdu" ? (f.bpdu.tcn ? "STP TCN" : `STP BPDU root ${f.bpdu.root[1]} cost ${f.bpdu.cost}${f.bpdu.tc ? " [topology change]" : ""}${f.bpdu.tca ? " [TC ack]" : ""}`) : f.ip?.udp?.payload?.rip ? `RIP ${f.ip.udp.payload.rip.command} ${f.ip.src} → ${f.ip.dst}` : f.ip?.ospf ? `OSPF ${f.ip.ospf.type} ${f.ip.src} → ${f.ip.dst}` : f.type === "arp"
   ? (f.arp.op === "request" ? `ARP who-has ${f.arp.tpa} tell ${f.arp.spa}` : `ARP ${f.arp.spa} is-at ${f.arp.sha}`)
   : `IPv4 ${f.ip.src} → ${f.ip.dst} ttl ${f.ip.ttl} ${f.ip.proto === "icmp" ? icmpName(f.ip.icmp) : f.ip.proto === "tcp" ? `TCP ${f.ip.tcp.sport}→${f.ip.tcp.dport} ${tcpName(f.ip.tcp)}${f.ip.tcp.len ? ` ${f.ip.tcp.len}B` : ""}` : `UDP ${f.ip.udp.sport}→${f.ip.udp.dport}`}`;
 const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable", 13: "administratively prohibited"}[i.code] || "unreachable"})[i.type] || `icmp ${i.type}`;
@@ -217,7 +218,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, nat = null, lldp = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, nat = null, lldp = null, ifaces6 = null, routes6 = [], gw6 = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -233,6 +234,8 @@ export class IpNode extends Device {
     this.acl = acl ? new Acl(acl) : null;         // access lists (acl.js)
     this.nat = nat ? new Nat(this, nat) : null;   // address translation (nat.js)
     this.lldp = lldp ? new Lldp(this, lldp) : null;   // LLDP (lldp.js)
+    this.v6 = ifaces6 ? new Ip6(this, {ifaces6, routes6, gw6}) : null;   // IPv6 (ipv6.js)
+    if (this.v6) for (const a of this.v6.addrs) if (!this.ifaces[a.iface]) this.addIface(a.iface);
   }
   start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
   linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); }
@@ -253,7 +256,7 @@ export class IpNode extends Device {
     super.send(ifname, f);
   }
   owns(ip) { return Object.values(this.ifaces).some(i => i.ip === ip); }
-  flush() { this.arp.clear(); this.pending.clear(); }   // conntrack (nat.js) survives, like Linux
+  flush() { this.arp.clear(); this.pending.clear(); if (this.v6) this.v6.flush(); }   // conntrack (nat.js) survives, like Linux
 
   /** Longest-prefix match over connected subnets and static routes. */
   route(dst) {
@@ -279,10 +282,11 @@ export class IpNode extends Device {
       f = {...f}; delete f.vlan; ifname = sub.name;
     }
     const i = this.ifaces[ifname];
-    if (f.dst !== i.mac && f.dst !== BROADCAST_MAC && !(f.dst === RIP_MAC && this.rip && this.rip.joined(ifname)) && !(this.ospf && ((f.dst === OSPF_ALL_SPF_MAC && this.ospf.joined(ifname, OSPF_ALL_SPF)) || (f.dst === OSPF_ALL_DR_MAC && this.ospf.joined(ifname, OSPF_ALL_DR))))) return;   // NIC filter
+    if (f.dst !== i.mac && f.dst !== BROADCAST_MAC && !(this.v6 && f.type === "ipv6" && this.v6.joined(ifname, f.dst)) && !(f.dst === RIP_MAC && this.rip && this.rip.joined(ifname)) && !(this.ospf && ((f.dst === OSPF_ALL_SPF_MAC && this.ospf.joined(ifname, OSPF_ALL_SPF)) || (f.dst === OSPF_ALL_DR_MAC && this.ospf.joined(ifname, OSPF_ALL_DR))))) return;   // NIC filter
     if (this.rawHook && this.rawHook(ifname, f)) return;              // a raw-socket client (DHCP, dhcp.js)
     if (f.type === "arp") return this.onArp(ifname, f.arp);
     if (f.type === "ipv4") return this.onIp(ifname, f.ip);
+    if (f.type === "ipv6" && this.v6) return this.v6.receive(ifname, f.ip6);
   }
 
   onArp(ifname, a) {
@@ -475,7 +479,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {
