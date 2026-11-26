@@ -17,7 +17,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["tcp-lan", "tcp-loss"]
+SPECS = ["tcp-lan", "tcp-loss", "tcp-window"]
 
 
 class TcpNet(l3.KernelNet):
@@ -76,11 +76,11 @@ def inner():
 # Linux over a zero-latency veth pair sends the first segment of a write, then handles its ACK (softirq) before the
 # rest of the write leaves; the engine sends the whole write at one instant. The segments and ACKs and their order
 # within each direction are identical, so for these specs the two directions are compared separately.
-PER_DIRECTION = {"tcp-loss"}
+PER_DIRECTION = {"tcp-loss", "tcp-window"}
 
 
 def comparable(r, name=None):
-    r = {k: v for k, v in r.items() if k not in ("rtt_ms", "times_s")}
+    r = {k: v for k, v in r.items() if k not in ("rtt_ms", "times_s", "win")}
     if name in PER_DIRECTION and "wire" in r:
         r["wire"] = {d: [w for w in r["wire"] if w.startswith(d + " ")] for d in ("out", "in")}
     return r
@@ -105,7 +105,7 @@ def main():
             what = f'tcp {a["src"]} → {a["dst"]}:{a["port"]}' + (f' ({a.get("size", 100)} bytes)' if res.get("ok") else "")
             summary = (f'echo of {res["bytes"]} bytes' if res.get("ok") else res.get("error")) + " · " + " ".join(w.replace("out ", ">").replace("in ", "<") for w in res["wire"])
             rows.append((name, what, summary, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
-            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"], name), "kernel": comparable(k["result"], name), "frame_diffs": fd}
+            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"], name), "kernel": comparable(k["result"], name), "kernel_times_s": k["result"].get("times_s"), "kernel_win_field": k["result"].get("win"), "frame_diffs": fd}
     md = ["| Network | Action | Engine result and client-side segments (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n")
