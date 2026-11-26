@@ -66,8 +66,8 @@ export const SHOWS = {
 
   "show.ip-route": ctx => {
     const rows = ctx.state().routes || [];
-    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : r.protocol === "rip" ? "R" : "S";
-    const legend = [rows.some(r => r.protocol === "ospf") && ", O = learned through OSPF", rows.some(r => r.protocol === "rip") && ", R = learned by RIP"].filter(Boolean).join("");
+    const code = r => r.protocol === "connected" ? "C" : r.protocol === "ospf" ? "O" : r.protocol === "rip" ? "R" : r.protocol === "bgp" ? "B" : "S";
+    const legend = [rows.some(r => r.protocol === "ospf") && ", O = learned through OSPF", rows.some(r => r.protocol === "rip") && ", R = learned by RIP", rows.some(r => r.protocol === "bgp") && ", B = learned through BGP"].filter(Boolean).join("");
     const lines = [`Legend: C = connected network, S = static route${legend}`, ""];
     for (const r of rows) lines.push(r.protocol === "connected"
       ? `C  ${r.prefix} on ${r.interface} (directly connected)`
@@ -92,6 +92,22 @@ export const SHOWS = {
     const rows = ctx.state().syslog;
     if (!rows) return {json: [], text: "The syslog service is not running (service syslog)"};
     return {json: rows, text: rows.length ? rows.join("\n") : "No messages yet"};
+  },
+
+  "show.ip-bgp": ctx => {
+    const b = ctx.state().bgp;
+    if (!b) return {json: [], text: "BGP is not running on this device"};
+    const rows = b.routes.map(r => ({prefix: r.prefix, status: r.best ? "best" : r.valid ? "valid" : "invalid", from: r.from, nextHop: r.nextHop, localPref: r.localPref, asPath: r.asPath, origin: r.origin}));
+    const mark = r => (r.status === "invalid" ? " " : "*") + (r.status === "best" ? ">" : " ");
+    return {json: rows, text: rows.length ? "Status: * valid, > best path\n" + table(["", "Network", "Next hop", "Local pref", "Path"], rows.map(r => [mark(r), r.prefix, r.nextHop, r.localPref, `${r.asPath ? r.asPath + " " : ""}${r.origin === "igp" ? "i" : r.origin === "egp" ? "e" : "?"}`]))
+      : "The BGP table is empty"};
+  },
+
+  "show.ip-bgp-summary": ctx => {
+    const b = ctx.state().bgp;
+    if (!b) return {json: null, text: "BGP is not running on this device"};
+    const rows = b.neighbors.map(n => ({neighbor: n.ip, remoteAs: n.remoteAs, state: n.state, routerId: n.routerId, prefixesReceived: n.received}));
+    return {json: {routerId: b.routerId, asn: b.asn, neighbors: rows}, text: `BGP router identifier ${b.routerId}, local AS number ${b.asn}\n` + table(["Neighbor", "AS", "State", "Router ID", "Prefixes received"], rows.map(n => [n.neighbor, n.remoteAs, n.state, n.routerId ?? "-", n.prefixesReceived]))};
   },
 
   "show.arp": ctx => {
