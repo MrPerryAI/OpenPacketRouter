@@ -35,12 +35,17 @@ th = threading.Thread(target=sniff, args=(s,), daemon=True); th.start(); time.sl
 c = socket.socket(); c.settimeout(timeout)
 try:
     c.connect((dst, port)); c.sendall(b"x" * size); got = b""
-    if discard: time.sleep(pause); got = b"x" * size
-    while len(got) < size:
+    if discard: time.sleep(pause)
+    while not discard and len(got) < size:
         d = c.recv(65535)
         if not d: break
         got += d
-    c.close(); out = {"ok": True, "from": dst, "bytes": len(got)}
+    if discard:     # nothing comes back: what the kernel says about the data it sent (struct tcp_info)
+        ti = c.getsockopt(socket.IPPROTO_TCP, socket.TCP_INFO, 192)
+        unacked, total_retrans = struct.unpack_from("I", ti, 8 + 4 * 4)[0], struct.unpack_from("I", ti, 8 + 23 * 4)[0]
+        c.close(); out = {"ok": True, "from": dst, "bytes": size, "unacked": unacked, "retransmits": total_retrans}
+    else:
+        c.close(); out = {"ok": True, "from": dst, "bytes": len(got)}
 except ConnectionRefusedError: out = {"ok": False, "error": "refused", "from": dst}
 except (socket.timeout, TimeoutError): out = {"ok": False, "error": "timeout"}
 except OSError as e: out = {"ok": False, "error": f"os error {e.errno}"}

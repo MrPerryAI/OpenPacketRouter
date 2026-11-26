@@ -48,7 +48,7 @@ test("TCP: a write is cut into 1448-byte segments, PSH on the last", () => {
 test("TCP: a segment dropped on the way is retransmitted after 200 ms, then the close", () => {
   const net = lossy(), t = dataTimes(net);
   const r = act(net, {port: 9, size: 3000, discard: true, pause: 1});
-  assert.equal(r.ok, true);
+  assert.equal(r.ok, true); assert.equal(r.unacked, 0); assert.equal(r.retransmits, 1);
   assert.deepEqual(r.wire, ["out S", "in SA", "out A", "out A 1448", "out A 1448", "out PA 104", "in A", "in A", "out PA 104", "in A", "out FA", "in FA", "out A"]);
   assert.ok(t[3] - t[2] > 0.19 && t[3] - t[2] < 0.22, `retransmitted after ${t[3] - t[2]} s`);
 });

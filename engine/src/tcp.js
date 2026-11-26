@@ -42,6 +42,7 @@ function armRto(conn, rto) {
     if (conn.dead || conn.rtoTimer !== gen || !conn.unacked.length) return;
     const h = conn.unacked[0];
     conn.node.log("tcp", `no ACK for seq ${h.seq} within ${rto} s: retransmitting ${h.len} bytes`);
+    conn.retransmits = (conn.retransmits || 0) + 1;
     seg(conn, h.flags, h.len, {seq: h.seq}); armRto(conn, rto * 2);
   });
 }
@@ -147,7 +148,7 @@ export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5, di
       sendData(conn, size);
       if (discard) net._after(pause, () => {         // nothing comes back: write, wait `pause` seconds, close
         if (conn.dead || res) return;
-        done({ok: true, from: dst, bytes: size}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; });
+        done({ok: true, from: dst, bytes: size, unacked: conn.unacked.length, retransmits: conn.retransmits || 0}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; });
     }
     else if (ev === "data") { done({ok: true, from: dst, bytes: n}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
     else if (ev === "refused") done({ok: false, error: "refused", from: dst});
