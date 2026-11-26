@@ -20,6 +20,8 @@
      "help": {"route": "Routing table: where each network is sent"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show ip dhcp snooping", "handler": "show.dhcp-snooping",
      "help": {"dhcp": "DHCP", "snooping": "Whether DHCP snooping is on, which ports are trusted and what was dropped"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "show ntp", "handler": "show.ntp",
+     "help": {"ntp": "The NTP service's stratum and how many queries it has answered"}},
     {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "show syslog", "handler": "show.syslog",
      "help": {"syslog": "Log messages this device has collected (needs service syslog)"}},
     {"modes": ["user", "priv"], "kinds": ["router"], "syntax": "show ip rip", "handler": "show.ip-rip",

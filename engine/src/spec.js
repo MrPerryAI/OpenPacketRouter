@@ -12,7 +12,7 @@
 import {Network} from "./network.js";
 import {tcpAction} from "./tcp.js";
 import {dhcp} from "./dhcp.js";
-import {ping, traceroute, dns, udpRequest, syslogSend, FACILITIES, SEVERITIES, stackOf} from "./apps.js";
+import {ping, traceroute, dns, udpRequest, syslogSend, ntpQuery, FACILITIES, SEVERITIES, stackOf} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
 import {isIp6, isCidr6, parseCidr6, inSubnet6} from "./addr6.js";
 import {parseRate, queueStats} from "./link.js";
@@ -364,6 +364,7 @@ export function validateSpec(spec) {
       }
       if (isObj(n.services) && n.services.http !== undefined && !(isObj(n.services.http) && Object.entries(n.services.http).every(([path, body]) => path.startsWith("/") && typeof body === "string")))
         err(`${p}.services.http`, `node "${n.name}": http maps a path starting with / to the page text`);
+      if (isObj(n.services) && n.services.ntp !== undefined && !(Number.isInteger(n.services.ntp) && n.services.ntp >= 1 && n.services.ntp <= 15)) err(`${p}.services.ntp`, `node "${n.name}": ntp is a stratum from 1 to 15`);
       if (isObj(n.services) && n.services.syslog !== undefined && typeof n.services.syslog !== "boolean") err(`${p}.services.syslog`, `node "${n.name}": syslog is true or false`);
       if (isObj(n.services) && n.services.dhcp !== undefined) {
         const d = n.services.dhcp;
@@ -452,6 +453,13 @@ export const ACTIONS = {
     return {switch: a.switch, channels: [...n.channels.values()].map(c => c.describe())};
   }},
   syslog: {required: ["src", "dst", "message"], run: (net, a) => syslogSend(net, a.src, a.dst, {message: a.message, tag: a.tag, facility: a.facility, severity: a.severity, settle: a.settle})},
+  // One NTP client query (UDP 123); returns the server's stratum.
+  ntp: {required: ["src", "dst"], run: (net, a) => {
+    const before = new Map([...net.nodes.values()].map(n => [n, (n.ntpLog || []).length]));
+    const r = ntpQuery(net, a.src, a.dst, {version: a.version, timeout: a.timeout});
+    // what each server logged because of this query: "vn=4 mode=3 len=48"
+    return {...r, received: [...before].flatMap(([n, i]) => (n.ntpLog || []).slice(i).map(q => `vn=${q.vn} mode=${q.mode} len=${q.size}`))};
+  }},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)
   udpBurst: {required: ["src", "dst", "port", "count", "size"], run: (net, a) => {

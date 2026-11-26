@@ -72,6 +72,12 @@ export const SHOWS = {
     return {json: rows, text: rows.length ? table(["Code", "Network", "Next hop", "Metric", "Interface"], rows.map(r => [r.type, r.network, r.type === "C" ? "-" : r.nextHop, r.metric, r.iface ?? "-"])) : "The RIP table is empty"};
   },
 
+  "show.ntp": ctx => {
+    const r = ctx.state().ntp;
+    if (!r) return {json: {}, text: "The NTP service is not running (service ntp STRATUM)"};
+    return {json: r, text: `NTP server at stratum ${r.stratum}; ${r.requests.length} client ${r.requests.length === 1 ? "query" : "queries"} answered`};
+  },
+
   "show.syslog": ctx => {
     const rows = ctx.state().syslog;
     if (!rows) return {json: [], text: "The syslog service is not running (service syslog)"};

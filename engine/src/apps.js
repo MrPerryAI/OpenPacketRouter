@@ -40,10 +40,10 @@ export function traceroute(net, src, dst, {maxHops = 12, timeout = 1} = {}) {
   return {reached: hops.some(h => h.kind === "reached"), hops};
 }
 
-export function udpRequest(net, src, dst, dport, payload, {timeout = 2} = {}) {
+export function udpRequest(net, src, dst, dport, payload, {timeout = 2, size} = {}) {
   let sport; const node = stackOf(net, src);
   try {
-    return await_(net, src, n => { sport = n.nextPort++; n.sockets.add(sport); return n.sendIp({dst, ttl: 64, proto: "udp", udp: {sport, dport, payload}}); }, p => {
+    return await_(net, src, n => { sport = n.nextPort++; n.sockets.add(sport); return n.sendIp({dst, ttl: 64, proto: "udp", udp: {sport, dport, payload, ...(size ? {size} : {})}}); }, p => {
       if (p.proto === "udp" && p.udp.dport === sport && p.src === dst) return {ok: true, from: p.src, payload: p.udp.payload};
       if (p.proto === "icmp" && p.icmp.type === 3 && p.icmp.orig && p.icmp.orig.sport === sport) return {ok: false, from: p.src, error: errName(p.icmp)};
       return null;
@@ -89,4 +89,27 @@ export function syslogSend(net, src, dst, opts) {
   net.settle(opts.settle ?? 1);
   const got = [...net.nodes.values()].flatMap(n => (n.syslogLog || []).slice(before[n.name]));
   return {ok: true, received: got};
+}
+
+// ---- NTP (RFC 5905, client/server mode over UDP 123). Packets are 48 bytes on the wire, like a real client's (`ntpdate -q`) request.
+// Timestamps come from the simulation's clock (seconds), so they never match a wall clock; the validation compares everything else.
+export const NTP_SIZE = 48;
+/** One client query from `src` to the NTP service on `dst`. Returns {ok, from, stratum, version} from the server's answer. */
+export function ntpQuery(net, src, dst, {version = 4, timeout = 2} = {}) {
+  const r = udpRequest(net, src, dst, 123, {ntp: {li: 0, vn: version, mode: 3, stratum: 0, poll: 0, tx: net.time}}, {timeout, size: NTP_SIZE});
+  if (!r.ok) return r;
+  const n = r.payload && r.payload.ntp;
+  if (!n || n.mode !== 4) return {ok: false, from: r.from, error: "not an NTP server answer"};
+  return {ok: true, from: r.from, stratum: n.stratum, version: n.vn};
+}
+/** The server side: answers a mode 3 (client) packet with mode 4 at `stratum`, copying the client's version and transmit time. */
+export function ntpServer(node, stratum) {
+  return payload => {
+    const q = payload && payload.ntp;
+    if (!q || q.mode !== 3) return undefined;
+    (node.ntpLog ||= []).push({vn: q.vn, mode: q.mode, size: NTP_SIZE});
+    node.log("ntp", `client query (version ${q.vn}): answered at stratum ${stratum}`);
+    const t = node.net.time;
+    return {ntp: {li: 0, vn: q.vn, mode: 4, stratum, poll: q.poll, ref: t, orig: q.tx, rx: t, tx: t}, wireSize: NTP_SIZE};
+  };
 }
