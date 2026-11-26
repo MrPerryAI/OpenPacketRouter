@@ -26,9 +26,10 @@ const seg = (conn, flags, len = 0, extra = {}) => conn.node.sendIp({src: conn.la
 
 export const MSS = 1448, RTO = 0.2, MAX_WRITE = 10 * MSS;
 /** The "slow" service reads nothing for SLOW_DELAY seconds after the connection opens (its receive buffer holds SLOW_BUF bytes), then everything at once. */
-export const SLOW_BUF = 2896, SLOW_DELAY = 1;
+export const SLOW_BUF = 4344, SLOW_WND = 2896, SLOW_DELAY = 1, DELAYED_ACK = 0.04, DUPACK_LIMIT = 0.5;
 /** The window a receiver with a limited buffer advertises: free space in whole segments (Linux's receiver silly-window avoidance). */
-const advWindow = conn => { const free = conn.rcap - conn.rbuf; return free >= MSS ? Math.floor(free / MSS) * MSS : 0; };
+const advWindow = conn => { const free = Math.min(conn.rcap - conn.rbuf, SLOW_WND);   // Linux grows the window slowly (rcv_ssthresh): at most SLOW_WND here
+   return free >= MSS ? Math.floor(free / MSS) * MSS : 0; };
 
 /** Queue `total` bytes and send what the peer's advertised window allows. */
 function sendData(conn, total) { conn.pend = (conn.pend || 0) + total; pump(conn); }
@@ -38,7 +39,11 @@ function pump(conn) {
     const n = Math.min(MSS, conn.pend);
     if (conn.pwnd !== undefined && conn.snd - conn.una + n > conn.pwnd) break;   // the window is full: wait for an update
     conn.pend -= n;
-    const flags = conn.pend ? "A" : "PA";
+    // Linux sets PSH on the last segment of a write and, while the peer's largest window is known, whenever more than half of
+    // that window has been written since the last PSH (tcp_sendmsg's forced_push).
+    conn.pushed ??= conn.snd;
+    const forced = conn.maxw !== undefined && conn.snd + n - conn.pushed > Math.floor(conn.maxw / 2);
+    const flags = conn.pend && !forced ? "A" : "PA"; if (flags === "PA") conn.pushed = conn.snd + n;
     seg(conn, flags, n); conn.unacked.push({seq: conn.snd, len: n, flags}); conn.snd += n;
   }
   if (conn.unacked.length) { conn.persist = (conn.persist || 0) + 1; armRto(conn, conn.rto0 || RTO); }
@@ -66,7 +71,7 @@ function armRto(conn, rto) {
 }
 /** An ACK number and the window it carries: forget what is covered, restart the timer, send what now fits. */
 function onAck(conn, ack, win) {
-  if (win !== undefined) { conn.pwnd = win; if (win > 0) conn.persistRto = RTO; }
+  if (win !== undefined) { conn.pwnd = win; conn.maxw = Math.max(conn.maxw || 0, win); if (win > 0) conn.persistRto = RTO; }
   if (conn.una !== undefined && ack > conn.una) conn.una = ack;
   if (conn.unacked && conn.unacked.length) {
     const n = conn.unacked.length; conn.unacked = conn.unacked.filter(u => u.seq + u.len > ack);
@@ -124,6 +129,24 @@ function slowReader(conn) {
     if (advWindow(conn) - before >= Math.min(2 * MSS, conn.rcap / 2)) seg(conn, "A");
   });
 }
+/** Data arriving at a limited-buffer receiver. Linux acks at once while its quick-ack credit lasts (window / 2 MSS, here one segment),
+ *  later only after two segments when the application is reading, otherwise after the 40 ms delayed-ACK timer; when the application
+ *  reads (it does so right after the segments that arrived together) a pending ACK goes out with the new window. */
+function receiveLimited(conn, len) {
+  conn.rbuf += len; conn.quick ??= 1; conn.unackSegs = (conn.unackSegs || 0) + 1;
+  const ack = () => { conn.unackSegs = 0; conn.dackGen = (conn.dackGen || 0) + 1; seg(conn, "A"); };
+  if (conn.quick > 0) { conn.quick--; ack(); }
+  else if (conn.reading && conn.unackSegs >= 2) ack();
+  else if (!conn.dackArmed) {
+    conn.dackArmed = true; const gen = conn.dackGen = (conn.dackGen || 0) + 1;
+    conn.node.net._after(DELAYED_ACK, () => { conn.dackArmed = false; if (!conn.dead && conn.dackGen === gen && conn.unackSegs) ack(); });
+  }
+  if (conn.reading) conn.node.net._after(0, () => {
+    if (conn.dead) return;
+    conn.rbuf = 0; conn.dackArmed = false;
+    if (conn.unackSegs) ack();
+  });
+}
 function newConn(node, laddr, lport, raddr, rport, state) {
   const c = {node, laddr, lport, raddr, rport, state, snd: 1000, rcv: 0, dead: false};
   table(node).set(key(lport, raddr, rport), c); return c;
@@ -135,7 +158,7 @@ function onSegment(conn, t) {
     return conn.onEvent && conn.onEvent(was === "SYN_SENT" ? "refused" : "reset"); }
   switch (conn.state) {
     case "SYN_SENT":
-      if (f === "SA") { conn.pwnd = t.win; conn.rcv = t.seq + 1; conn.snd += 1; conn.rtoGen = (conn.rtoGen || 0) + 1; setState(conn, "ESTABLISHED"); seg(conn, "A"); conn.onEvent && conn.onEvent("connected"); }
+      if (f === "SA") { conn.pwnd = t.win; conn.maxw = t.win; conn.rcv = t.seq + 1; conn.snd += 1; conn.rtoGen = (conn.rtoGen || 0) + 1; setState(conn, "ESTABLISHED"); seg(conn, "A"); conn.onEvent && conn.onEvent("connected"); }
       return;
     case "SYN_RCVD":
       if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); if (conn.server === "slow") slowReader(conn); }
@@ -144,15 +167,18 @@ function onSegment(conn, t) {
       if (f.includes("A") && t.ack !== undefined) onAck(conn, t.ack, t.win);
       if (f === "A" && conn.state === "FIN_WAIT_1") { setState(conn, "FIN_WAIT_2"); return; }
       if (t.len === 0 && f === "A" && t.seq < conn.rcv) {                        // a window probe: answer with the current window
-        conn.node.log("tcp", `window probe: ACK ${conn.rcv}, window ${conn.rcap ? advWindow(conn) : "open"}`); seg(conn, "A"); return;
+        conn.node.log("tcp", `window probe: ACK ${conn.rcv}, window ${conn.rcap ? advWindow(conn) : "open"}`);
+        const now = conn.node.net.time;                                           // Linux rate-limits these ACKs (tcp_invalid_ratelimit, 500 ms)
+        if (conn.rcap && conn.lastDupack !== undefined && now - conn.lastDupack < DUPACK_LIMIT) return;
+        conn.lastDupack = now; seg(conn, "A"); return;
       }
       if (t.len > 0 && t.seq !== conn.rcv) {                                      // a gap or a repeat: ACK what we have
         conn.node.log("tcp", `segment seq ${t.seq} but expected ${conn.rcv}: ACK ${conn.rcv} again`);
         seg(conn, "A"); return;
       }
       if (t.len > 0) {
-        conn.rcv += t.len; if (conn.rcap && !conn.reading) conn.rbuf += t.len;
-        seg(conn, "A");                                                          // quick ack
+        conn.rcv += t.len;
+        if (conn.rcap) receiveLimited(conn, t.len); else seg(conn, "A");                // quick ack
         if (conn.server === "echo") { conn.node.log("tcp", `echo ${t.len} bytes`); sendData(conn, t.len); }
         else if (conn.server === "discard" || conn.server === "slow") conn.node.log("tcp", `discard ${t.len} bytes`);
         else if (conn.onEvent) conn.onEvent("data", t.len);
