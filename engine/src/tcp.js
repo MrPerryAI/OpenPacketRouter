@@ -206,14 +206,15 @@ export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5, di
 
 /** The `tcp` action: connect, send `size` bytes, read the echo, close (against a `discard` service: wait `pause` s after the write, then close). `wire` lists the TCP segments on the client's cable. */
 export function tcpAction(net, a) {
-  const client = net.node(a.src), wire = [];
+  const client = net.node(a.src), wire = [], inWin = [];
   const tap = (node, ifname, f) => {
     if (f.type !== "ipv4" || f.ip.proto !== "tcp") return;
     const out = node === client, inn = node.ifaces[ifname].peer.node === client;
     if (out || inn) wire.push(`${out ? "out" : "in"} ${f.ip.tcp.flags}${f.ip.tcp.len ? " " + f.ip.tcp.len : ""}`);
+    if (inn && f.ip.tcp.win !== undefined) inWin.push(f.ip.tcp.win);   // the receiver's advertised window, only on a limited-buffer service
   };
   (net.taps ||= new Set()).add(tap);
   const r = tcpRequest(net, a.src, a.dst, a.port, {size: a.size ?? 100, timeout: a.timeout ?? 5, discard: a.discard === true, pause: a.pause ?? 0});
   net.settle(a.settle ?? 1); net.taps.delete(tap);
-  return {...r, wire};
+  return {...r, wire, ...(inWin.length ? {win: inWin} : {})};   // `win`: advertised windows of the segments arriving at the client
 }

@@ -50,5 +50,5 @@ except ConnectionRefusedError: out = {"ok": False, "error": "refused", "from": d
 except (socket.timeout, TimeoutError): out = {"ok": False, "error": "timeout"}
 except OSError as e: out = {"ok": False, "error": f"os error {e.errno}"}
 time.sleep(0.8); stop.set(); th.join()
-out["wire"] = wire; out["times_s"] = times; out["win"] = wins   # timing is informational, not compared
+out["wire"] = wire; out["times_s"] = times; out["win"] = [w for w, x in zip(wins, wire) if x.startswith("in ")]   # timing is informational, not compared
 print(json.dumps(out))
