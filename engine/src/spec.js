@@ -14,6 +14,7 @@ import {tcpAction} from "./tcp.js";
 import {dhcp} from "./dhcp.js";
 import {ping, traceroute, dns, udpRequest, stackOf} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
+import {isIp6, isCidr6, parseCidr6, inSubnet6} from "./addr6.js";
 import {parseRate, queueStats} from "./link.js";
 
 export const SPEC_VERSION = 1;
@@ -23,9 +24,9 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
-  host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
-  server: ["ifaces", "routes", "gw", "services", "lldp"],
+  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
+  host: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
+  server: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],
 };
 /** Features add their node keys here: registerNodeKeys("switch", ["stp", "vlans"]). */
 export function registerNodeKeys(kind, keys) { (NODE_KEYS[kind] ||= []).push(...keys); }
@@ -42,6 +43,32 @@ const IP_LINK_KEYWORDS = ["address", "broadcast", "mtu", "name", "netns", "maste
   "dev", "group", "alias", "vf", "state", "arp", "multicast", "allmulticast", "promisc", "txqueuelen", "qlen", "link", "mode", "protodown", "xdp", "addrgenmode"];
 const SUBIF_RE = /^([^.]+)\.(\d+)$/;
 const ambiguousIfname = n => IP_LINK_KEYWORDS.find(k => k.startsWith(n));
+
+/** IPv6 (ipv6.js): ifaces6 {eth0: "2001:db8::1/64"}, routes6 [["dst/len", "via"]], gw6. */
+function checkIpv6(n, p, err) {
+  if (n.ifaces6 === undefined && n.routes6 === undefined && n.gw6 === undefined) return;
+  if (n.ifaces6 !== undefined && !isObj(n.ifaces6)) return err(`${p}.ifaces6`, `node "${n.name}": ifaces6 must map interface name to "2001:db8::1/64"`);
+  const nets = [];
+  for (const [ifn, cidr] of Object.entries(n.ifaces6 || {})) {
+    if (!isCidr6(cidr)) { err(`${p}.ifaces6.${ifn}`, `node "${n.name}": "${cidr}" is not an IPv6 address like 2001:db8::1/64`); continue; }
+    nets.push(parseCidr6(cidr));
+  }
+  const reachable = via => nets.some(c => inSubnet6(via, c.net, c.mask));
+  if (n.gw6 !== undefined && n.gw6 !== null) {
+    if (!isIp6(n.gw6)) err(`${p}.gw6`, `node "${n.name}": gateway "${n.gw6}" is not an IPv6 address`);
+    else if (!reachable(n.gw6)) err(`${p}.gw6`, `node "${n.name}": gateway ${n.gw6} is not on any of its IPv6 prefixes`);
+  }
+  if (n.routes6 !== undefined) {
+    if (!Array.isArray(n.routes6)) return err(`${p}.routes6`, `node "${n.name}": routes6 must be a list of ["prefix/len", "via"]`);
+    n.routes6.forEach((r, j) => {
+      const rp = `${p}.routes6[${j}]`;
+      if (!Array.isArray(r) || r.length !== 2) return err(rp, `node "${n.name}": a route is ["prefix/len", "via"]`);
+      if (!isCidr6(r[0])) err(rp, `node "${n.name}": route destination "${r[0]}" is not like 2001:db8:2::/64`);
+      if (!isIp6(r[1])) err(rp, `node "${n.name}": route next hop "${r[1]}" is not an IPv6 address`);
+      else if (!reachable(r[1])) err(rp, `node "${n.name}": next hop ${r[1]} is not on any of its IPv6 prefixes`);
+    });
+  }
+}
 
 const OSPF_IF_KEYS = {type: v => ["broadcast", "point-to-point"].includes(v), priority: v => Number.isInteger(v) && v >= 0 && v <= 255,
   cost: v => Number.isInteger(v) && v >= 1 && v <= 65535, hello: v => Number.isInteger(v) && v >= 1, dead: v => Number.isInteger(v) && v >= 1, retransmit: v => Number.isInteger(v) && v >= 1};
@@ -184,7 +211,7 @@ export function validateSpec(spec) {
     const dup = ifaces.has(n.name);
     if (dup) err(`${p}.name`, `duplicate node name "${n.name}"`);
     if (!KINDS.includes(n.kind)) return err(`${p}.kind`, `node "${n.name}": kind must be one of ${KINDS.join(", ")}`);
-    const names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
+    const names = [...new Set([...Object.keys(isObj(n.ifaces) ? n.ifaces : {}), ...(n.kind !== "switch" ? Object.keys(isObj(n.ifaces6) ? n.ifaces6 : {}) : [])])];   // ifaces6 names count too
     // "eth0.10" is an 802.1Q subinterface of eth0: eth0 exists (and is what gets cabled) even if it has no address
     const subifs = new Set(n.kind === "switch" ? [] : names.filter(x => SUBIF_RE.test(x)));
     const parents = [...subifs].map(x => x.match(SUBIF_RE)[1]);
@@ -305,6 +332,7 @@ export function validateSpec(spec) {
         else if (nets.length && !reachable(r[1])) err(rp, `node "${n.name}": next hop ${r[1]} is not on any of its subnets`);
       });
     }
+    checkIpv6(n, p, err);
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
     if (n.lldp !== undefined) checkLldp(n, p, err);
@@ -467,8 +495,16 @@ export function runActions(spec, actions, {trace = false} = {}) {
       (mirrored[`${node.name}:${ifname}>${peer.node.name}:${peer.name}`] ||= []).push(`${nm(f.src)}>${nm(f.dst)} ${what}`);
     });
   }
+  const withV6 = [...net.nodes.values()].some(n => n.v6);
+  let icmp6 = {};   // ICMPv6 message types sent per cable direction during the current action (validate/ipv6 compares them with tcpdump)
+  if (withV6) net.taps.add((node, ifname, f) => {
+    if (f.type !== "ipv6" || f.ip6.proto !== "icmp6") return;
+    const peer = node.ifaces[ifname].peer, key = `${node.name}:${ifname}>${peer.node.name}:${peer.name}`;
+    (icmp6[key] ||= []).push(f.ip6.icmp.type);
+  });
   for (const a of actions) {
     mirrored = {};
+    icmp6 = {};
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
@@ -477,6 +513,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     if (monPorts.size) entry.mirrored = mirrored;
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
+    if (withV6) entry.icmp6 = icmp6;
     const nats = [...net.nodes.values()].filter(n => n.nat);
     if (nats.length) entry.nat = Object.fromEntries(nats.map(n => [n.name, n.nat.conntrack()]));   // live tracking entries, in conntrack's shape (validate/nat compares them)
     if (trace) entry.trace = net.trace.slice(t0);

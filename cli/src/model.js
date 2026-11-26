@@ -38,6 +38,13 @@ export function ipv4(ifc, make = true) {
   const sub = own(own(own(ifc, "subinterfaces", {}), "subinterface", {}), "0", {config: {index: 0}});
   return own(sub, "ipv4", {addresses: {address: {}}, config: {"dhcp-client": false}});
 }
+/** The IPv6 container of an interface's untagged subinterface (openconfig-if-ip). */
+export function ipv6(ifc, make = true) {
+  if (!make && !ifc.subinterfaces?.subinterface?.["0"]?.ipv6) return null;
+  const sub = own(own(own(ifc, "subinterfaces", {}), "subinterface", {}), "0", {config: {index: 0}});
+  return own(sub, "ipv6", {addresses: {address: {}}});
+}
+export const addressesOf6 = ifc => Object.values(ipv6(ifc, false)?.addresses.address || {}).map(a => ({ip: a.config.ip, prefixLength: a.config["prefix-length"]}));
 /** [{ip, prefixLength}] of an interface. */
 export const addressesOf = ifc => Object.values(ipv4(ifc, false)?.addresses.address || {}).map(a => ({ip: a.config.ip, prefixLength: a.config["prefix-length"]}));
 export const dhcpClientOf = ifc => !!ipv4(ifc, false)?.config["dhcp-client"];
@@ -46,7 +53,9 @@ export const switchedVlan = (ifc, make = true) => make ? own(own(own(ifc, "ether
 const ni = m => m["network-instances"]["network-instance"].default;
 /** Static routes: {prefix: {"next-hops": {"next-hop": {index: {config: {"next-hop": ip}}}}}} in the order they were added. */
 export const statics = m => ni(m).protocols.protocol.STATIC["static-routes"].static;
-export const staticList = m => Object.entries(statics(m)).flatMap(([prefix, r]) => Object.values(r["next-hops"]["next-hop"]).map(h => ({prefix, nextHop: h.config["next-hop"]})));
+const isV6 = prefix => prefix.includes(":");   // IPv6 and IPv4 static routes share one table, told apart by the prefix
+export const staticList = m => Object.entries(statics(m)).filter(([prefix]) => !isV6(prefix)).flatMap(([prefix, r]) => Object.values(r["next-hops"]["next-hop"]).map(h => ({prefix, nextHop: h.config["next-hop"]})));
+export const staticList6 = m => Object.entries(statics(m)).filter(([prefix]) => isV6(prefix)).flatMap(([prefix, r]) => Object.values(r["next-hops"]["next-hop"]).map(h => ({prefix, nextHop: h.config["next-hop"]})));
 /** OSPFv2 (openconfig-ospfv2): null until `router ospf`. Its networks are under "openpacketrouter:networks" (OpenConfig selects interfaces per area instead). */
 export const ospf = (m, make = false) => {
   const all = ni(m).protocols.protocol;
