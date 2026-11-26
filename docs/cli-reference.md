@@ -222,6 +222,10 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
 | `service tcp-discard PORT` | config | routers, hosts, servers | TCP port |
 | `no service tcp-discard PORT` | config | routers, hosts, servers | Stop the TCP discard service on a port |
+| `service tcp-http PORT` | config | routers, hosts, servers | TCP port |
+| `no service tcp-http PORT` | config | routers, hosts, servers | Stop the web service on a port |
+| `http page PATH TEXT` | config | routers, hosts, servers | Page text in one word (%20 is a space, %0A a line break) |
+| `no http page PATH` | config | routers, hosts, servers | URL path |
 
 ### Rip
 
