@@ -132,6 +132,7 @@ export function configLines(model, {kind, ports}) {
     if (typeof s.lldp.description === "string" && /^[A-Za-z][\w.-]*$/.test(s.lldp.description)) out.push(`lldp description ${s.lldp.description}`);
     out.push("!");
   }
+  if (s.syslog) out.push("service syslog", "!");
   if (s.tcp) { for (const [port, app] of Object.entries(s.tcp)) if (app === "echo" || app === "discard") out.push(`service tcp-${app} ${port}`); out.push("!"); }
   out.push("end");
   return out;

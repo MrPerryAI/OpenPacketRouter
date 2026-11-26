@@ -67,6 +67,12 @@ export const SHOWS = {
     return {json: rows, text: rows.length ? table(["Code", "Network", "Next hop", "Metric", "Interface"], rows.map(r => [r.type, r.network, r.type === "C" ? "-" : r.nextHop, r.metric, r.iface ?? "-"])) : "The RIP table is empty"};
   },
 
+  "show.syslog": ctx => {
+    const rows = ctx.state().syslog;
+    if (!rows) return {json: [], text: "The syslog service is not running (service syslog)"};
+    return {json: rows, text: rows.length ? rows.join("\n") : "No messages yet"};
+  },
+
   "show.arp": ctx => {
     const rows = ctx.state().arp || [];
     return {json: rows, text: rows.length ? table(["Address", "MAC", "Interface"], rows.map(r => [r.ip, r.mac, r.interface]))

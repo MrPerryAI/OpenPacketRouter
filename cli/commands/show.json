@@ -18,6 +18,8 @@
      "help": {"ip": "IPv4 status", "interface": "Interfaces", "brief": "One line per interface"}},
     {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "show ip route", "handler": "show.ip-route",
      "help": {"route": "Routing table: where each network is sent"}},
+    {"modes": ["user", "priv"], "kinds": ["router", "host", "server"], "syntax": "show syslog", "handler": "show.syslog",
+     "help": {"syslog": "Log messages this device has collected (needs service syslog)"}},
     {"modes": ["user", "priv"], "kinds": ["router"], "syntax": "show ip rip", "handler": "show.ip-rip",
      "help": {"ip": "IPv4 status", "rip": "The RIP table: connected and learned networks with metric and next hop"}},
     {"modes": ["user", "priv"], "kinds": ["router", "host", "server", "switch"], "syntax": "show arp", "handler": "show.arp",

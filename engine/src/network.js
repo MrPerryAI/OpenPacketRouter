@@ -372,6 +372,7 @@ export class IpNode extends Device {
     if (port === 67 && this.services.dhcpRelay) return this._dhcpRelay ||= dhcpRelay(this, this.services.dhcpRelay);
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
+    if (port === 514 && this.services.syslog) return payload => { (this.syslogLog ||= []).push(String(payload)); this.log("syslog", `received: ${payload}`); };
     return this.services.udp && this.services.udp[port];
   }
 

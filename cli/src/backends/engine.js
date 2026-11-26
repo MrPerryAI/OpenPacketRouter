@@ -94,6 +94,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     }
     if (sv.dhcpRelay) for (const c of sv.dhcpRelay.clients || Object.keys(n.ifaces || {})) M.relayHelpers(m, c).push(sv.dhcpRelay.server);
     if (sv.tcp) out.tcp = {...sv.tcp};
+    if (sv.syslog) out.syslog = true;
     if (n.lldp) out.lldp = {...n.lldp};
     if (n.nat) {
       out.nat = {...(n.nat.overload ? {overload: n.nat.overload === true ? true : {...n.nat.overload}} : {}), ...(n.nat.static?.length ? {static: n.nat.static.map(x => ({...x}))} : {})};
@@ -240,6 +241,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       svc.dhcpRelay = {server: [...servers][0], clients: relay.map(([p]) => p)};
     }
     if (s.tcp) svc.tcp = {...s.tcp};
+    if (s.syslog) svc.syslog = true;
     if (s.lldp) n.lldp = {...s.lldp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
     if (s.acl) {
@@ -357,6 +359,7 @@ export function stateOf(net, device, spec) {
     ospf: n.ospf ? {routerId: n.ospf.routerId(), neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), database: n.ospf.database()} : null,
     ...(n.lldp ? {lldp: {txInterval: n.lldp.txInterval, holdMultiplier: n.lldp.holdMultiplier, description: n.lldp.description, neighbors: n.lldp.neighbors()}} : {}),
     ...(n.rip ? {rip: n.rip.describe()} : {}),
+    ...(n.services.syslog ? {syslog: [...(n.syslogLog || [])]} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }
