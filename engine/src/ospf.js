@@ -420,18 +420,21 @@ export class Ospf {
     for (const h of a.headers) { const k = key(n.i.area, h.type, h.id, h.adv), l = n.rxmt.get(k); if (l && this._cmp(h, this._hdr(l)) === 0) n.rxmt.delete(k); }
     this._gcMaxAge();
   }
-  /** A flushed LSA leaves the database once no neighbor still has to acknowledge it (14). */
+  /** A MaxAge LSA waits for the router's remover timer (14): when the first one enters an empty list the router arms one timer of
+   *  MAXAGE_KEEP seconds; MaxAge LSAs that arrive while it runs share it. When it fires, every MaxAge LSA that no neighbor still has to
+   *  acknowledge leaves the database, unless a neighbor is in Exchange or Loading; if any is left, the timer is armed again. So how long
+   *  a flushed LSA stays depends on when the router's first MaxAge LSA of that round arrived (ospfd's maxage-delay works like this). */
   _gcMaxAge() {
-    const busy = [...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.state === "Exchange" || m.state === "Loading"));
-    if (busy) return;
-    for (const [k, l] of this.lsdb) {
-      if (!this._isMaxAge(l)) continue;
-      // like ospfd, a MaxAge LSA stays in the database for a while after it is acknowledged (a new instance of it takes the next
-      // sequence number, and a copy that arrives again is acknowledged as a duplicate)
-      if (l.maxAt === undefined) { l.maxAt = this.net.time; this._after(MAXAGE_KEEP, () => this._gcMaxAge()); }
-      if (this.net.time - l.maxAt < MAXAGE_KEEP) continue;
-      if (![...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.rxmt.has(k)))) { this.lsdb.delete(k); this._spf(); }
-    }
+    if (this.tMaxAge || ![...this.lsdb.values()].some(l => this._isMaxAge(l))) return;
+    this.tMaxAge = this._after(MAXAGE_KEEP, () => {
+      this.tMaxAge = null;
+      const busy = [...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.state === "Exchange" || m.state === "Loading"));
+      if (!busy) for (const [k, l] of this.lsdb) {
+        if (!this._isMaxAge(l)) continue;
+        if (![...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.rxmt.has(k)))) { this.lsdb.delete(k); this._spf(); }
+      }
+      this._gcMaxAge();
+    });
   }
 
   // ----- the database -----
@@ -456,6 +459,7 @@ export class Ospf {
     this.lsdb.set(k, l);
     if (self && !l.maxAge) l.tRefresh = this._after(REFRESH, () => { l.tRefresh = null; this._reoriginate(l, true); });
     if (!old || JSON.stringify(old.body) !== JSON.stringify(l.body) || old.maxAge !== l.maxAge) this._spf();
+    if (l.maxAge) this._gcMaxAge();
     return l;
   }
   _isSelf(l) {
