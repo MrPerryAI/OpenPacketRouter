@@ -79,6 +79,11 @@ export const SHOWS = {
       : "MAC table is empty (it fills as frames arrive: try a ping between two hosts)"};
   },
 
+  "show.mac-aging": ctx => {
+    const configured = M.fdb(ctx.model)["mac-aging-time"], seconds = configured ?? 300;
+    return {json: {seconds, default: configured === undefined}, text: `MAC address aging time: ${seconds} seconds${configured === undefined ? " (default)" : ""}`};
+  },
+
   "show.port-security": ctx => {
     const rows = ctx.state().portSecurity || [];
     return {json: rows, text: rows.length ? table(["Port", "Max", "Secured", "Violation", "Violations", "State"], rows.map(r => [r.port, r.max, r.secured.length, r.violation, r.violations, r.errdisabled ? "err-disabled" : "secure-up"])) : "Port security is not on for any port (switchport port-security maximum N, on an access port)"};  },
