@@ -182,6 +182,8 @@ def kernel(name, steps_name):
 
 def main():
     if os.geteuid() != 0 or not all(shutil.which(x) for x in ("ip", "mstpd", "mstpctl")):
+        if os.environ.get("GITHUB_ACTIONS"):
+            print("CI needs root, iproute2 and mstpd/mstpctl on the host; a missing tool must fail, not skip."); return 1
         print("Needs root, iproute2 and mstpd/mstpctl on the host (CI only). Skipping."); return 0
     md = ["| Network | Step | Result | Match |", "|---|---|---|---|"]; ok_all = True; detail = {}
     for name, steps_name in CASES:

@@ -3,7 +3,7 @@ name: RSTP vs mstpd
 # run on the runner host itself (no Docker, no unshare). Kept apart from ci.yml so it cannot disturb the other validators.
 on:
   push:
-    branches: [main, stp-vlan-rstp2]
+    branches: [main]
   pull_request:
     paths: ["validate/rstp/**", "engine/src/**", "engine/tools/run_rstp.mjs", ".github/workflows/rstp.yml"]
 concurrency:
@@ -29,6 +29,9 @@ jobs:
       - name: Flake check (temporary)
         continue-on-error: true
         run: |
+          ok=0
           for i in 1 2 3 4 5 6; do
-            echo "== run $i"; sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py > /tmp/run$i.log 2>&1; echo "exit $?"; grep -c "✓" /tmp/run$i.log; grep "kernel bridges" /tmp/run$i.log | cut -c1-900
+            sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py > /tmp/run$i.log 2>&1 && ok=$((ok+1))
+            echo "::notice title=flake run $i::exit-ok-count=$ok marks=$(grep -c '✓' /tmp/run$i.log) $(grep -E 'MISMATCH|✗' /tmp/run$i.log | head -3 | tr '\n' ' ')"
           done
+          echo "::notice title=flake tally::$ok of 6 runs matched"
