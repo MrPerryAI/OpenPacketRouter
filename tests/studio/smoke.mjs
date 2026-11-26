@@ -302,6 +302,13 @@ try {
   const svcPanel = await page.textContent("#device");
   check(/Services/.test(svcPanel) && /Syslog receiver/.test(svcPanel), "a server's panel lists its syslog receiver", svcPanel.slice(0, 80));
 
+  const rn = await vload("services/ntp-lan.json", "services/ntp-lan.actions.json");
+  check(rn.ok && !/spec /.test(rn.errors), "NTP lab loads", rn.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); window.studio.goto && window.studio.goto(window.studio.S.sim.steps.length); });
+  const ntpPanel = await page.textContent("#device");
+  const nm = /NTP server \(UDP 123\) at stratum (\d+): (\d+) client quer/.exec(ntpPanel);
+  check(nm && +nm[2] > 0, "the NTP server's panel shows its stratum and a query count above 0", ntpPanel.slice(0, 120));
+
   const rw = await vload("tcp/tcp-window.json", "tcp/tcp-window.actions.json");
   check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");

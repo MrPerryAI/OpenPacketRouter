@@ -62,7 +62,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   an area border router), each interface's area, and marks routes as intra-area or inter-area.
 - **TCP window**: a segment from a limited-buffer receiver names the window it advertises ("window 0 B (full: the sender
   must wait)" for a zero window), so a stall and its window update can be followed frame by frame.
-- **Services**: a router, host or server that runs the syslog receiver (and, once NTP is merged, the NTP server) gets a
+- **Services**: a router, host or server that runs the syslog receiver or the NTP server gets a
   *Services* section in its device panel: the stored syslog messages, and the NTP stratum with how many queries it has
   answered, at the current playback frame.
 - **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
