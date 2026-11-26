@@ -64,7 +64,7 @@ class Net6(l3.KernelNet):
         self.types()    # remember how much each capture holds now: only later packets belong to an action
 
     def types(self):
-        """ICMPv6 types sent per cable direction since the last call, sorted (read from the pcap files)."""
+        """ICMPv6 types sent per cable direction since the last call, in capture order (read from the pcap files)."""
         out = {}
         for key, f in self.caps:
             try: data = open(f, "rb").read()
@@ -79,7 +79,7 @@ class Net6(l3.KernelNet):
                 if n <= self.seen.get(key, 0): continue
                 if len(pkt) > 54 and pkt[12:14] == b"\x86\xdd" and pkt[20] == 58: out.setdefault(key, []).append(pkt[54])
             self.seen[key] = n
-        return {k: sorted(v) for k, v in out.items()}
+        return out
 
     def flush(self):
         super().flush()
@@ -120,6 +120,7 @@ def main():
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
+        assert len(eng) == len(kern[name]), f"{name}: engine ran {len(eng)} actions, Linux {len(kern[name])}"
         for e, k in zip(eng, kern[name]):
             a = e["action"]; same = comparable(e["result"]) == comparable(k["result"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))

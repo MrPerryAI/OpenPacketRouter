@@ -46,16 +46,16 @@ test("routed ping6, hop limit 1, no route, unresolvable neighbor", () => {
   assert.equal(dead.frames["R:eth0>SW:p3"], 2);                   // the NA for A, then the error
 });
 
-test("each action reports the ICMPv6 message types sent on every cable direction (NS 135, NA 136, echo 128/129)", () => {
+test("each action reports the ICMPv6 message types sent on every cable direction, in the order sent (NS 135, NA 136, echo 128/129)", () => {
   const [r] = runActions(lab(), [{do: "ping", src: "A", dst: "2001:db8:1::b"}]);
-  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [128, 135]);
-  assert.deepEqual(r.icmp6["B:eth0>SW:p2"], [129, 136]);
-  assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [128, 135]);   // the switch floods the solicitation; the echo follows
+  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [135, 128]);
+  assert.deepEqual(r.icmp6["B:eth0>SW:p2"], [136, 129]);
+  assert.deepEqual(r.icmp6["SW:p2>B:eth0"], [135, 128]);   // the switch floods the solicitation; the echo follows
 });
 
 test("a router solicits from its link-local address, so the host solicits the router back before replying (Linux ndisc_solicit)", () => {
   const [r] = runActions(lab(), [{do: "ping", src: "A", dst: "2001:db8:2::c"}]);
-  assert.deepEqual(r.icmp6["R:eth1>C:eth0"], [128, 135, 136]);   // NS for C, the forwarded echo, and the NA for C's own solicitation
-  assert.deepEqual(r.icmp6["C:eth0>R:eth1"], [129, 135, 136]);   // NA, the reply, and C's solicitation for the gateway
-  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [128, 135]);         // on A's own link nothing extra: A's solicitation came from its global address
+  assert.deepEqual(r.icmp6["R:eth1>C:eth0"], [135, 128, 136]);   // NS for C, the forwarded echo, and the NA for C's own solicitation
+  assert.deepEqual(r.icmp6["C:eth0>R:eth1"], [136, 135, 129]);   // NA, the reply, and C's solicitation for the gateway
+  assert.deepEqual(r.icmp6["A:eth0>SW:p1"], [135, 128]);         // on A's own link nothing extra: A's solicitation came from its global address
 });

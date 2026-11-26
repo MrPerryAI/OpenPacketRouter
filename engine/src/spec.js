@@ -446,7 +446,7 @@ export function runActions(spec, actions, {trace = false} = {}) {
     const entry = {action: a, result, frames: net.diff(before)};
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
-    if (withV6) entry.icmp6 = Object.fromEntries(Object.entries(icmp6).map(([k, v]) => [k, v.sort((x, y) => x - y)]));
+    if (withV6) entry.icmp6 = icmp6;
     const nats = [...net.nodes.values()].filter(n => n.nat);
     if (nats.length) entry.nat = Object.fromEntries(nats.map(n => [n.name, n.nat.conntrack()]));   // live tracking entries, in conntrack's shape (validate/nat compares them)
     if (trace) entry.trace = net.trace.slice(t0);
