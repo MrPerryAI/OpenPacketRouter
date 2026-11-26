@@ -319,6 +319,10 @@ try {
   check(rv.ok && !/spec /.test(rv.errors), "VRRP spec loads", rv.errors.slice(0, 120));
   await page.evaluate(() => { window.studio.select("R1"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /VRRP advert vrid/.test(st.desc))), "VRRP adverts are named in playback");
+  check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "vrrp")), "VRRP frames get a filter checkbox");
+  check(await page.$eval("#legend", l => /VRRP/.test(l.textContent)), "the legend lists VRRP");
+  const badWait = await page.$$eval("#actions li", l => l.filter(x => /wait|cable|link/i.test(x.textContent) && x.querySelector(".bad")).length);
+  check(badWait === 0, "wait and cable actions are not marked as failures", String(badWait));
   await page.evaluate(() => { window.studio.select("R2"); });
   const vp = await page.textContent("#device");
   check(/VRRP/.test(vp) && /MASTER/.test(vp), "after the master is cut, the backup router shows MASTER; a VRRP router's panel shows its group state", vp.slice(0, 100));

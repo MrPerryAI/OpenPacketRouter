@@ -13,7 +13,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp", "icmp6", "ndp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
 const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
@@ -249,8 +249,9 @@ function drawActions() {
   S.sim.actions.forEach((a, k) => {
     const li = document.createElement("li"); li.dataset.action = k;
     const ok = a.result && (a.result.ok || a.result.reached || a.action.do === "udpBurst");
+    const neutral = !["ping", "traceroute", "dns", "dhcp", "tcp"].includes(a.action.do);   // wait, link, reads: nothing that can fail
     const n = a.last - a.first + 1;
-    li.innerHTML = `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}${a.lost ? `, ${a.lost} lost on a lossy cable` : ""}</small>`;
+    li.innerHTML = `<span class="${neutral ? "ok" : ok ? "ok" : "bad"}">${neutral ? "•" : ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}${a.lost ? `, ${a.lost} lost on a lossy cable` : ""}</small>`;
     li.addEventListener("click", () => { stop(); goto(a.last >= a.first ? a.first : -1); });
     ol.appendChild(li);
   });
