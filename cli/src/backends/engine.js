@@ -110,6 +110,9 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     if (n.rip) { const {networks, passive, timers, splitHorizon, triggered} = n.rip;
       out.rip = {networks: [...networks], ...(passive ? {passive: [...passive]} : {}), ...(timers ? {timers: {...timers}} : {}),
         ...(splitHorizon !== undefined ? {splitHorizon} : {}), ...(triggered !== undefined ? {triggered} : {})}; }
+    if (n.ripng) { const {networks, passive, timers, splitHorizon, triggered} = n.ripng;
+      out.ripng = {networks: [...networks], ...(passive ? {passive: [...passive]} : {}), ...(timers ? {timers: {...timers}} : {}),
+        ...(splitHorizon !== undefined ? {splitHorizon} : {}), ...(triggered !== undefined ? {triggered} : {})}; }
     if (n.ospf) {
       const o = M.ospf(m, true);
       if (n.ospf.routerId) o.global.config["router-id"] = n.ospf.routerId;
@@ -144,7 +147,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "rip", "ripng", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -259,6 +262,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (s.tcp) svc.tcp = {...s.tcp};
     if (s.lldp) n.lldp = {...s.lldp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
+    if (s.ripng && s.ripng.networks.length) n.ripng = JSON.parse(JSON.stringify(s.ripng));
     if (s.acl) {
       const bind = {};
       for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:acl"]) bind[ifn] = {...ifc["openpacketrouter:acl"]};
