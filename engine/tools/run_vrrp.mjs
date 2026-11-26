@@ -11,9 +11,15 @@ const net = Network.fromSpec(JSON.parse(fs.readFileSync(specFile, "utf8")));
 const steps = JSON.parse(fs.readFileSync(stepsFile, "utf8"));
 const frames = [], out = [];
 net.taps.add((n, i, f) => {
+  if (!n.vrrp) return; // like the Linux capture: only what the VRRP routers send, not the switch's copies
+  const cable = `${n.name}:${i}>${n.ifaces[i].peer.node.name}:${n.ifaces[i].peer.name}`;
+  if (f.type === "arp") { // gratuitous only (sender address = target address), like the validator's capture
+    if (f.arp.spa === f.arp.tpa) frames.push({t: net.time, cable, kind: "arp", dst: f.dst, src: f.src, op: f.arp.op === "request" ? 1 : 2, sha: f.arp.sha, spa: f.arp.spa, tha: f.arp.tha, tpa: f.arp.tpa});
+    return;
+  }
   if (f.type !== "ipv4" || f.ip.proto !== "vrrp") return;
   const v = f.ip.vrrp;
-  frames.push({t: net.time, cable: `${n.name}:${i}>${n.ifaces[i].peer.node.name}:${n.ifaces[i].peer.name}`, src: f.ip.src, dst: f.dst, vrid: v.vrid, priority: v.priority, interval: v.interval, ttl: f.ip.ttl});
+  frames.push({t: net.time, cable, src: f.ip.src, dst: f.dst, vrid: v.vrid, priority: v.priority, interval: v.interval, ttl: f.ip.ttl});
 });
 let clock = 0;
 for (const s of steps) {
