@@ -154,6 +154,26 @@
       }
      ]
     }
+   },
+   "bgp": {
+    "asn": 65001,
+    "routerId": "1.1.1.1",
+    "networks": [
+     "10.1.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.0.10.2",
+      "remoteAs": 65002,
+      "nextHopSelf": true,
+      "localPref": 200
+     }
+    ]
    }
   },
   {
