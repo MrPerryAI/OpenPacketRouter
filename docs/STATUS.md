@@ -34,6 +34,8 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [x] SPAN port mirroring vs tc mirred [dhcp-tcp] (PR #144: frame counts and the ordered frames each monitor port sends)
 - [x] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp] (PR #155). Modelled = global addresses, NS/NA, echo, static routes. Not modelled yet = link-local addresses as routing targets (they are used only as solicitation sources), NUD re-probing of used neighbors (the validator pins Linux's delay_first_probe_time high), DAD, MLD, RS/RA/SLAAC (the validator pins Linux with nodad and drops MLD/RS/DAD chatter on output, so those are simply absent from the comparison).
 - [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
+- Not validatable: PVST+ / per-VLAN spanning tree. Linux bridges have no per-VLAN STP, so there is nothing to compare frame for frame; the engine keeps one tree (802.1D or RSTP) for all VLANs.
+- Later, after v1.0: OSPFv3. RIPng covers the v1.0 IPv6 dynamic routing item.
 
 **E. Transport and links**
 - [x] TCP data retransmission and window behaviour vs Linux [ui]: segments and retransmission timer (PR #133); receive window with zero-window stall, probes and window update (PR #176)
