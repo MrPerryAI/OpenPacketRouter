@@ -285,6 +285,7 @@ export class Ospf {
       else return;
       n.tDD = this._off(n.tDD);
       n.summary = [...this.lsdb.values()].filter(l => !this._isMaxAge(l) && this._inScope(l, i)).sort((a, b) => a.type - b.type || cmpIp(a.id, b.id) || cmpIp(a.adv, b.adv)).map(l => this._hdr(l));
+      for (const [k, l] of this.lsdb) if (this._isMaxAge(l) && this._inScope(l, i)) { n.rxmt.set(k, l); this._armRxmt(i, n); }   // 10.3: MaxAge LSAs go on the retransmission list, not into the summary
       this.log("ospf-nbr", `${n.rid}: ${n.iAmMaster ? "we are the master" : "the neighbor is the master"}, exchanging ${n.summary.length} LSA header(s)`);
       this._setState(n, "Exchange");
       return this._exchange(i, n, d, true);
