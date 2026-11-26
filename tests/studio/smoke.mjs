@@ -296,6 +296,12 @@ try {
   check(rh.ok && !/spec /.test(rh.errors), "HTTP spec loads", rh.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /\(GET \//.test(st.desc))), "an HTTP GET request is named in the frame description");
 
+  const rs = await vload("services/syslog-lan.json", "services/syslog-lan.actions.json");
+  check(rs.ok && !/spec /.test(rs.errors), "syslog lab loads", rs.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); });
+  const svcPanel = await page.textContent("#device");
+  check(/Services/.test(svcPanel) && /Syslog receiver/.test(svcPanel), "a server's panel lists its syslog receiver", svcPanel.slice(0, 80));
+
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
   await page.evaluate(() => window.studio.select("R2"));

@@ -91,6 +91,8 @@ export function snapshotDevices(net) {
         neighbors: [...n.v6.cache].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface}))};
       if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
       if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
+      const sv = n.services || {};
+      if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }
