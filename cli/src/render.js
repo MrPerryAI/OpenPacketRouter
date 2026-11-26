@@ -39,7 +39,7 @@ export function configLines(model, {kind, ports}) {
   if (og) {
     out.push("router ospf");
     if (og.global.config["router-id"]) out.push(` router-id ${og.global.config["router-id"]}`);
-    for (const x of og["openpacketrouter:networks"]) out.push(/^\d/.test(x) ? ` network ${x}` : ` network interface ${x}`);
+    for (const e of og["openpacketrouter:networks"]) { const x = typeof e === "object" ? e.network : e; out.push(` network ${/^\d/.test(x) ? "" : "interface "}${x}${typeof e === "object" ? ` area ${e.area}` : ""}`); }
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
     out.push("!");
   }

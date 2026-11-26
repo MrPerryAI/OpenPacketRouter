@@ -35,10 +35,11 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
   if (og && og["openpacketrouter:networks"].length) {
     out.push("router ospf");
     if (og.global.config["router-id"]) out.push(` ospf router-id ${og.global.config["router-id"]}`);
-    for (const x of og["openpacketrouter:networks"]) {
-      if (x.includes("/")) { out.push(` network ${x} area 0`); continue; }       // an interface name: its own network
+    for (const e of og["openpacketrouter:networks"]) {
+      const x = typeof e === "object" ? e.network : e, area = typeof e === "object" ? e.area : "0";
+      if (x.includes("/")) { out.push(` network ${x} area ${area}`); continue; }       // an interface name: its own network
       const ifc = M.iface(model, x, false);
-      for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area 0`);
+      for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area ${area}`);
     }
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
     out.push("exit");

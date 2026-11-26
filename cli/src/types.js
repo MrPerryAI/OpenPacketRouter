@@ -65,6 +65,7 @@ function matchPort(word, ctx) {
 
 export const TYPES = {
   "ipv4-address": {hint: "A.B.C.D", help: "IPv4 address", test: isIp},
+  "ospf-area": {hint: "A.B.C.D|N", help: "OSPF area, as a number or like 0.0.0.1", test: s => isIp(s) || (/^\d+$/.test(s) && +s <= 0xffffffff), normalize: s => isIp(s) ? s : [24, 16, 8, 0].map(b => (+s >>> b) & 255).join(".")},
   "ipv4-mask": {hint: "A.B.C.D", help: "Network mask", test: s => maskToPrefix(s) !== null},
   "ipv4-prefix": {hint: "A.B.C.D/M", help: "IPv4 network and prefix length", test: isPrefix},
   "vlan-id": {...uint(1, 4094), help: "VLAN number"},

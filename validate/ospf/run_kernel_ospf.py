@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed"]
+SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
@@ -96,8 +96,10 @@ class OspfNet(l3.KernelNet):
         if o.get("routerId"): conf += [f" ospf router-id {o['routerId']}"]
         conf += [f" passive-interface {x}" for x in o.get("passive", [])]
         for x in o["networks"]:
+            area = "0.0.0.0"
+            if isinstance(x, dict): area = area_id(x.get("area", 0)); x = x["network"]
             if "/" not in x: x = str(__import__("ipaddress").ip_interface(n["ifaces"][x]).network)
-            conf += [f" network {x} area 0"]
+            conf += [f" network {x} area {area}"]
         conf += ["!"]
         Path(f"{d}/ospfd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
@@ -124,7 +126,7 @@ class OspfNet(l3.KernelNet):
         raw = os.environ.get("OSPF_RAW")   # a file to append the raw vtysh JSON to (for developing the parsers)
         nb = json.loads(self.vty(name, "show ip ospf neighbor json") or "{}")
         ifs = json.loads(self.vty(name, "show ip ospf interface json") or "{}")
-        db = {"router": json.loads(self.vty(name, "show ip ospf database router json") or "{}"), "network": json.loads(self.vty(name, "show ip ospf database network json") or "{}")}
+        db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary")}
         if raw: print(f"=== {name} neighbor", json.dumps(nb, indent=1), f"=== {name} interface", json.dumps(ifs, indent=1), f"=== {name} database", json.dumps(db, indent=1), file=open(raw, "a"))
         return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db)}
 
@@ -157,6 +159,12 @@ class OspfNet(l3.KernelNet):
         return sorted(out, key=lambda p: p["t"])
 
 
+def area_id(a):
+    """An area as dotted decimal: 1 -> 0.0.0.1 (the spec takes either)."""
+    if isinstance(a, int) or str(a).isdigit(): a = int(a); return ".".join(str((a >> k) & 255) for k in (24, 16, 8, 0))
+    return str(a)
+
+
 def ip2int(s): return struct.unpack("!I", bytes(int(x) for x in s.split(".")))[0]
 def ip4(b): return ".".join(str(x) for x in b)
 
@@ -183,28 +191,43 @@ def parse_interfaces(js):
 
 
 def parse_database(js):
-    """[{type, id, adv, links | mask, attached}] like the engine's database(): routers by ID, networks by DR address."""
+    """[{type, area, id, adv, links | maskLen, attached | maskLen, metric}] like the engine's database(): routers by ID, networks by DR address, summaries by prefix."""
     out = []
-    for l in (js["router"].get("routerLinkStates", {}).get("areas", {}).get("0.0.0.0") or []):
-        links = []
-        for k in sorted(l["routerLinks"], key=lambda k: int(k[4:])):
-            x = l["routerLinks"][k]; t = LINK_TYPES[x["linkType"]]
-            links.append({"type": t, "id": {"p2p": x.get("neighborRouterId"), "stub": x.get("networkAddress"), "transit": x.get("designatedRouterAddress")}[t],
-                          "data": {"p2p": x.get("routerInterfaceAddress"), "stub": x.get("networkMask"), "transit": x.get("routerInterfaceAddress")}[t], "metric": x["tos0Metric"]})
-        if l["lsaAge"] >= 3600: continue   # flushed (MaxAge), waiting for ospfd's 30 s sweep to drop it; the engine drops it at once
-        out.append({"type": "router", "id": l["linkStateId"], "adv": l["advertisingRouter"], "links": links})
-    for l in (js["network"].get("networkLinkStates", {}).get("areas", {}).get("0.0.0.0") or []):
-        if l["lsaAge"] >= 3600: continue
-        out.append({"type": "network", "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": l["networkMask"], "attached": sorted(l["attchedRouters"], key=ip2int)})
-    return sorted(out, key=lambda l: (l["type"] != "router", ip2int(l["id"]), ip2int(l["adv"])))
+    for area, lsas in (js["router"].get("routerLinkStates", {}).get("areas", {}) or {}).items():
+        for l in lsas or []:
+            links = []
+            for k in sorted(l["routerLinks"], key=lambda k: int(k[4:])):
+                x = l["routerLinks"][k]; t = LINK_TYPES[x["linkType"]]
+                links.append({"type": t, "id": {"p2p": x.get("neighborRouterId"), "stub": x.get("networkAddress"), "transit": x.get("designatedRouterAddress")}[t],
+                              "data": {"p2p": x.get("routerInterfaceAddress"), "stub": x.get("networkMask"), "transit": x.get("routerInterfaceAddress")}[t], "metric": x["tos0Metric"]})
+            if l["lsaAge"] >= 3600: continue   # flushed (MaxAge), waiting for ospfd's 30 s sweep to drop it; the engine drops it at once
+            out.append({"type": "router", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "links": links})
+    for area, lsas in (js["network"].get("networkLinkStates", {}).get("areas", {}) or {}).items():
+        for l in lsas or []:
+            if l["lsaAge"] >= 3600: continue
+            out.append({"type": "network", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "attached": sorted(l["attchedRouters"], key=ip2int)})
+    for area, lsas in (js["summary"].get("summaryLinkStates", {}).get("areas", {}) or {}).items():
+        for l in lsas or []:
+            if l["lsaAge"] >= 3600: continue
+            out.append({"type": "summary", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric", l.get("tos0Metric"))})
+    return sorted(out, key=db_key)
+
+
+TYPE_ORDER = {"router": 0, "network": 1, "summary": 2, "external": 3}
+def db_key(l): return (ip2int(l["area"]), TYPE_ORDER[l["type"]], ip2int(l["id"]), ip2int(l["adv"]))
+def ml(v): return v if isinstance(v, int) else mask_len(v)
+def mask_len(m): return sum(bin(int(o)).count("1") for o in m.split("."))
 
 
 def engine_database(db):
     out = []
     for l in db:
-        if l["type"] == "router": out.append({"type": "router", "id": l["id"], "adv": l["adv"], "links": l["links"]})
-        else: out.append({"type": "network", "id": l["id"], "adv": l["adv"], "maskLen": sum(bin(int(o)).count("1") for o in l["mask"].split(".")), "attached": sorted(l["attached"], key=ip2int)})
-    return out
+        e = {"type": l["type"], "area": l["area"], "id": l["id"], "adv": l["adv"]}
+        if l["type"] == "router": e["links"] = l["links"]
+        elif l["type"] == "network": e.update(maskLen=mask_len(l["mask"]), attached=sorted(l["attached"], key=ip2int))
+        else: e.update(maskLen=mask_len(l["mask"]), metric=l["metric"])
+        out.append(e)
+    return sorted(out, key=db_key)
 
 
 def canon_router(r, kernel):
@@ -335,12 +358,19 @@ def compare(name, eng, kr):
         if not ok:
             d = {}
             for part in ("neighbors", "interfaces", "routes", "database"):
-                if not checks[part]: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
+                if checks[part]: continue
+                if part == "database":   # only the LSAs that differ (the annotation GitHub keeps is short)
+                    jd = lambda l: json.dumps(l, sort_keys=True)
+                    d[part] = {r: {"engine only": sorted(set(map(jd, ec[r][part])) - set(map(jd, kc[r][part]))), "linux only": sorted(set(map(jd, kc[r][part])) - set(map(jd, ec[r][part])))} for r in ec if ec[r][part] != kc[r][part]}
+                else: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
             if not checks.get("last hello on every cable", True):
                 el, kl = last_hellos(eupto), last_hellos(kupto)
                 d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}
             if not checks["packet types on every cable"]:
                 d["packet types"] = {c: {"engine": et.get(c), "linux": kt.get(c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
+                trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:12]   # what crossed, for finding the cause
+                for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
+                d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
@@ -359,7 +389,7 @@ def only_p2p_acks(detail, switches):
     flooded around a triangle) reaches the router first, a race in real time that the engine, following RFC 2328,
     cannot reproduce on every run (2 of 24 runs of ospf-p2p under CPU load). Anything else is never retried."""
     for d in detail.values():
-        if set(d) != {"packet types"}: return False
+        if set(d) - {"all cables (non-Hello, both sides)"} != {"packet types"}: return False
         for cable, v in d["packet types"].items():
             if any(f"{sw}:" in cable for sw in switches): return False
             if set(v["engine"] or []) ^ set(v["linux"] or []) != {"ack"}: return False
@@ -369,7 +399,9 @@ def only_p2p_acks(detail, switches):
 def main():
     need = ["unshare", "ip", "tcpdump", "vtysh", f"{FRR}/ospfd", f"{FRR}/zebra"]
     if os.geteuid() != 0 or not all(shutil.which(x) or os.path.exists(x) for x in need):
-        print("Needs root, unshare, iproute2, tcpdump and FRRouting (zebra, ospfd, vtysh). Skipping."); return 0
+        msg = "Needs root, unshare, iproute2, tcpdump and FRRouting (zebra, ospfd, vtysh)."
+        if os.environ.get("GITHUB_ACTIONS"): print(msg + " Missing on the runner: failing.", file=sys.stderr); return 1
+        print(msg + " Skipping."); return 0
     names = sys.argv[1:] or SPECS
     kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner", *names], check=True,
                                      capture_output=True, text=True, timeout=1800).stdout)
@@ -391,6 +423,12 @@ def main():
     (HERE / "results.md").write_text("\n".join(md) + "\n")
     (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
+    chunk, part = [], 0   # the same table as annotations (the raw log can't be fetched): results.md is committed from a green run's
+    for row in md + [None]:
+        if row is None or sum(len(x) + 1 for x in chunk) + len(row) > 3000:
+            if chunk: part += 1; l3.gh_note("notice", f"OSPF results {part}", "\n".join(chunk))
+            chunk = []
+        if row is not None: chunk.append(row)
     if detail: print(json.dumps(detail, indent=1)[:8000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
