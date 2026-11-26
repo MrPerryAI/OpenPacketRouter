@@ -39,12 +39,12 @@ R2> show vrrp
 
 ## What to expect
 
-- After about 3 s R1 becomes master (the first ping is answered by R1) and R2 stays backup.
+- After a few seconds (three adverts plus a skew time, about 3.6 s) R1 becomes master (the first ping is answered by R1) and R2 stays backup.
 - After the cut, R2 misses R1's adverts, becomes master within a few seconds, and answers the next ping to `10.0.0.254`.
 - When the cable returns, R1 sees a lower-priority master, preempts, and is master again.
 
 ## Change something
 
-On R1, run `vrrp 1 no-preempt` under `eth0` (in configure mode): after the cable returns, R2 stays master. Or lower R1's priority below 100 with `vrrp 1 priority 50` and R2 wins from the start.
+On R1, run `no vrrp 1 preempt` under `eth0` (in configure mode): after the cable returns, R2 stays master. Or lower R1's priority below 100 with `vrrp 1 priority 50` and R2 wins from the start.
 
 More detail for the curious: [the lab's own README](../../examples/vrrp-gateway/README.md).
