@@ -1,0 +1,106 @@
+{
+ "version": 1,
+ "name": "RIPng on a chain of routers",
+ "about": "H1 - R1 - R2 - R3 - H3, all IPv6. The three routers run RIPng with short timers (update every 5 s). Cut the R2-R3 cable and the ping fails; restore it and the routes, and the ping, come back.",
+ "nodes": [
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces6": {
+    "eth0": "2001:db8:1::10/64"
+   },
+   "gw6": "2001:db8:1::1"
+  },
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces6": {
+    "eth0": "2001:db8:1::1/64",
+    "eth1": "2001:db8:12::1/64"
+   },
+   "ripng": {
+    "networks": [
+     "2001:db8::/32"
+    ],
+    "splitHorizon": "poisoned",
+    "timers": {
+     "update": 5,
+     "timeout": 15,
+     "garbage": 10
+    },
+    "passive": [
+     "eth0"
+    ]
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces6": {
+    "eth0": "2001:db8:12::2/64",
+    "eth1": "2001:db8:23::1/64"
+   },
+   "ripng": {
+    "networks": [
+     "2001:db8::/32"
+    ],
+    "splitHorizon": "poisoned",
+    "timers": {
+     "update": 5,
+     "timeout": 15,
+     "garbage": 10
+    }
+   }
+  },
+  {
+   "name": "R3",
+   "kind": "router",
+   "ifaces6": {
+    "eth0": "2001:db8:23::2/64",
+    "eth1": "2001:db8:3::1/64"
+   },
+   "ripng": {
+    "networks": [
+     "eth0",
+     "eth1"
+    ],
+    "splitHorizon": "poisoned",
+    "timers": {
+     "update": 5,
+     "timeout": 15,
+     "garbage": 10
+    }
+   }
+  },
+  {
+   "name": "H3",
+   "kind": "host",
+   "ifaces6": {
+    "eth0": "2001:db8:3::10/64"
+   },
+   "gw6": "2001:db8:3::1"
+  }
+ ],
+ "links": [
+  [
+   "H1:eth0",
+   "R1:eth0",
+   1
+  ],
+  [
+   "R1:eth1",
+   "R2:eth0",
+   1
+  ],
+  [
+   "R2:eth1",
+   "R3:eth0",
+   1
+  ],
+  [
+   "R3:eth1",
+   "H3:eth0",
+   1
+  ]
+ ]
+}

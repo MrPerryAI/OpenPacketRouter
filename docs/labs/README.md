@@ -26,3 +26,4 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [Count to infinity](count-to-infinity.md) | A classic routing failure: bad news and stale news chase each other around a loop of routers. |
 | [Access lists on a router](acl-lab.md) | Filtering traffic with ordered permit/deny rules on an interface, and what a denied sender is told. |
 | [NAT on a router](nat-lab.md) | Private addresses sharing one public address (overload), a fixed 1:1 mapping, and a port forward. |
+| [RIPng on a chain of routers](ripng-chain.md) | RIP for IPv6: routers learn prefixes, a cut cable makes a route unreachable, and restoring it brings it back. |
