@@ -392,8 +392,8 @@ def compare(name, eng, kr):
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
                 pf = lambda r: {x["network"] for x in ec[r]["routes"] + kc[r]["routes"]} | {f'{x["id"]}/{x["maskLen"]}' for x in ec[r]["database"] + kc[r]["database"] if "maskLen" in x}
-                d["linux debug (zebra RIB and kernel routes)"] = dict(list({r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": [x for x in v["debug"].get("external", []) if x[0] + "/24" in pf(r)]}
-                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}.items())[:2])
+                d["linux debug (zebra RIB and kernel routes)"] = dict(sorted({r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": [x for x in v["debug"].get("external", []) if x[0] + "/24" in pf(r)]}
+                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}.items(), key=lambda kv: ec[kv[0]]["routes"] == kc[kv[0]]["routes"])[:2])   # the routers whose routes differ first
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
