@@ -8,6 +8,6 @@ Compared exactly:
 - whether a host can ping the virtual address;
 - the set of distinct advertisements per cable direction (source, vrid, priority, interval, TTL, destination MAC).
 
-The one tolerance: the advertisement **count** per cable direction between two snapshots may differ by at most 2. keepalived's timers run in real time and it starts a fraction of a second after the engine's clock zero, so a window can gain or lose one advert at each end. Nothing else is loosened. Snapshots sit on plateaus (seconds after each change) because the exact instant of a takeover differs slightly on a loaded kernel.
+No tolerance on counts: the advertisements per cable direction between two snapshots are compared **exactly**, counted from the first advert after the previous snapshot over whole advert intervals that end mid-interval, the same span on both sides. That removes the phase difference between keepalived's real-time timers (it starts a fraction of a second after the engine's clock zero) and the engine's clock without loosening anything. Snapshots sit on plateaus (seconds after each change) because the exact instant of a takeover differs slightly on a loaded kernel.
 
 Known differences are listed in `mismatches.json`.

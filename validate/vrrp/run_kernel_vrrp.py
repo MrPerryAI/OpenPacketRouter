@@ -10,8 +10,8 @@ pairs, the switch is a Linux bridge), configured from the spec: state BACKUP, pr
     only while master);
   - whether a host can ping the virtual address (a real ping on Linux);
   - the advertisements on every cable direction between two snapshots: the set of distinct ones (source address,
-    vrid, priority, interval, TTL, destination MAC) and how many there were (within 1: keepalived's timers run in
-    real time and its start is not exactly the engine's);
+    vrid, priority, interval, TTL, destination MAC) and how many there were (exact: counted from the first
+    advert after the previous snapshot over whole advert intervals ending mid-interval, the same span on both sides);
   - the gratuitous ARPs on every cable direction (exact frames and exact counts). keepalived is pinned to one ARP
     per takeover (garp_master_repeat 1, no delayed second burst, no refresh), which is what the engine sends.
 
