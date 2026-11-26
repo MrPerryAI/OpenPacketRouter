@@ -426,12 +426,27 @@ export function runActions(spec, actions, {trace = false} = {}) {
   const va = validateActions(actions, spec);
   if (!va.ok) throw new SpecError("actions", va.errors);
   const out = [];
+  // Port mirroring: the frames that leave each monitor port, in order, as "A:eth0>B:eth0 icmp 8" (validate/span compares them with tcpdump).
+  const monPorts = new Set([...net.nodes.values()].flatMap(n => n.mirrorDest ? [...n.mirrorDest].map(p => `${n.name}:${p}`) : []));
+  let mirrored = {};
+  if (monPorts.size) {
+    const macName = new Map([...net.nodes.values()].flatMap(n => Object.values(n.ifaces).filter(i => i.mac).map(i => [i.mac.toLowerCase(), `${n.name}:${i.name}`])));
+    const nm = m => macName.get(m.toLowerCase()) ?? m.toLowerCase();
+    net.taps.add((node, ifname, f) => {
+      if (!monPorts.has(`${node.name}:${ifname}`)) return;
+      const what = f.type === "arp" ? `arp ${f.arp.op}` : f.type === "ipv4" ? `${f.ip.proto}${f.ip.icmp ? " " + f.ip.icmp.type : ""}` : f.type;
+      const peer = node.ifaces[ifname].peer;
+      (mirrored[`${node.name}:${ifname}>${peer.node.name}:${peer.name}`] ||= []).push(`${nm(f.src)}>${nm(f.dst)} ${what}`);
+    });
+  }
   for (const a of actions) {
+    mirrored = {};
     if (!a.keepCaches) net.flushCaches();   // keepCaches: carry ARP caches and MAC tables over from the last action
     const before = net.snapshot(); const t0 = net.trace.length; const qBefore = queueStats(net);
     const result = ACTIONS[a.do].run(net, a);
     net.settle(a.settle ?? (["wait", "macTable", "stp", "lacp"].includes(a.do) ? 0 : 1));
     const entry = {action: a, result, frames: net.diff(before)};
+    if (monPorts.size) entry.mirrored = mirrored;
     const q = queueStats(net);
     if (Object.keys(q).length) { entry.drops = {}; for (const [k, v] of Object.entries(q)) { const d = v.dropped - (qBefore[k]?.dropped ?? 0); if (d) entry.drops[k] = d; } }
     const nats = [...net.nodes.values()].filter(n => n.nat);
