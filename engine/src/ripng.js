@@ -152,7 +152,9 @@ export class RipNg {
   }
   _output(ifname, to, kind) {
     const all = this.entries(ifname, kind);
-    for (let k = 0; k < all.length; k += MAX_RTE) this._send(ifname, to, {command: "response", version: 1, entries: all.slice(k, k + MAX_RTE)});
+    // ripngd starts every response with a next-hop RTE (RFC 2080 2.1.1): the sender's own link-local address, prefix length 0, metric 255.
+    const hop = {prefix: this.v6.linkLocal(ifname), len: 0, tag: 0, metric: 255};
+    for (let k = 0; k < all.length; k += MAX_RTE - 1) this._send(ifname, to, {command: "response", version: 1, entries: [hop, ...all.slice(k, k + MAX_RTE - 1)]});
   }
   _send(ifname, to, ripng) {
     const i = this.node.ifaces[ifname], src = this.v6.linkLocal(ifname);

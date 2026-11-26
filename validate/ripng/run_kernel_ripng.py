@@ -180,7 +180,10 @@ def inner():
 def norm(run):
     """Replace every link-local address by its interface's name, in packets and tables."""
     ll = run["ll"]; f = lambda a: ll.get(a, a)
-    for p in run["packets"]: p["src"] = f(p["src"]); p["dst"] = f(p["dst"])
+    for p in run["packets"]:
+        p["src"] = f(p["src"]); p["dst"] = f(p["dst"])
+        for e in p.get("entries", []):
+            if e["metric"] == 255: e["prefix"] = f(e["prefix"])   # the next-hop RTE carries the sender's link-local address
     for s in run["steps"]:
         for rows in s.get("tables", {}).values():
             for r in rows: r["nextHop"] = f(r["nextHop"])
