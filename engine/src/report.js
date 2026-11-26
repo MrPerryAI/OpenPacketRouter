@@ -12,6 +12,8 @@ export function describeResult(a, r) {
   if (a.do === "lacp") return `port-channels on ${r.switch}: ` + (r.channels.map(c => `${c.name} (${c.rate}) ` + c.members.map(m => `${m.port} ${!m.up ? "down" : m.aggregated ? "bundled" : "waiting"}`).join(", ")).join("; ") || "none");
   if (a.do === "dhcpSnooping") return `DHCP snooping on ${r.switch}: trusted ${r.trusted.join(", ") || "none"}; server messages dropped: ` + (Object.entries(r.dropped).map(([p, c]) => `${p} ${c}`).join(", ") || "none");
   if (a.do === "link") return `cable at ${a.end} ${r.up ? "restored" : "cut"}`;
+  if (a.do === "vrrpState") return `VRRP on ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.groups.map(g => `${g.iface} group ${g.vrid} (${g.ip}) ${g.state}${g.masterIp ? ", master " + g.masterIp : ""}`).join("; ") || "no groups");
+  if (a.do === "lldpNeighbors") return `LLDP neighbors of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.neighbors.map(n => `${n.iface} sees ${n.sysName} (${n.portDescr})`).join("; ") || "none");
   if (a.do === "ripTable") return `RIP table of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.routes.map(x => `${x.type} ${x.network}${x.type === "R" ? " via " + x.nextHop : ""} metric ${x.metric}`).join(", ") || "empty");
   if (a.do === "ripRoute") return `${a.network} at ${+r.t.toFixed(3)} s: ` + Object.entries(r.routers).map(([n, x]) =>
     `${n} ${x ? (x.metric === 16 ? "16 (unreachable)" : x.metric) + (x.type === "R" ? " via " + x.nextHop : " (connected)") : "no route"}`).join(" · ");
