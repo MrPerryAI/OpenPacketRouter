@@ -16,6 +16,7 @@ const ospfG = ctx => { need(M.ospf(ctx.model), "OSPF is not running: use router 
 const TIMERS = new Set(["hello-interval", "dead-interval", "retransmission-interval"]);
 const ospfIfCtx = ctx => { need(M.ospf(ctx.model), "OSPF is not running: use router ospf first"); return M.ospfIf(ctx.model, curIface(ctx).config.name); };
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
+const ripng = ctx => { need(ctx.s.router === "ripng" && M.services(ctx.model).ripng, "Not in RIPng configuration"); return M.services(ctx.model).ripng; };
 const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
 const lldp = ctx => { need(M.services(ctx.model).lldp, "LLDP is not running: use \"lldp run\" first"); return M.services(ctx.model).lldp; };
 const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
@@ -246,6 +247,18 @@ export const HANDLERS = {
   "lldp.no-hold": ctx => { delete lldp(ctx).holdMultiplier; },
   "lldp.description": (ctx, [t]) => { lldp(ctx).description = t; },
   "lldp.no-description": ctx => { delete lldp(ctx).description; },
+
+  // ---- RIPng (kept under services.ripng, shaped like the spec's ripng block)
+  "ripng.enter": ctx => { const s = M.services(ctx.model); s.ripng ||= {networks: []}; ctx.s.router = "ripng"; },
+  "ripng.remove": ctx => { const s = M.services(ctx.model); need(s.ripng, "RIPng is not running"); delete s.ripng; },
+  "ripng.network": (ctx, [n]) => { const r = ripng(ctx); if (!r.networks.includes(n)) r.networks.push(n); },
+  "ripng.no-network": (ctx, [n]) => { const r = ripng(ctx); need(r.networks.includes(n), `RIPng does not run on ${n}`); r.networks = r.networks.filter(x => x !== n); },
+  "ripng.passive": (ctx, [i]) => { const r = ripng(ctx); r.passive ||= []; if (!r.passive.includes(i)) r.passive.push(i); },
+  "ripng.no-passive": (ctx, [i]) => { const r = ripng(ctx); need(r.passive?.includes(i), `${i} is not passive`); r.passive = r.passive.filter(x => x !== i); if (!r.passive.length) delete r.passive; },
+  "ripng.timers": (ctx, [update, timeout, garbage]) => { ripng(ctx).timers = {update: +update, timeout: +timeout, garbage: +garbage}; },
+  "ripng.no-timers": ctx => { delete ripng(ctx).timers; },
+  "ripng.split": (ctx, args, v) => { const r = ripng(ctx); if (v === "simple") delete r.splitHorizon; else r.splitHorizon = v; },
+  "ripng.triggered": (ctx, args, v) => { const r = ripng(ctx); if (v === "true") delete r.triggered; else r.triggered = false; },
 
   // ---- RIPv2 (kept under services.rip, shaped like the spec's rip block)
   "rip.enter": ctx => { const s = M.services(ctx.model); s.rip ||= {networks: []}; ctx.s.router = "rip"; },
