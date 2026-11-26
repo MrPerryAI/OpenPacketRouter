@@ -172,6 +172,17 @@ def per_cable(win):
     return d
 
 
+def aligned_counts(win, start, end):
+    """Adverts per cable direction, counted from the first advert after `start` over a whole number of advert intervals that
+    still ends before `end` (mid-interval), so both sides count the same span however the timers are phased."""
+    out = {}
+    for c in {f["cable"] for f in win}:
+        fr = [f for f in win if f["cable"] == c]
+        n = max(0, int((end - start) // fr[0]["interval"]) - 1)
+        out[c] = sum(1 for f in fr if f["t"] < fr[0]["t"] + n * fr[0]["interval"])
+    return out
+
+
 def main():
     need = ["unshare", "ip", "tcpdump", "keepalived", "ping"]
     missing = [x for x in need if not shutil.which(x)]
@@ -188,12 +199,14 @@ def main():
         kr = kern[name]
         pe, pk = phases(eng), phases(kr)
         assert len(pe) == len(pk), f"{name}: engine has {len(pe)} snapshots, keepalived run {len(pk)}"
+        prev_t = 0.0
         for (es, ewin), (ks, kwin) in zip(pe, pk):
+            span = (prev_t, es["t"]); prev_t = es["t"]
             ef, kf = per_cable([f for f in ewin if f.get("kind") != "arp"]), per_cable([f for f in kwin if f.get("kind") != "arp"])
             ea, ka = per_cable([f for f in ewin if f.get("kind") == "arp"]), per_cable([f for f in kwin if f.get("kind") == "arp"])
             checks = {"master": es["states"] == ks["states"], "ping": es.get("ping") == ks.get("ping"),
                       "advertisements": {c: sorted(set(v)) for c, v in ef.items()} == {c: sorted(set(v)) for c, v in kf.items()},
-                      "advert counts": all(abs(len(ef.get(c, [])) - len(kf.get(c, []))) <= 1 for c in set(ef) | set(kf)),
+                      "advert counts": aligned_counts([f for f in ewin if f.get("kind") != "arp"], *span) == aligned_counts([f for f in kwin if f.get("kind") != "arp"], *span),
                       "gratuitous ARP": {c: sorted(v) for c, v in ea.items()} == {c: sorted(v) for c, v in ka.items()}}
             ok = all(checks.values())
             master = ", ".join(n for n, s in es["states"].items() if s == "master") or "none"
