@@ -379,7 +379,9 @@ def compare(name, eng, kr):
                 if part == "database":   # only the LSAs that differ (the annotation GitHub keeps is short)
                     jd = lambda l: json.dumps(l, sort_keys=True)
                     d[part] = {r: {"engine only": sorted(set(map(jd, ec[r][part])) - set(map(jd, kc[r][part]))), "linux only": sorted(set(map(jd, kc[r][part])) - set(map(jd, ec[r][part])))} for r in ec if ec[r][part] != kc[r][part]}
-                else: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
+                else:
+                    jd = lambda l: json.dumps(l, sort_keys=True)   # only the entries that differ
+                    d[part] = {r: {"engine only": [x for x in ec[r][part] if jd(x) not in set(map(jd, kc[r][part]))], "linux only": [x for x in kc[r][part] if jd(x) not in set(map(jd, ec[r][part]))]} for r in ec if ec[r][part] != kc[r][part]}
             if not checks.get("last hello on every cable", True):
                 el, kl = last_hellos(eupto), last_hellos(kupto)
                 d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}
@@ -390,8 +392,8 @@ def compare(name, eng, kr):
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
                 pf = lambda r: {x["network"] for x in ec[r]["routes"] + kc[r]["routes"]} | {f'{x["id"]}/{x["maskLen"]}' for x in ec[r]["database"] + kc[r]["database"] if "maskLen" in x}
-                d["linux debug (zebra RIB and kernel routes)"] = {r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": v["debug"].get("external")}
-                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}
+                d["linux debug (zebra RIB and kernel routes)"] = dict(list({r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": [x for x in v["debug"].get("external", []) if x[0] + "/24" in pf(r)]}
+                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}.items())[:2])
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
