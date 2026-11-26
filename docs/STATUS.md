@@ -14,7 +14,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 
 **A. Close open work**
 - [x] OSPF CLI commands, `show ip ospf`, FRR rendering, with ospfd configured only from the CLI in CI (PR #68) [docs]
-- [ ] NAT: translation table compared against conntrack (PR #83) [dhcp-tcp]
+- [x] NAT: translation table compared against conntrack (PR #83) [dhcp-tcp]
 - [x] Topology change validator flake fixed (PR #86) [stp-vlan]
 - [x] LLDP: exact LLDPDU counts per cable (PR #87) [checker]
 
@@ -36,22 +36,22 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
 
 **E. Transport and links**
-- [ ] TCP data retransmission and window behaviour vs Linux [links]
+- [ ] TCP data retransmission and window behaviour vs Linux (segments and retransmission timer done, PR #133; receive window not yet) [ui]
 - [ ] Link delay and loss vs netem [links]
 - [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [links]
 
 **F. CLI**
 - [ ] Every spec key has a configure command and a show with `| json` [docs]
-- [ ] YAML spec input [docs]
-- [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables [docs]
+- [x] YAML spec input (PR #93; Studio opens and saves YAML, PR #121) [docs]
+- [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables (OSPF PR #68 and RIP PR #134 done; static routes and new protocols as they land) [docs]
 - [ ] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs]
-- [ ] A student guide for every example lab [docs]
+- [x] A student guide for every example lab (PR #101; a test makes every new lab ship one) [docs]
 
 **G. Studio**
-- [ ] Browser topology editor (palette, cables, edit form: done, PR #89) and visual features (save/export next) [ui]
+- [ ] Browser topology editor (PR #89) and visual features: save/export JSON and YAML (#105, #121), protocol panels (#98), console tabs (#125), playback filters (#131), keyboard and phone layout (#139) done [ui]
 
 **H. Release prep**
-- [ ] README quick start, CHANGELOG and v1.0 release notes (no tag, npm publish or GitHub release: the owner decides) [lead]
+- [ ] README quick start (done), CHANGELOG and v1.0 release notes (no tag, npm publish or GitHub release: the owner decides) [lead]
 
 **Later, not in v1.0:** the research ideas in `docs/vision.md` (mixed detail levels, device handoff, git-style state, quirk layers), vendor images, wireless.
 

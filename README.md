@@ -4,13 +4,64 @@ An open network simulator for teaching. It's built to be close to production, mu
 
 Today's tools force a choice. **Packet Tracer** is easy, but it only imitates Cisco gear and can't show how failures actually unfold. **GNS3 and EVE-NG** run real vendor software, but they're hard to set up and need serious hardware. OpenPacketRouter aims for both: a fast mathematical/simulated core, with real vendor software brought in only where a student is looking. See [docs/vision.md](docs/vision.md).
 
+## Quick start
+
+You need Node 18 or newer. There's nothing to install and no build step.
+
+```bash
+git clone https://github.com/MrPerryAI/OpenPacketRouter.git
+cd OpenPacketRouter
+```
+
+**Run a lab network** and read what every switch and router decided, frame by frame:
+
+```bash
+node engine/bin/openpacketrouter.mjs run examples/loop-with-stp/spec.json examples/loop-with-stp/actions.json --text
+```
+
+Leave off `--text` for JSON (frame counts per cable). `openpacketrouter check spec.json` checks your own network, and
+`openpacketrouter actions` lists what a lab can do (ping, traceroute, DNS, TCP, cable cuts, waits, table dumps).
+Networks are JSON or YAML; the format is in [docs/spec-format.md](docs/spec-format.md).
+
+**Use a device's command line**. Every router and switch in a spec has one:
+
+```bash
+node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1 -c "show ip route"
+node cli/bin/opr-cli.mjs examples/routed-lan-dns/spec.json R1          # interactive: ? for help, Tab completes
+```
+
+Add `| json` to a show command for machine-readable output. `--render linux` (or `frr`, `openwrt`) prints the
+same configuration for real Linux, FRRouting or OpenWrt. All commands are in [docs/cli-reference.md](docs/cli-reference.md).
+
+**Open the browser studio** to see the map, play back frames, cut cables, edit the topology and use the consoles:
+
+```bash
+python3 -m http.server 8640        # from the repository root, then open http://localhost:8640/studio/
+```
+
+**Labs for a class**: [examples/](examples/README.md) has ready-to-run networks (spanning tree, VLANs, inter-VLAN
+routing, DHCP, NAT, ACLs, RIP, OSPF, LACP, port security, TCP and more). Each one has a student guide in
+[docs/labs/](docs/labs/README.md).
+
+### How we know it's right
+
+Every feature is checked against real software, frame for frame and cable by cable. CI builds the same network out
+of Linux network namespaces, bridges, nftables, tc, dnsmasq, lldpd, mstpd and FRRouting, runs the same actions
+there, and compares every frame on every cable plus the resulting tables with the engine. A feature counts as done
+only when they match. The validators are in [validate/](validate/), and the current list is in
+[docs/STATUS.md](docs/STATUS.md).
+
 ## What's here now
 
 | Path | What it is |
 |---|---|
+| [`cli/`](cli/) | **Device CLI.** Modes, `?` help, Tab completion, `| json`, and an OpenConfig-shaped model with engine, Linux, FRRouting and OpenWrt backends. |
+| [`studio/`](studio/) | **Studio.** The browser front end: topology editor, frame playback, device panels and consoles. |
+| [`examples/`](examples/) | **Example labs** that run with the CLI and the studio, each with a student guide in [`docs/labs/`](docs/labs/). |
+| [`validate/`](validate/) | **Validators.** The engine against real Linux and FRRouting, run in CI. |
 | [`web/index.html`](web/index.html) | **El Dorado Storm Lab.** A single-file, browser-based lab on the Nov 13, 2026 FAA ground stop, with three audience modes: Plain English (a 4-chapter story), Student (8 guided missions with self-checking steps, hints, glossary, predictions and a coach) and Engineer. Uses the HTML-in-Canvas API (Edge/Chrome 157+) to paint real HTML device cards into the animated map; other browsers get a simpler fallback. |
 | [`poc/storm-math/`](poc/storm-math/) | **Proofs of concept #1 and #2.** Predicts broadcast storms from the network layout alone. Checked against an independent packet simulator (#1) and against real Linux kernel bridges (#2). |
-| [`engine/`](engine/) | **The engine.** Packet-level simulator with learning switches, routers, clients and servers (ARP, IPv4, ICMP, UDP, DNS), and a plain-English reason for every decision. |
+| [`engine/`](engine/) | **The engine.** Packet-level simulator: switches (spanning tree and RSTP, VLANs, LACP, port security, storm control), routers (static, RIP, OSPF, ACLs, NAT, DHCP and relay), hosts and servers (ARP, IPv4, ICMP, UDP, DNS, TCP, LLDP), link rates and queues, with a plain-English reason for every decision. |
 | [`validate/l3/`](validate/l3/) | **Proof of concept #3.** The engine vs real Linux routers, clients and servers: 12 of 12 actions match frame for frame, cable by cable ([results](validate/l3/results.md)). |
 | [`labs/packet-tracer/`](labs/packet-tracer/) | Archived Packet Tracer lab for the same event: handouts, paste-in CLI configs, PTBuilder build scripts, worksheet, teacher guide. |
 | [`docs/STATUS.md`](docs/STATUS.md) | Current state, decisions, and the engine roadmap. Start here. |
