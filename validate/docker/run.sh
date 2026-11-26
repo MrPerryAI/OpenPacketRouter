@@ -8,6 +8,7 @@
 #   validate/docker/run.sh tcp        # just the TCP check (python sockets)
 #   validate/docker/run.sh dhcp       # just the DHCP check (dnsmasq + udhcpc)
 #   validate/docker/run.sh ospf       # just the OSPFv2 check (FRRouting ospfd)
+#   validate/docker/run.sh bgp        # just the BGP-4 check (FRRouting bgpd)
 #   validate/docker/run.sh lldp       # just the LLDP check (lldpd)
 #   validate/docker/run.sh vrrp       # just the VRRP check (keepalived)
 #   validate/docker/run.sh rip        # just the RIPv2 check (FRRouting ripd)
@@ -40,6 +41,7 @@ ospf='python3 validate/ospf/run_kernel_ospf.py'
 lldp='python3 validate/lldp/run_kernel_lldp.py'
 aging='python3 validate/aging/run_kernel_aging.py'
 rip='python3 validate/rip/run_kernel_rip.py'
+bgp='python3 validate/bgp/run_kernel_bgp.py'
 tcn='python3 validate/tcn/run_kernel_tcn.py'
 acl='python3 validate/acl/run_kernel_acl.py'
 lacp='python3 validate/lacp/run_kernel_lacp.py'
@@ -63,6 +65,7 @@ case "${1:-all}" in
   lldp)  cmd="$lldp" ;;
   aging) cmd="$aging" ;;
   rip)   cmd="$rip" ;;
+  bgp)   cmd="$bgp" ;;
   tcn)   cmd="$tcn" ;;
   acl)   cmd="$acl" ;;
   lacp)  cmd="$lacp" ;;
@@ -70,10 +73,10 @@ case "${1:-all}" in
   span)  cmd="$span" ;;
   ipv6)  cmd="$ipv6" ;;
   vrrp)  cmd="$vrrp" ;;
-  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; $span; $ipv6; $services; $vrrp; ($storm)" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $bgp; $tcn; $acl; $lacp; $nat; $span; $ipv6; $services; $vrrp; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|span|services|vrrp|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|bgp|tcn|acl|lacp|nat|span|services|vrrp|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
