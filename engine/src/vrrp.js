@@ -58,7 +58,7 @@ export class Vrrp {
   linkChange(ifname, up) {
     if (!this.started) return;
     for (const g of this.groups) if (g.iface === ifname) {
-      if (up) this._begin(g);
+      if (up) { this._begin(g); if (g.state === "backup" && g.preempt) g.deaf = true; }   // keepalived: after carrier returns it hears nothing until its own timer fires (validated: vrrp-preempt "cable back")
       else { g.timer = this._off(g.timer); if (g.state !== "fault") { this.log("vrrp", `${this._tag(g)}: carrier lost, fault`); g.state = "fault"; g.masterIp = null; } }
     }
   }
@@ -76,7 +76,7 @@ export class Vrrp {
   _toMaster(g, why) {
     g.timer = this._off(g.timer);
     this.log("vrrp", `${this._tag(g)}: master (${why})`);
-    g.state = "master"; g.masterIp = this._iface(g).ip;
+    g.state = "master"; g.deaf = false; g.masterIp = this._iface(g).ip;
     this._advert(g);
     const i = this._iface(g);
     this.node.send(g.iface, {src: this._mac(g), dst: "ff:ff:ff:ff:ff:ff", type: "arp", arp: {op: "request", sha: this._mac(g), spa: g.ip, tha: "00:00:00:00:00:00", tpa: g.ip}});
@@ -93,7 +93,7 @@ export class Vrrp {
     const v = p.vrrp; if (!v) return;
     if (p.ttl !== 255) { this.log("vrrp-drop", `advertisement from ${p.src}: TTL ${p.ttl}, must be 255`); return; }
     const g = this.groups.find(x => x.iface === ifname && x.vrid === v.vrid);
-    if (!g || g.state === "fault" || g.state === "init") return;
+    if (!g || g.state === "fault" || g.state === "init" || g.deaf) return;
     if (v.interval !== g.interval) { this.log("vrrp-drop", `${this._tag(g)}: advertisement from ${p.src} has interval ${v.interval}, ours is ${g.interval}`); return; }
     const mine = this._iface(g).ip;
     if (g.state === "master") {
