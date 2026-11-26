@@ -148,3 +148,13 @@ test("rstp-fast-failover: the alternate port takes over the moment the cable is 
   assert.equal(back.ports.p1.role, "root"); assert.equal(back.ports.p2.role, "alternate");
   assert.equal(ping3.ok, true);
 });
+
+test("--text report: vrrpState and lldpNeighbors read as plain lines", async () => {
+  const {describeResult} = await import("../src/report.js");
+  const v = describeResult({do: "vrrpState", src: "R1"}, {t: 8, groups: [{iface: "eth0", vrid: 1, ip: "10.0.0.254", priority: 200, state: "master", masterIp: "10.0.0.1"}]});
+  assert.equal(v, "VRRP on R1 at 8 s: eth0 group 1 master (master 10.0.0.1, priority 200, address 10.0.0.254)");
+  assert.equal(describeResult({do: "vrrpState", src: "H"}, {t: 0, groups: []}), "VRRP on H at 0 s: no groups");
+  const l = describeResult({do: "lldpNeighbors", src: "S1"}, {t: 31, neighbors: [{iface: "p1", sysName: "S2", portId: "p3"}]});
+  assert.equal(l, "LLDP neighbors of S1 at 31 s: p1 sees S2 port p3");
+  assert.ok(!/undefined/.test(describeResult({do: "lldpNeighbors", src: "S1"}, {t: 0, neighbors: []})));
+});

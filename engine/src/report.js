@@ -11,6 +11,8 @@ export function describeResult(a, r) {
   if (a.do === "stp") return `spanning tree on ${r.switch}: root ${r.root}${r.isRoot ? " (this switch)" : ""}, ` + Object.entries(r.ports).map(([n, p]) => `${n} ${p.role}/${p.state}`).join(" ") + (r.topologyChange ? ", topology change in progress" : "");
   if (a.do === "lacp") return `port-channels on ${r.switch}: ` + (r.channels.map(c => `${c.name} (${c.rate}) ` + c.members.map(m => `${m.port} ${!m.up ? "down" : m.aggregated ? "bundled" : "waiting"}`).join(", ")).join("; ") || "none");
   if (a.do === "dhcpSnooping") return `DHCP snooping on ${r.switch}: trusted ${r.trusted.join(", ") || "none"}; server messages dropped: ` + (Object.entries(r.dropped).map(([p, c]) => `${p} ${c}`).join(", ") || "none");
+  if (a.do === "vrrpState") return `VRRP on ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.groups.map(g => `${g.iface} group ${g.vrid} ${g.state} (master ${g.masterIp ?? "unknown"}, priority ${g.priority}, address ${g.ip})`).join("; ") || "no groups");
+  if (a.do === "lldpNeighbors") return `LLDP neighbors of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.neighbors.map(n => `${n.iface} sees ${n.sysName} port ${n.portId}`).join("; ") || "none");
   if (a.do === "link") return `cable at ${a.end} ${r.up ? "restored" : "cut"}`;
   if (a.do === "ripTable") return `RIP table of ${a.src} at ${+r.t.toFixed(3)} s: ` + (r.routes.map(x => `${x.type} ${x.network}${x.type === "R" ? " via " + x.nextHop : ""} metric ${x.metric}`).join(", ") || "empty");
   if (a.do === "ripRoute") return `${a.network} at ${+r.t.toFixed(3)} s: ` + Object.entries(r.routers).map(([n, x]) =>
