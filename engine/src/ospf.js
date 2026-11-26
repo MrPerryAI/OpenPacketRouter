@@ -267,7 +267,7 @@ export class Ospf {
       if (n.state === "ExStart" || (n.state === "Exchange" && n.iAmMaster)) { this._emitDD(i, n); this._armDD(i, n); }
     });
   }
-  _hdr(l) { return {type: l.type, id: l.id, adv: l.adv, seq: l.seq, age: this._age(l)}; }
+  _hdr(l) { return {type: l.type, id: l.id, adv: l.adv, seq: l.seq, age: l.age ?? this._age(l)}; }   // a received LSA carries its age; a database entry computes it
   _nextDD(i, n, ms) {
     const chunk = n.summary.splice(0, MAX_DD_HEADERS);
     n.lastDD = {flags: {i: false, m: n.summary.length > 0, ms}, seq: n.ddSeq, headers: chunk};
