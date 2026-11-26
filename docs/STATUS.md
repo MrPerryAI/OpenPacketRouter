@@ -31,7 +31,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [x] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
 
 **D. Mirroring and IPv6**
-- [x] SPAN port mirroring vs tc mirred [dhcp-tcp] (PR #124: frame counts and the ordered frames each monitor port sends)
+- [x] SPAN port mirroring vs tc mirred [dhcp-tcp] (PR #138: frame counts and the ordered frames each monitor port sends)
 - [ ] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp]
 - [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
 
