@@ -146,6 +146,10 @@ function drawMap() {
     title.textContent = `${l[0]} — ${l[1]}, ${info.delay} ms` + (info.trunk ? `, trunk VLANs ${info.trunk.join(", ")}` : info.access ? `, VLAN ${info.access}` : "") +
       (info.shape ? `, shaped ${info.shape.shape?.rate ?? ""}` : "") + (S.cut.has(i) ? " (unplugged: click to plug back in)" : " (click to unplug)");
     hit.addEventListener("click", () => S.tool === "delete" ? edit(ed.removeLink(S.spec, i)) : S.tool === "select" ? toggleCut(i) : 0);
+    hit.setAttribute("tabindex", "0"); hit.setAttribute("role", "button");
+    hit.setAttribute("aria-label", `Cable ${l[0]} to ${l[1]}, ${S.cut.has(i) ? "unplugged. Enter plugs it back in" : "plugged in. Enter unplugs it"}`);
+    hit.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); S.refocus = `link:${i}`; toggleCut(i); } });
+    g.dataset.focusId = `link:${i}`;
     S.cableEls[i] = line;
     const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
     if (S.cut.has(i)) { const t = el("text", {class: "cutmark", x: mx, y: my + 5, "text-anchor": "middle"}, g); t.textContent = "✂"; }
@@ -180,7 +184,27 @@ function drawMap() {
     sub.textContent = n.kind === "switch" ? (n.stp ? "switch · STP" : n.vlans ? "switch · VLANs" : "switch") : ip ? `${n.kind} · ${ip}` : n.kind;
     g.addEventListener("pointerdown", e => S.tool === "select" ? startDrag(e, n.name) : toolClick(n.name));
     g.addEventListener("dblclick", () => openConsole(n.name));
+    g.setAttribute("tabindex", "0"); g.setAttribute("role", "button");
+    g.setAttribute("aria-label", `${n.kind} ${n.name}${S.selected === n.name ? ", selected" : ""}. Enter selects, C opens the console, arrow keys move it.`);
+    g.addEventListener("keydown", e => nodeKey(e, n.name));
   }
+  restoreFocus();
+}
+
+/** Keyboard on a focused device: Enter/Space select, C opens its console, arrows move it (Shift: bigger steps), Escape clears the selection. */
+function nodeKey(e, name) {
+  const step = e.shiftKey ? 40 : 10, d = {ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step]}[e.key];
+  if (d) { e.preventDefault(); e.stopPropagation(); const p = S.pos[name];
+    S.pos[name] = {x: Math.max(30, Math.min(870, p.x + d[0])), y: Math.max(30, Math.min(530, p.y + d[1]))};
+    S.refocus = name; drawMap(); try { localStorage.setItem(layoutKey(S.spec), JSON.stringify(S.pos)); } catch {} }
+  else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); S.refocus = name; select(name); }
+  else if (e.key === "c" || e.key === "C") { e.preventDefault(); openConsole(name); }
+  else if (e.key === "Escape") { S.selected = null; S.refocus = name; drawMap(); drawDevice(); }
+}
+function restoreFocus() {
+  const id = S.refocus; S.refocus = null; if (!id) return;
+  const t = id.startsWith("link:") ? document.querySelector(`[data-focus-id="${id}"] .cable-hit`) : document.querySelector(`.node[data-node="${CSS.escape(id)}"]`);
+  if (t) t.focus();
 }
 
 function startDrag(e, name) {
@@ -328,8 +352,8 @@ function animatePacket(st) {
   cancelAnimationFrame(S.anim); S.pktLayer.innerHTML = "";
   const p = S.pos[st.from], q = S.pos[st.to]; if (!p || !q) return;
   const dot = el("circle", {class: "packet", r: 8, cx: p.x, cy: p.y, fill: `var(--${st.kind})`}, S.pktLayer);
-  const dur = Math.min(700, interval() * 0.85), t0 = performance.now();
-  const frame = now => { const f = Math.min(1, (now - t0) / dur), e = f < .5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+  const dur = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : Math.min(700, interval() * 0.85), t0 = performance.now();
+  const frame = now => { const f = dur ? Math.min(1, (now - t0) / dur) : 1, e = f < .5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
     dot.setAttribute("cx", p.x + (q.x - p.x) * e); dot.setAttribute("cy", p.y + (q.y - p.y) * e); if (f < 1) S.anim = requestAnimationFrame(frame); };
   S.anim = requestAnimationFrame(frame);
 }
@@ -348,7 +372,8 @@ export function stop() { S.playing = false; clearTimeout(S.timer); const b = $("
 
 export function select(name) {
   S.selected = S.selected === name ? null : name;
-  for (const g of document.querySelectorAll(".node")) g.classList.toggle("selected", g.dataset.node === S.selected);
+  for (const g of document.querySelectorAll(".node")) { g.classList.toggle("selected", g.dataset.node === S.selected);
+    g.setAttribute("aria-label", `${g.classList.contains("router") ? "router" : g.classList.contains("switch") ? "switch" : g.classList.contains("server") ? "server" : "host"} ${g.dataset.node}${g.dataset.node === S.selected ? ", selected" : ""}. Enter selects, C opens the console, arrow keys move it.`); }
   drawDevice();
 }
 
@@ -523,6 +548,8 @@ async function init() {
   $("#saveYaml").addEventListener("click", () => S.spec && download(`${fileBase()}.spec.yaml`, dumpYaml(S.spec), "text/yaml"));
   $("#saveActions").addEventListener("click", () => S.spec && download(`${fileBase()}.actions.json`, JSON.stringify(S.actions, null, 2) + "\n"));
   $("#restore").addEventListener("click", restoreAutosave); showRestore();
+  for (const l of document.querySelectorAll("label.file")) { l.tabIndex = 0; l.setAttribute("role", "button");
+    l.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); l.querySelector("input").click(); } }); }
   $("#consoleInput").addEventListener("keydown", consoleKey);
   $("#consoleClose").addEventListener("click", closeConsole);
   $(".console-head").addEventListener("pointerdown", e => {         // drag the console by its title bar
@@ -540,7 +567,8 @@ async function init() {
   const sp = $("#speed"); const setSpeed = () => { S.speed = 2 ** +sp.value; $("#speedOut").textContent = `${+S.speed.toFixed(2)}×`; };
   sp.addEventListener("input", setSpeed); setSpeed();
   document.addEventListener("keydown", e => {
-    if (e.target.closest && e.target.closest("input, select, textarea")) return;
+    if (e.key === "Escape" && !$("#console").hidden) { closeConsole(); return; }
+    if (e.target.closest && e.target.closest("input, select, textarea, button, label.file, .node, .cable-hit")) return;
     if (e.key === " ") { e.preventDefault(); S.playing ? stop() : play(); }
     else if (e.key === "ArrowRight") { stop(); const n = nextShown(1); if (n !== null) goto(n); }
     else if (e.key === "ArrowLeft") { stop(); goto(nextShown(-1)); }
