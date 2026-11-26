@@ -1,0 +1,6 @@
+[
+ {"do": "udpBurst", "src": "A", "dst": "10.0.0.2", "port": 9999, "count": 10, "size": 100, "settle": 2},
+ {"do": "udpBurst", "src": "A", "dst": "10.0.0.2", "port": 9999, "count": 3, "size": 100, "settle": 2},
+ {"do": "ping", "src": "A", "dst": "10.0.0.3"},
+ {"do": "ping", "src": "B", "dst": "10.0.0.1"}
+]

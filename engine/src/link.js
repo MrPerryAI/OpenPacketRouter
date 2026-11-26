@@ -71,6 +71,39 @@ export class TokenBucket {
 }
 
 /** Shape the egress of `ref` ("node:iface"): {rate, burst, limit}. */
+/** Deterministic frame loss on an interface's egress, modeled on Linux's `tc qdisc ... netem loss gemodel P R 1-H 1-K` (net/sched/sch_netem.c,
+ *  loss_gilb_ell) with every probability either 0 or 1, so no random numbers are involved and the pattern is exact:
+ *  a two-state Gilbert-Elliott chain that starts in the good state. For every frame, in the state it starts in:
+ *    good: with probability toBad the chain moves to bad; the frame is lost with probability inGood
+ *    bad:  with probability toGood the chain moves to good; the frame is lost with probability inBad
+ *  (all four are 0 or 1). Examples: {toBad: 1, toGood: 1, inBad: 1, inGood: 0} loses every second frame, starting with the second;
+ *  {toBad: 0, toGood: 0, inBad: 0, inGood: 1} loses everything. Validated in validate/netem/ (the probabilities in between are random in Linux,
+ *  so the engine rejects them). */
+export class LossModel {
+  constructor({toBad, toGood, inBad, inGood}) {
+    this.toBad = toBad; this.toGood = toGood; this.inBad = inBad; this.inGood = inGood;
+    this.bad = false; this.sent = 0; this.dropped = 0;
+  }
+  flush() {}
+  /** True when this frame is lost; advances the chain. */
+  lose() {
+    if (!this.bad) { if (this.toBad) this.bad = true; return !!this.inGood; }
+    if (this.toGood) this.bad = false; return !!this.inBad;
+  }
+  enqueue(net, frame, wire, who) {
+    if (this.lose()) { this.dropped++; net.log(who, "netem-loss", "frame lost on the link (loss model)"); return; }
+    this.sent++; wire(frame);
+  }
+}
+
+export function lossModel(net, ref, params) {
+  const [n, i] = ref.split(":"); const iface = net.node(n).ifaces[i];
+  if (!iface) throw new Error(`${ref}: no such interface`);
+  if (iface.shaper) throw new Error(`${ref}: a link end can have a shaper or a loss model, not both (Linux: one root qdisc)`);
+  iface.shaper = new LossModel(params);
+  return iface.shaper;
+}
+
 export function shape(net, ref, params) {
   const [n, i] = ref.split(":"); const iface = net.node(n).ifaces[i];
   if (!iface) throw new Error(`${ref}: no such interface`);

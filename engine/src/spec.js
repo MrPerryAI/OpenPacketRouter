@@ -331,11 +331,16 @@ export function validateSpec(spec) {
   const cabled = new Set();
   (Array.isArray(spec.links) ? spec.links : []).forEach((l, i) => {
     const p = `$.links[${i}]`;
-    if (!Array.isArray(l) || l.length < 2 || l.length > 4) return err(p, `a link is ["node:iface", "node:iface", delayMs?, {shape?, shapeBack?}?]`);
+    if (!Array.isArray(l) || l.length < 2 || l.length > 4) return err(p, `a link is ["node:iface", "node:iface", delayMs?, {shape?, shapeBack?, loss?, lossBack?}?]`);
     if (l.length >= 3 && !(typeof l[2] === "number" && l[2] >= 0)) err(`${p}[2]`, "delay must be a number of milliseconds ≥ 0");
     if (l.length === 4) {
       if (!isObj(l[3])) err(`${p}[3]`, "link options must be an object");
       else for (const [k, v] of Object.entries(l[3])) {
+        if (k === "loss" || k === "lossBack") {   // {toBad, toGood, inBad, inGood}, each 0 or 1: see LossModel in link.js
+          if (!isObj(v) || !["toBad", "toGood", "inBad", "inGood"].every(f => v[f] === 0 || v[f] === 1)) err(`${p}[3].${k}`, `${k} is {toBad, toGood, inBad, inGood}, each 0 or 1 (Linux's random loss cannot be matched exactly)`);
+          else if (l[3][k === "loss" ? "shape" : "shapeBack"]) err(`${p}[3].${k}`, `${k} and ${k === "loss" ? "shape" : "shapeBack"} are on the same link end: Linux has one root qdisc there`);
+          continue;
+        }
         if (!["shape", "shapeBack"].includes(k)) { warn(`${p}[3].${k}`, `unknown link option "${k}" (ignored)`); continue; }
         if (!isObj(v)) { err(`${p}[3].${k}`, `${k} is {rate, burst, limit}`); continue; }
         try { parseRate(v.rate); } catch (e) { err(`${p}[3].${k}.rate`, e.message); }

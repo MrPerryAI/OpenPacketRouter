@@ -28,7 +28,7 @@ import {Channel, LACP_MAC} from "./lacp.js";
 import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput, tcpIcmpError} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
-import {shape, Police} from "./link.js";
+import {shape, Police, lossModel} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
@@ -499,6 +499,8 @@ export class Network {
       net.link(a, b, {delay: (ms ?? 1) / 1000});
       if (opts && opts.shape) shape(net, a, opts.shape);                      // egress of the first end (link.js)
       if (opts && opts.shapeBack) shape(net, b, opts.shapeBack);              // egress of the second end
+      if (opts && opts.loss) lossModel(net, a, opts.loss);                     // deterministic loss (link.js LossModel)
+      if (opts && opts.lossBack) lossModel(net, b, opts.lossBack);
     }
     for (const n of spec.nodes) if (n.kind === "switch") for (const [name, c] of Object.entries(n.channels || {})) net.node(n.name).addChannel(name, c.ports, {rate: c.rate});
     return net;
