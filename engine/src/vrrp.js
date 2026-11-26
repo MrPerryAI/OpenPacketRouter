@@ -79,7 +79,7 @@ export class Vrrp {
     g.state = "master"; g.deaf = false; g.masterIp = this._iface(g).ip;
     this._advert(g);
     const i = this._iface(g);
-    this.node.send(g.iface, {src: this._mac(g), dst: "ff:ff:ff:ff:ff:ff", type: "arp", arp: {op: "request", sha: this._mac(g), spa: g.ip, tha: "00:00:00:00:00:00", tpa: g.ip}});
+    this.node.send(g.iface, {src: this._mac(g), dst: "ff:ff:ff:ff:ff:ff", type: "arp", arp: {op: "request", sha: this._mac(g), spa: g.ip, tha: "ff:ff:ff:ff:ff:ff", tpa: g.ip}});
     this._tick(g);
   }
   _tick(g) { g.timer = this._after(g.interval, () => { if (g.state === "master") { this._advert(g); this._tick(g); } }); }
@@ -93,7 +93,8 @@ export class Vrrp {
     const v = p.vrrp; if (!v) return;
     if (p.ttl !== 255) { this.log("vrrp-drop", `advertisement from ${p.src}: TTL ${p.ttl}, must be 255`); return; }
     const g = this.groups.find(x => x.iface === ifname && x.vrid === v.vrid);
-    if (!g || g.state === "fault" || g.state === "init" || g.deaf) return;
+    if (!g || g.state === "fault" || g.state === "init") return;
+    if (g.deaf && v.priority < g.priority) return;   // only an advert that would make us preempt is ignored (validated: vrrp-preempt "cable back" vs vrrp-backup-flap)
     if (v.interval !== g.interval) { this.log("vrrp-drop", `${this._tag(g)}: advertisement from ${p.src} has interval ${v.interval}, ours is ${g.interval}`); return; }
     const mine = this._iface(g).ip;
     if (g.state === "master") {

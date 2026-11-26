@@ -151,7 +151,11 @@ def inner():
 
 ADVERT_KEYS = ("src", "dst", "vrid", "priority", "interval", "ttl")
 ARP_KEYS = ("src", "dst", "op", "sha", "spa", "tha", "tpa")
-def canon(f): return json.dumps({k: f[k] for k in (ARP_KEYS if f.get("kind") == "arp" else ADVERT_KEYS)}, sort_keys=True)
+def canon(f):
+    if f.get("kind") == "arp":   # the router's own MAC differs per run (random on Linux): compare that the sender fields agree with each other
+        d = {k: f[k] for k in ARP_KEYS if k not in ("src", "sha")}; d["sha is src"] = f["sha"] == f["src"]
+        return json.dumps(d, sort_keys=True)
+    return json.dumps({k: f[k] for k in ADVERT_KEYS}, sort_keys=True)
 
 
 def phases(run):
