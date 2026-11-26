@@ -196,8 +196,8 @@ def main():
             rows.append((name, es["snapshot"], master, f'{"✓" if es.get("ping") else "✗"}', ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()) +
                          f' · adverts {sum(len(v) for v in ef.values())} (Linux {sum(len(v) for v in kf.values())})', "yes" if ok else "NO"))
             if not ok:
-                detail[f'{name}: {es["snapshot"]}'] = {"engine": {"states": es["states"], "ping": es.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in ef.items()}},
-                                                    "linux": {"states": ks["states"], "ping": ks.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in kf.items()}}}
+                detail[f'{name}: {es["snapshot"]}'] = {"engine": {"states": es["states"], "ping": es.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in ef.items()}, "arp": {c: [len(v), sorted(set(v))] for c, v in ea.items()}},
+                                                    "linux": {"states": ks["states"], "ping": ks.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in kf.items()}, "arp": {c: [len(v), sorted(set(v))] for c, v in ka.items()}}}
     md = ["| Network | Snapshot | Master (engine) | Host reaches virtual address | Checks | Match |", "|---|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} | {f} |" for a, b, c, d, e, f in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n")
