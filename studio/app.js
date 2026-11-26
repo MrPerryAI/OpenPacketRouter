@@ -13,8 +13,8 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp"];
-const KIND_LABEL = {bpdu: "STP"};   // the filter and the list say STP for spanning-tree BPDUs
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp", "icmp6", "ndp"];
+const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
 const vlanColor = v => v === 1 ? "#98a2b3" : VLAN_COLORS[(v * 7) % VLAN_COLORS.length];
@@ -137,14 +137,14 @@ function drawMap() {
     const info = linkInfo(l, i), p = S.pos[info.a.node], q = S.pos[info.b.node];
     if (!p || !q) return;
     const g = el("g", {class: "cable-group", "data-link": i}, gl);
-    const cls = ["cable"]; if (info.trunk) cls.push("trunk"); if (S.cut.has(i)) cls.push("cut");
+    const cls = ["cable"]; if (info.trunk) cls.push("trunk"); if (S.cut.has(i)) cls.push("cut"); if (info.shape && (info.shape.loss || info.shape.lossBack)) cls.push("lossy");
     const line = el("line", {class: cls.join(" "), x1: p.x, y1: p.y, x2: q.x, y2: q.y, "data-link": i}, g);
     const hit = el("line", {class: "cable-hit", x1: p.x, y1: p.y, x2: q.x, y2: q.y}, g);   // wide, invisible, on top: easy to click
     if (info.access && !S.cut.has(i)) line.style.stroke = vlanColor(info.access);
     if (info.trunk && !S.cut.has(i)) line.style.stroke = "#475467";
     const title = el("title", {}, g);
     title.textContent = `${l[0]} — ${l[1]}, ${info.delay} ms` + (info.trunk ? `, trunk VLANs ${info.trunk.join(", ")}` : info.access ? `, VLAN ${info.access}` : "") +
-      (info.shape ? `, shaped ${info.shape.shape?.rate ?? ""}` : "") + (S.cut.has(i) ? " (unplugged: click to plug back in)" : " (click to unplug)");
+      (info.shape ? `, shaped ${info.shape.shape?.rate ?? ""}` : "") + (info.shape && (info.shape.loss || info.shape.lossBack) ? ", lossy (frames can be dropped)" : "") + (S.cut.has(i) ? " (unplugged: click to plug back in)" : " (click to unplug)");
     hit.addEventListener("click", () => S.tool === "delete" ? edit(ed.removeLink(S.spec, i)) : S.tool === "select" ? toggleCut(i) : 0);
     hit.setAttribute("tabindex", "0"); hit.setAttribute("role", "button");
     hit.setAttribute("aria-label", `Cable ${l[0]} to ${l[1]}, ${S.cut.has(i) ? "unplugged. Enter plugs it back in" : "plugged in. Enter unplugs it"}`);
@@ -250,7 +250,7 @@ function drawActions() {
     const li = document.createElement("li"); li.dataset.action = k;
     const ok = a.result && (a.result.ok || a.result.reached || a.action.do === "udpBurst");
     const n = a.last - a.first + 1;
-    li.innerHTML = `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}</small>`;
+    li.innerHTML = `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}${a.lost ? `, ${a.lost} lost on a lossy cable` : ""}</small>`;
     li.addEventListener("click", () => { stop(); goto(a.last >= a.first ? a.first : -1); });
     ol.appendChild(li);
   });
@@ -377,6 +377,7 @@ export function select(name) {
   drawDevice();
 }
 
+const ports0 = n => S.spec.links.flat().filter(r => typeof r === "string" && r.startsWith(n.name + ":")).map(r => r.split(":")[1]);
 const table = (head, rows) => rows.length
   ? `<table><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c ?? "")}</td>`).join("")}</tr>`).join("")}</table>`
   : `<div class="empty">empty</div>`;
@@ -388,9 +389,10 @@ function featurePanels(n, d) {
   let h = "";
   if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.ospf) {
+    h += `<div class="when">${d.ospf.areas.length > 1 ? `Area border router (ABR) between areas ${esc(d.ospf.areas.join(", "))}.` : `Area ${esc(d.ospf.areas.join(", ") || "none")}.`}</div>`;
     h += `<h4>OSPF neighbors</h4>` + table(["router ID", "address", "iface", "state", "role"], d.ospf.neighbors.map(x => [x.routerId, x.address, x.iface, x.state, x.role]));
-    h += `<h4>OSPF interfaces</h4>` + table(["iface", "state", "type", "cost", "DR", "BDR"], d.ospf.interfaces.map(x => [x.iface, x.state, x.type, x.cost, x.dr, x.bdr]));
-    h += `<h4>OSPF routes</h4>` + table(["network", "cost", "via"], d.ospf.routes.map(x => [x.network, x.cost, x.via.map(v => `${v.gw} (${v.iface})`).join(", ")]));
+    h += `<h4>OSPF interfaces</h4>` + table(["iface", "area", "state", "type", "cost", "DR", "BDR"], d.ospf.interfaces.map(x => [x.iface, x.area, x.state, x.type, x.cost, x.dr, x.bdr]));
+    h += `<h4>OSPF routes</h4>` + table(["network", "kind", "cost", "via"], d.ospf.routes.map(x => [x.network, x.type === "inter" ? "inter-area" : x.type === "intra" ? "intra-area" : x.type, x.cost, x.via.map(v => `${v.gw} (${v.iface})`).join(", ")]));
   }
   if (d.nat) h += `<h4>NAT translations</h4>` + table(["proto", "inside global", "inside local", "outside global", "left"], d.nat.map(x => [x.proto, x.insideGlobal, x.insideLocal, x.outsideGlobal, x.static ? "static" : x.secondsLeft === undefined ? "" : `${x.secondsLeft} s`]));
   if (n.acl && n.acl.lists) {
@@ -400,6 +402,11 @@ function featurePanels(n, d) {
       h += `<h4>ACL ${esc(name)}${binds.length ? ` <small>(${esc(binds.join(", "))})</small>` : ""}</h4>` +
         table(["#", "rule", "hits"], rules.map((r, i) => [i + 1, ruleText(r), hits[`${name}:${i}`] || 0]).concat([["", "implicit deny", hits[`${name}:deny`] || 0]]));
     }
+  }
+  if (d.v6) {
+    h += `<h4>IPv6 addresses</h4>` + table(["iface", "address"], d.v6.addrs.map(a => [a.iface, a.ip]));
+    if (d.v6.routes.length) h += `<h4>IPv6 routes</h4>` + table(["destination", "via"], d.v6.routes.map(r => [r.dst, r.via]));
+    h += `<h4>IPv6 neighbors</h4>` + table(["address", "MAC", "iface"], d.v6.neighbors.map(x => [x.ip, x.mac, x.iface]));
   }
   if (d.lldp) h += `<h4>LLDP neighbors</h4>` + table(["iface", "system", "port", "description"], d.lldp.map(x => [x.iface, x.sysName, x.portId, x.portDescr]));
   return h;
@@ -418,6 +425,8 @@ function drawDevice() {
     h += `<h4>MAC address table</h4>` + (d.aging ? `<div class="when">Aging time ${d.aging.time} s${d.aging.hold !== d.aging.time ? ` (shortened to ${d.aging.hold} s by a topology change)` : ""}.</div>` : "") +
       table(n.vlans ? ["VLAN", "MAC", "port", "age", "expires in"] : ["MAC", "port", "age", "expires in"],
         (d.mac || []).map(m => (n.vlans ? [m.vlan, m.mac, m.port] : [m.mac, m.port]).concat([`${m.age} s`, left(m)])));
+    if (d.snooping) h += `<h4>DHCP snooping</h4><div class="when">DHCP server messages are accepted only on trusted ports: ${esc(d.snooping.trusted.join(", ") || "none")}.</div>` +
+      table(["port", "trusted", "server messages dropped"], ports0(n).map(p => [p, d.snooping.trusted.includes(p) ? "yes" : "no", d.snooping.dropped[p] || 0]));
     if ((d.channels || []).length) h += `<h4>Port-channels (LACP)</h4>` + table(["channel", "member", "link", "mux", "partner state", "bundled"],
       d.channels.flatMap(c => c.members.map(m => [`${c.name} (${c.rate})`, m.port, m.up ? "up" : "down", m.mux, `0x${(m.partner.state || 0).toString(16)}`, m.aggregated ? "yes" : "no"])));
     const ports = S.spec.links.flat().filter(r => typeof r === "string" && r.startsWith(n.name + ":")).map(r => r.split(":")[1]);

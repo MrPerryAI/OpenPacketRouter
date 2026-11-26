@@ -17,6 +17,7 @@ const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded",
 
 /** Short kind used for colors and filters: arp, icmp, tcp, udp, dhcp, dns, bpdu, lacp, rip, ospf, lldp. */
 export function frameKind(f) {
+  if (f.type === "ipv6") return f.ip6.icmp && (f.ip6.icmp.type === 135 || f.ip6.icmp.type === 136) ? "ndp" : f.ip6.proto === "icmp6" ? "icmp6" : f.ip6.proto;
   if (f.type === "bpdu") return "bpdu";
   if (f.type === "lacpdu") return "lacp";
   if (f.type === "arp") return "arp";
@@ -34,10 +35,17 @@ export function describeFrame(f) {
   if (f.type === "lacpdu") return `LACPDU: port ${f.lacpdu.actor.port} state 0x${f.lacpdu.actor.state.toString(16)}, partner state 0x${f.lacpdu.partner.state.toString(16)}${tag}`;
   if (f.type === "lldp") return `LLDP: ${f.lldp.sysName} port ${f.lldp.portDescr}, TTL ${f.lldp.ttl} s${tag}`;
   if (f.type === "arp") return (f.arp.op === "request" ? `ARP: who has ${f.arp.tpa}? tell ${f.arp.spa}` : `ARP: ${f.arp.spa} is at ${f.arp.sha}`) + tag;
+  if (f.type === "ipv6") {
+    const p = f.ip6, i = p.icmp || {};
+    const what = i.type === 135 ? `neighbor solicitation: who has ${i.target || "?"}?` : i.type === 136 ? `neighbor advertisement: ${i.target || "?"} is at ${i.tlla || "its MAC"}`
+      : i.type === 128 ? "echo request" : i.type === 129 ? "echo reply" : i.type === 1 ? "destination unreachable" : i.type === 3 ? "time exceeded" : `type ${i.type}`;
+    return `IPv6 ${p.src} → ${p.dst} ICMPv6 ${what}, hop limit ${p.hl}${tag}`;
+  }
   const p = f.ip;
   if (p.proto === "ospf") return `OSPF ${p.ospf.type} from ${p.ospf.routerId}: ${p.src} → ${p.dst}${p.ospf.neighbors ? `, ${p.ospf.neighbors.length} neighbor(s) listed` : ""}${tag}`;
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
-  const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}`
+  const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
+  const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${http}`
     : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : ""}`;
   return `IPv4 ${p.src} → ${p.dst} ${l4}, TTL ${p.ttl}${tag}`;
 }
@@ -72,15 +80,17 @@ export function snapshotDevices(net) {
     if (n.kind === "switch") {
       const mac = n.macTable().map(({vlan, mac: m, port, age, stale}) => ({vlan, mac: m, port, age, stale}));
       out[n.name] = {mac, stp: n.stp && n.stp.started ? n.stp.describe() : null, aging: {time: n.agingTime, hold: n.holdTime()},
-        channels: [...n.channels.values()].map(c => c.describe())};
+        channels: [...n.channels.values()].map(c => c.describe()), snooping: n.dhcpSnoopingState ? n.dhcpSnoopingState() : null};
     } else {
       out[n.name] = {
         arp: [...n.arp].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface})),
         leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
         ifaces: Object.values(n.ifaces).map(i => ({name: i.name, ip: i.ip ? `${i.ip}/${i.prefix}` : i.dhcp ? "dhcp (none yet)" : "", mac: i.mac})),
       };
+      if (n.v6) out[n.name].v6 = {addrs: n.v6.addrs.map(a => ({iface: a.iface, ip: `${a.ip}/${a.prefix}`})), routes: n.v6.routes.map(r => ({dst: r.cidr, via: r.via})),
+        neighbors: [...n.v6.cache].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface}))};
       if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
-      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe()};
+      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }
@@ -145,11 +155,12 @@ export function simulate(spec, actions, {cut = [], maxSteps = MAX_STEPS} = {}) {
   for (let k = 0; k < actions.length; k++) {
     current = k; const a = actions[k];
     net.flushCaches(); notes();
-    const first = steps.length, before = net.snapshot();
+    const first = steps.length, before = net.snapshot(), traceFrom = net.trace.length;
     const result = ACTIONS[a.do].run(net, a);
     net.settle(a.settle ?? 1);
     const tail = notes();
-    out.push({action: a, result, summary: describeResult(a, result), first, last: steps.length - 1, frames: net.diff(before), tail});
+    const lost = net.trace.slice(traceFrom).filter(e => e.event === "netem-loss").length;   // frames a lossy cable dropped (they never reach the wire, so no step)
+    out.push({action: a, result, summary: describeResult(a, result), first, last: steps.length - 1, frames: net.diff(before), tail, lost});
   }
   const routes = {}; for (const n of net.nodes.values()) routes[n.name] = routingTable(n);
   return {actions: out, steps, truncated, routes, final: snapshotDevices(net)};

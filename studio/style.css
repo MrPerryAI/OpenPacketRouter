@@ -1,6 +1,6 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --ink: #1d2433; --muted: #667085; --line: #d0d5dd; --accent: #2563eb;
-  --arp: #d97706; --icmp: #2563eb; --tcp: #059669; --udp: #7c3aed; --dhcp: #db2777; --dns: #0891b2; --bpdu: #64748b; --lacp: #0d9488; --rip: #b45309; --ospf: #4f46e5; --lldp: #65a30d;
+  --arp: #d97706; --icmp: #2563eb; --tcp: #059669; --udp: #7c3aed; --dhcp: #db2777; --dns: #0891b2; --bpdu: #64748b; --lacp: #0d9488; --rip: #b45309; --ospf: #4f46e5; --lldp: #65a30d; --icmp6: #1d4ed8; --ndp: #c2410c;
   font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg);
 }
 * { box-sizing: border-box; }
@@ -33,6 +33,7 @@ main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap:
 .cable { stroke: #98a2b3; stroke-width: 3; fill: none; }
 .cable.trunk { stroke-width: 6; stroke-dasharray: 10 4; }
 .cable.cut { stroke: #f04438; stroke-dasharray: 4 6; stroke-width: 2; opacity: .8; }
+.cable.lossy { stroke-dasharray: 2 5; stroke-linecap: round; }
 .cable.active { stroke-width: 6; filter: drop-shadow(0 0 3px #facc15); }
 .cable-hit { stroke: transparent; stroke-width: 18; cursor: pointer; }
 .cable-group:hover .cable { stroke-opacity: .6; }
