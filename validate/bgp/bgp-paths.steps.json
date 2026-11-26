@@ -1,0 +1,1 @@
+[{"wait": 25}, {"snapshot": "converged: R4 picks the short AS path"}, {"ping": ["H4", "10.1.0.10"]}, {"linkDown": "R2:eth1"}, {"wait": 25}, {"snapshot": "R2-R4 cut: the long path"}, {"ping": ["H4", "10.1.0.10"]}, {"linkUp": "R2:eth1"}, {"wait": 40}, {"snapshot": "cable restored: the short path again"}, {"ping": ["H4", "10.1.0.10"]}]
