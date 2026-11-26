@@ -248,6 +248,8 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no http page PATH` | config | routers, hosts, servers | URL path |
 | `service syslog` | config | routers, hosts, servers | Collect log messages sent to UDP port 514 |
 | `no service syslog` | config | routers, hosts, servers | Stop collecting log messages |
+| `service ntp stratum STRATUM` | config | routers, hosts, servers | Answer time requests on UDP port 123 |
+| `no service ntp` | config | routers, hosts, servers | Stop answering time requests |
 
 ### Rip
 
@@ -378,6 +380,7 @@ Commands that run something on the device now (ping, traceroute) instead of read
 | `ping ADDRESS` | user, privileged | routers, hosts, servers, switches | Address to ping |
 | `ping ADDRESS` | user, privileged | routers, hosts, servers | IPv6 address to ping |
 | `traceroute ADDRESS` | user, privileged | routers, hosts, servers, switches | Destination address |
+| `ntp query ADDRESS` | user, privileged | routers, hosts, servers | Address of the time server |
 
 ### Ospf
 

@@ -3,7 +3,9 @@
 
     sudo python3 validate/services/run_kernel_services.py        # on a Mac: validate/docker/run.sh services
 
-Builds each spec from network namespaces like validate/l3 (it reuses that harness). Syslog: a node with services.syslog runs a UDP 514
+Builds each spec from network namespaces like validate/l3 (it reuses that harness). NTP: a node with services.ntp runs ntp_server.py (an SNTP server, UDP 123) and the client is ntp_client.py (a real UDP socket, one
+request like ntpdate); compared: stratum and leap (offset and delay come from the wall clock and are dropped) and the frames on every cable.
+Syslog: a node with services.syslog runs a UDP 514
 receiver (syslog_server.py) that stores each datagram; the client side is util-linux `logger -n HOST -P 514 -d --rfc3164`, the real
 syslog sender. Compared per action: the messages the receiver stored (priority, tag and text; the timestamp and hostname are
 dropped from both sides, since they come from the wall clock and the host's name) and the frames on every cable direction.
@@ -16,7 +18,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["syslog-lan"]
+SPECS = ["syslog-lan", "ntp-lan"]
 STAMPED = re.compile(r"^(<\d+>)\w{3} [ \d]\d \d\d:\d\d:\d\d \S+ (.*)$")
 
 
@@ -30,6 +32,9 @@ class ServicesNet(l3.KernelNet):
         super().__init__(spec)
         self.tmp = tempfile.mkdtemp(); self.logs = {}
         for n in spec["nodes"]:
+            ntp = (n.get("services") or {}).get("ntp")
+            if ntp:
+                self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], sys.executable, str(HERE / "ntp_server.py"), str(ntp["stratum"])]))
             if (n.get("services") or {}).get("syslog"):
                 f = f"{self.tmp}/{n['name']}.log"; open(f, "w").close(); self.logs[n["name"]] = f
                 self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], sys.executable, str(HERE / "syslog_server.py"), f]))
@@ -39,6 +44,9 @@ class ServicesNet(l3.KernelNet):
         return {name: Path(f).read_text().splitlines() for name, f in self.logs.items()}
 
     def act(self, a):
+        if a["do"] == "ntp":
+            r = subprocess.run(["ip", "netns", "exec", self.ns[a["src"]], sys.executable, str(HERE / "ntp_client.py"), a["dst"]], capture_output=True, text=True, timeout=30)
+            return json.loads(r.stdout) if r.stdout else {"ok": False, "error": f"client failed: {r.stderr.strip()}"}
         if a["do"] != "syslog":
             return super().act(a)
         before = self.lines()
@@ -72,7 +80,7 @@ def inner():
 
 
 def comparable(r):
-    r = {k: v for k, v in r.items() if k != "rtt_ms"}
+    r = {k: v for k, v in r.items() if k not in ("rtt_ms", "offset_ms", "delay_ms")}   # the wall clock decides these in Linux
     if "received" in r: r["received"] = [norm(m) for m in r["received"]]
     return r
 
@@ -97,8 +105,8 @@ def main():
             fd = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
             ok = same and not fd
             res = comparable(e["result"])
-            what = f'syslog {a["src"]} → {a["dst"]}: {a["message"]}'
-            rows.append((name, what, ", ".join(res.get("received", [])) or "(nothing stored)", f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
+            what = f'syslog {a["src"]} → {a["dst"]}: {a["message"]}' if a["do"] == "syslog" else f'ntp {a["src"]} → {a["dst"]}'
+            rows.append((name, what, ", ".join(res["received"]) or "(nothing stored)" if "received" in res else f'stratum {res["stratum"]}, leap {res["leap"]}' if res.get("ok") else res["error"], f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
             if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "linux": comparable(k["result"]), "frame_diffs": fd}
     md = ["| Network | Action | Stored by the receiver (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]

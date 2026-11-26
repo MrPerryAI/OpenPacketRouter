@@ -12,7 +12,7 @@
 import {Network} from "./network.js";
 import {tcpAction} from "./tcp.js";
 import {dhcp} from "./dhcp.js";
-import {ping, traceroute, dns, udpRequest, syslogSend, FACILITIES, SEVERITIES, stackOf} from "./apps.js";
+import {ping, traceroute, dns, udpRequest, syslogSend, ntpQuery, FACILITIES, SEVERITIES, stackOf} from "./apps.js";
 import {parseCidr, inSubnet} from "./addr.js";
 import {isIp6, isCidr6, parseCidr6, inSubnet6} from "./addr6.js";
 import {parseRate, queueStats} from "./link.js";
@@ -364,6 +364,8 @@ export function validateSpec(spec) {
       }
       if (isObj(n.services) && n.services.http !== undefined && !(isObj(n.services.http) && Object.entries(n.services.http).every(([path, body]) => path.startsWith("/") && typeof body === "string")))
         err(`${p}.services.http`, `node "${n.name}": http maps a path starting with / to the page text`);
+      if (isObj(n.services) && n.services.ntp !== undefined && !(isObj(n.services.ntp) && Number.isInteger(n.services.ntp.stratum) && n.services.ntp.stratum >= 1 && n.services.ntp.stratum <= 15))
+        err(`${p}.services.ntp`, `node "${n.name}": ntp is {"stratum": 1 to 15}`);
       if (isObj(n.services) && n.services.syslog !== undefined && typeof n.services.syslog !== "boolean") err(`${p}.services.syslog`, `node "${n.name}": syslog is true or false`);
       if (isObj(n.services) && n.services.dhcp !== undefined) {
         const d = n.services.dhcp;
@@ -451,6 +453,7 @@ export const ACTIONS = {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
     return {switch: a.switch, channels: [...n.channels.values()].map(c => c.describe())};
   }},
+  ntp: {required: ["src", "dst"], run: (net, a) => ntpQuery(net, a.src, a.dst, {timeout: a.timeout})},
   syslog: {required: ["src", "dst", "message"], run: (net, a) => syslogSend(net, a.src, a.dst, {message: a.message, tag: a.tag, facility: a.facility, severity: a.severity, settle: a.settle})},
   udp: {required: ["src", "dst", "port"], run: (net, a) => udpRequest(net, a.src, a.dst, a.port, {probe: true})},
   // `count` UDP datagrams of `size` payload bytes, back to back, no answer expected (load for link shaping)

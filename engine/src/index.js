@@ -1,6 +1,6 @@
 export {stormAnalysis, stormEdges, stormRates, STORM_DEFAULTS} from "./storm.js";
 export {Network, Switch, IpNode} from "./network.js";
-export {ping, traceroute, udpRequest, dns, syslogSend, syslogText} from "./apps.js";
+export {ping, traceroute, udpRequest, dns, syslogSend, syslogText, ntpQuery} from "./apps.js";
 export {TokenBucket, shape, queueStats, frameBytes, parseRate} from "./link.js";
 export * from "./addr.js";
 export * from "./spec.js";

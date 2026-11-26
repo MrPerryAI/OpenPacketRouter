@@ -56,6 +56,10 @@
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service syslog", "handler": "syslog.on",
      "help": {"service": "Programs this device runs", "syslog": "Collect log messages sent to UDP port 514"}},
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service syslog", "handler": "syslog.off",
-     "help": {"service": "Stop a program", "syslog": "Stop collecting log messages"}}
+     "help": {"service": "Stop a program", "syslog": "Stop collecting log messages"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service ntp stratum STRATUM", "args": {"STRATUM": "ntp-stratum"}, "handler": "ntp.on",
+     "help": {"service": "Programs this device runs", "ntp": "Answer time requests on UDP port 123", "stratum": "How far this clock is from a reference clock", "STRATUM": "1 to 15"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service ntp", "handler": "ntp.off",
+     "help": {"service": "Stop a program", "ntp": "Stop answering time requests"}}
   ]
 }

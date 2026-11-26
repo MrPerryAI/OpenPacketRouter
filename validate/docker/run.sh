@@ -4,7 +4,7 @@
 #   validate/docker/run.sh l3         # just the engine-vs-Linux L3 check
 #   validate/docker/run.sh storm      # just the storm-math kernel-bridge check
 #   validate/docker/run.sh links      # just the link-shaping (tbf) check
-#   validate/docker/run.sh services   # just the server-services check (syslog via util-linux logger)
+#   validate/docker/run.sh services   # just the server-services check (syslog via util-linux logger, NTP via Python sockets)
 #   validate/docker/run.sh tcp        # just the TCP check (python sockets)
 #   validate/docker/run.sh dhcp       # just the DHCP check (dnsmasq + udhcpc)
 #   validate/docker/run.sh ospf       # just the OSPFv2 check (FRRouting ospfd)

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {compile, DEFINITIONS, HANDLERS, SHOWS} from "../src/index.js";
 
 const table = compile(DEFINITIONS);
-const SESSION = ["session.enable", "session.disable", "session.configure", "session.exit", "session.end", "session.write", "tools.ping", "tools.traceroute"];
+const SESSION = ["session.enable", "session.disable", "session.configure", "session.exit", "session.end", "session.write", "tools.ping", "tools.traceroute", "tools.ntp"];
 
 test("every definition compiles and names a handler that exists", () => {
   assert.ok(table.commands.length > 60, `${table.commands.length} commands`);

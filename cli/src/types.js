@@ -85,6 +85,7 @@ export const TYPES = {
   },
   "acl-endpoint": {hint: "any|HOST|PREFIX[:PORT]", help: "who: any, one address, or a prefix; tcp/udp may add :PORT or :LOW-HIGH", test: s => aclEndpoint(s) !== null},
   "port": {...uint(1, 65535), help: "Port number"},
+  "ntp-stratum": {...uint(1, 15), help: "Stratum, 1 (a clock) to 15"},
   "http-path": {hint: "/PATH", help: "URL path, like /about", test: s => /^\/[^\s%]*$/.test(s)},
   "page-text": {hint: "TEXT", help: "Page text in one word: write spaces as %20 and line breaks as %0A", test: s => { try { decodeURIComponent(s); return s.length > 0; } catch { return false; } }},
   "bit": {...uint(0, 1), help: "0 or 1"},

@@ -86,6 +86,13 @@ export function createSession(backend, device, {definitions = DEFINITIONS, mode 
         : `${r.from ? `${r.from} says: ${r.error}` : `No answer (${r.error})`}\nping ${ip}: 1 sent, 0 answered`;
       return {out: text, changed: "actions", json: r};
     },
+    "tools.ntp": ([ip]) => {
+      let r; try { r = backend.run ? backend.run(s.device, {do: "ntp", dst: ip}) : null; } catch (e) { return {out: `% ${e.message}`}; }
+      if (!r) return {out: "% This backend cannot run ntp"};
+      const text = r.ok ? `Time server ${r.from}: stratum ${r.stratum}, offset ${r.offset_ms} ms, delay ${r.delay_ms} ms`
+        : `${r.from ? `${r.from} says: ${r.error}` : `No time server answered (${r.error})`}`;
+      return {out: text, changed: "actions", json: r};
+    },
     "tools.traceroute": ([ip]) => {
       let r; try { r = backend.run ? backend.run(s.device, {do: "traceroute", dst: ip}) : null; } catch (e) { return {out: `% ${e.message}`}; }
       if (!r) return {out: "% This backend cannot run traceroute"};

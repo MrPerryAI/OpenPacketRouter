@@ -90,3 +90,14 @@ export function syslogSend(net, src, dst, opts) {
   const got = [...net.nodes.values()].flatMap(n => (n.syslogLog || []).slice(before[n.name]));
   return {ok: true, received: got};
 }
+
+/** One NTP client exchange (like `ntpdate -q -p 1`): stratum, leap, offset and delay, in milliseconds on the simulation clock. */
+export function ntpQuery(net, src, dst, {timeout = 1} = {}) {
+  const t1 = net.time;
+  const r = udpRequest(net, src, dst, 123, {ntp: {leap: 3, version: 4, mode: 3, stratum: 0, poll: 3, t3: t1}}, {timeout});
+  if (!r.ok) return r.error === "timeout" ? {ok: false, error: "no server"} : r;
+  const p = r.payload && r.payload.ntp;
+  if (!p) return {ok: false, error: "no server"};
+  const t4 = net.time, r3 = x => Math.round(x * 1000) / 1000;
+  return {ok: true, from: r.from, stratum: p.stratum, leap: p.leap, offset_ms: r3(((p.t2 - t1) + (p.t3 - t4)) / 2 * 1000), delay_ms: r3(((t4 - t1) - (p.t3 - p.t2)) * 1000)};
+}

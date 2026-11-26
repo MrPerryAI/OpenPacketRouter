@@ -1,0 +1,66 @@
+{
+ "version": 1,
+ "name": "NTP",
+ "about": "Two hosts, a time server at stratum 2 and a server with no NTP service on one switch. The client sends one NTP request (UDP 123) and reads the stratum and leap bits from the answer; a request to the other server gets ICMP port unreachable.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "TIME",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.10/24"
+   },
+   "services": {
+    "ntp": {
+     "stratum": 2
+    }
+   }
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.20/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1",
+   0
+  ],
+  [
+   "B:eth0",
+   "SW:p2",
+   0
+  ],
+  [
+   "TIME:eth0",
+   "SW:p3",
+   0
+  ],
+  [
+   "S:eth0",
+   "SW:p4",
+   0
+  ]
+ ]
+}

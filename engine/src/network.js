@@ -22,6 +22,7 @@
 //
 // Every decision is written to `net.trace` with a plain-English reason.
 
+import {ntpServe} from "./ntp.js";
 import {Stp} from "./stp.js";
 import {Rstp} from "./rstp.js";
 import {Channel, LACP_MAC} from "./lacp.js";
@@ -386,6 +387,7 @@ export class IpNode extends Device {
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
     if (port === 514 && this.services.syslog) return payload => { (this.syslogLog ||= []).push(String(payload)); this.log("syslog", `received: ${payload}`); };
+    if (port === 123 && this.services.ntp) return payload => ntpServe(this, this.services.ntp, payload);
     return this.services.udp && this.services.udp[port];
   }
 

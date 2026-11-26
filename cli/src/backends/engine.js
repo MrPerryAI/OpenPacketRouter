@@ -102,6 +102,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     if (sv.tcp) out.tcp = {...sv.tcp};
     if (sv.http) out.http = {...sv.http};
     if (sv.syslog) out.syslog = true;
+    if (sv.ntp) out.ntp = {...sv.ntp};
     if (n.lldp) out.lldp = {...n.lldp};
     if (n.nat) {
       out.nat = {...(n.nat.overload ? {overload: n.nat.overload === true ? true : {...n.nat.overload}} : {}), ...(n.nat.static?.length ? {static: n.nat.static.map(x => ({...x}))} : {})};
@@ -272,6 +273,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (s.tcp) svc.tcp = {...s.tcp};
     if (s.http) svc.http = {...s.http};
     if (s.syslog) svc.syslog = true;
+    if (s.ntp) svc.ntp = {...s.ntp};
     if (s.lldp) n.lldp = {...s.lldp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
     if (s.acl) {
