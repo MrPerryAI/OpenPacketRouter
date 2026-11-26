@@ -1,14 +1,14 @@
 {
  "version": 1,
  "name": "tbf-stp-fit",
- "about": "Two STP bridges on one cable; S1's port is shaped with a queue of 52 bytes, exactly the size of a config BPDU (14 Ethernet + 3 LLC + 35), so every BPDU gets through. Hello time 1.5 s; the first action skips the start-up BPDUs and the second spans exactly two hello periods, so the BPDU count does not depend on the phase of the kernel's hello timer.",
+ "about": "Two STP bridges on one cable; S1's port is shaped with a queue of 52 bytes, exactly the size of a config BPDU (14 Ethernet + 3 LLC + 35), so every BPDU gets through. Hello time 2 s; the first action waits out the start-up (two forward delays) and the second spans exactly two hello periods, so the BPDU count does not depend on the phase of the kernel's hello timer.",
  "nodes": [
   {
    "name": "S1",
    "kind": "switch",
    "stp": {
     "mac": "02:bb:00:00:00:01",
-    "hello": 1.5,
+    "hello": 2,
     "maxAge": 6,
     "forwardDelay": 4,
     "priority": 4096
@@ -19,7 +19,7 @@
    "kind": "switch",
    "stp": {
     "mac": "02:bb:00:00:00:02",
-    "hello": 1.5,
+    "hello": 2,
     "maxAge": 6,
     "forwardDelay": 4
    }
