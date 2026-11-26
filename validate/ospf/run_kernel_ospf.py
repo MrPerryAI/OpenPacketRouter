@@ -370,6 +370,7 @@ def compare(name, eng, kr):
                 d["packet types"] = {c: {"engine": et.get(c), "linux": kt.get(c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:12]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
+                d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
@@ -388,7 +389,7 @@ def only_p2p_acks(detail, switches):
     flooded around a triangle) reaches the router first, a race in real time that the engine, following RFC 2328,
     cannot reproduce on every run (2 of 24 runs of ospf-p2p under CPU load). Anything else is never retried."""
     for d in detail.values():
-        if set(d) != {"packet types"}: return False
+        if set(d) - {"all cables (non-Hello, both sides)"} != {"packet types"}: return False
         for cable, v in d["packet types"].items():
             if any(f"{sw}:" in cable for sw in switches): return False
             if set(v["engine"] or []) ^ set(v["linux"] or []) != {"ack"}: return False
