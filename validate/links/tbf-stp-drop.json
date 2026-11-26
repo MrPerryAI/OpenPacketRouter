@@ -15,20 +15,17 @@
    }
   },
   {
-   "name": "S2",
-   "kind": "switch",
-   "stp": {
-    "mac": "02:bb:00:00:00:02",
-    "hello": 2,
-    "maxAge": 6,
-    "forwardDelay": 4
+   "name": "H",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
    }
   }
  ],
  "links": [
   [
    "S1:p1",
-   "S2:p1",
+   "H:eth0",
    1,
    {
     "shape": {
