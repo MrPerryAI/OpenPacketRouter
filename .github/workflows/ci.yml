@@ -91,6 +91,8 @@ jobs:
           RIP_RENDER=cli validate/docker/run.sh rip
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
+      - name: Device CLI's OpenWrt rendering applied by real OpenWrt uci (official rootfs container), read back
+        run: python3 validate/openwrt/run_openwrt.py
       - name: OSPFv2 vs FRRouting ospfd (neighbors, DR/BDR, routes, LSDB and packets on every cable)
         # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh ospf` locally.
         run: |
