@@ -85,6 +85,7 @@ def main():
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
+        if len(eng) != len(kern[name]): detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern[name])}
         for i, (e, k) in enumerate(zip(eng, kern[name])):
             a = e["action"]
             same = l3.comparable(e["result"]) == l3.comparable(k["result"])
