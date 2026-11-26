@@ -264,7 +264,11 @@ export class IpNode extends Device {
     if (this.v6) for (const a of this.v6.addrs) if (!this.ifaces[a.iface]) this.addIface(a.iface);
   }
   start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); }
+  linkChange(ifname, up) {
+    // Linux deletes the static routes whose next hop is on an interface that loses carrier, and does not bring them back with it
+    if (!up && this.ospf) { const i = this.ifaces[ifname]; if (i && i.ip) this.routes = this.routes.filter(r => !(r.via && inSubnet(r.via, i.net, i.mask))); }
+    if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up);
+  }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
