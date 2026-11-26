@@ -43,6 +43,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     if (n.agingTime !== undefined) M.fdb(m)["mac-aging-time"] = n.agingTime;
     if (n.forwardLldp) M.services(m).forwardLldp = true;
     if (n.monitor) m.monitor = JSON.parse(JSON.stringify(n.monitor));
+    if (n.dhcpSnooping) { M.services(m).dhcpSnooping = true; for (const p of n.dhcpSnooping.trusted || []) M.iface(m, p)["openpacketrouter:dhcp-snooping-trust"] = true; }
     // a Layer 3 switch: SVIs (vlanN with an address) and static routes
     for (const [name, a] of Object.entries(n.ifaces || {})) { const [ip, pl] = a.split("/"); M.ipv4(M.iface(m, name)).addresses.address[ip] = {config: {ip, "prefix-length": +pl}}; }
     for (const [dst, via] of n.routes || []) {
@@ -145,7 +146,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor", "dhcpSnooping"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -169,6 +170,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (M.fdb(m)["mac-aging-time"] !== undefined) n.agingTime = M.fdb(m)["mac-aging-time"];
     if (M.services(m).forwardLldp) n.forwardLldp = true;
     if (Object.keys(M.monitor(m, false)).length) n.monitor = JSON.parse(JSON.stringify(M.monitor(m, false)));
+    if (M.services(m).dhcpSnooping) n.dhcpSnooping = {trusted: ports.filter(p => ifs[p]?.["openpacketrouter:dhcp-snooping-trust"])};
     const channels = {};   // members in cable order; the channel's rate is slow unless `lacp rate fast`
     for (const p of ports) { const id = ifs[p] && M.lagOf(ifs[p]); if (id) (channels[id] ||= {ports: []}).ports.push(p); }
     for (const [id, c] of Object.entries(channels)) if (M.lacpInterval(m, id, false)?.interval === "FAST") c.rate = "fast";
@@ -362,6 +364,7 @@ export function stateOf(net, device, spec) {
       mac: n.macTable().map(e => ({...e, vlan: e.vlan || 1})),
       stp: n.stp && n.stp.started ? n.stp.describe() : null,
       lacp: [...n.channels.values()].map(c => c.describe()),
+      dhcpSnooping: n.dhcpSnoopingState(),
     };
     if (!n.l3) return base;
     return {...base, routes: routesOf(n.l3), arp: [...n.l3.arp].map(([ip, e]) => ({ip, mac: e.mac, interface: e.iface}))};

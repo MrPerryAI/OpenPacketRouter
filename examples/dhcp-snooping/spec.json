@@ -1,0 +1,86 @@
+{
+ "version": 1,
+ "name": "DHCP snooping",
+ "about": "SW trusts DHCP server messages only on p1 (the real server SRV). A rogue DHCP server sits on p3: its offers are dropped and counted, so the clients still get their address from SRV.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch",
+   "dhcpSnooping": {
+    "trusted": [
+     "p1"
+    ]
+   }
+  },
+  {
+   "name": "SRV",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   },
+   "services": {
+    "dhcp": {
+     "range": [
+      "10.0.0.100",
+      "10.0.0.100"
+     ],
+     "lease": 3600,
+     "router": "10.0.0.1"
+    }
+   }
+  },
+  {
+   "name": "ROGUE",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.66/24"
+   },
+   "services": {
+    "dhcp": {
+     "range": [
+      "10.0.0.200",
+      "10.0.0.210"
+     ],
+     "lease": 3600,
+     "router": "10.0.0.66"
+    }
+   }
+  },
+  {
+   "name": "PC1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "dhcp"
+   }
+  },
+  {
+   "name": "PC2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "dhcp"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SRV:eth0",
+   "SW:p1",
+   1
+  ],
+  [
+   "PC1:eth0",
+   "SW:p2",
+   1
+  ],
+  [
+   "ROGUE:eth0",
+   "SW:p3",
+   1
+  ],
+  [
+   "PC2:eth0",
+   "SW:p4",
+   1
+  ]
+ ]
+}
