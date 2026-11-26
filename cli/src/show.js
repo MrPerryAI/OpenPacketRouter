@@ -230,6 +230,8 @@ export const SHOWS = {
       if (sp) row.stp = {cost: sp.cost ?? null, portPriority: sp["port-priority"] ?? null};
       const shaper = ifc && ifc["openpacketrouter:shaper"];
       if (shaper) row.shaper = {rate: shaper.rate, burst: shaper.burst, limit: shaper.limit};
+      if (ifc?.["openpacketrouter:delay"] !== undefined) row.delay = ifc["openpacketrouter:delay"];
+      if (ifc?.["openpacketrouter:loss"]) row.loss = {...ifc["openpacketrouter:loss"]};
       const helpers = relay[p]?.config["helper-address"];
       if (helpers && helpers.length) row.helperAddresses = helpers;
       return row;
@@ -242,6 +244,8 @@ export const SHOWS = {
       ...(r.dhcpClient && !r.addresses.length ? ["  IPv4 address from DHCP (none yet)"] : []),
       ...(r.vlanMode === "trunk" ? [`  Trunk, allowed VLANs ${formatVlanList(r.trunkVlans)}, native VLAN ${r.nativeVlan}`] : r.vlanMode ? [`  Access port in VLAN ${r.accessVlan}`] : []),
       ...(r.stp ? [`  Spanning tree cost ${r.stp.cost ?? "default"}, port priority ${r.stp.portPriority ?? "default"}`] : []),
+      ...(r.delay !== undefined ? [`  Cable delay ${r.delay} ms`] : []),
+      ...(r.loss ? [`  Loss pattern: to-bad ${r.loss.toBad}, to-good ${r.loss.toGood}, in-bad ${r.loss.inBad}, in-good ${r.loss.inGood}`] : []),
       ...(r.shaper ? [`  Shaper: rate ${r.shaper.rate}, burst ${r.shaper.burst}, queue limit ${r.shaper.limit}`] : []),
       ...(r.helperAddresses ? [`  DHCP relay to ${r.helperAddresses.join(", ")}`] : []),
     ].join("\n")).join("\n\n");

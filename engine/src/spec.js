@@ -29,6 +29,8 @@ const NODE_KEYS = {
   server: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],
 };
 /** Features add their node keys here: registerNodeKeys("switch", ["stp", "vlans"]). */
+/** Every node key the format accepts for a kind (the CLI coverage test reads this). */
+export const nodeKeys = kind => [...NODE_KEYS.common, ...(NODE_KEYS[kind] || [])];
 export function registerNodeKeys(kind, keys) { (NODE_KEYS[kind] ||= []).push(...keys); }
 
 const isObj = x => x !== null && typeof x === "object" && !Array.isArray(x);

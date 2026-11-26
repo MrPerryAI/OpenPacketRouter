@@ -45,6 +45,7 @@ interface eth0
 !
 interface eth1
  ip address 10.1.0.1/24
+ delay 2
 !
 end
 
@@ -53,6 +54,7 @@ hostname WEB
 !
 interface eth0
  ip address 10.1.0.53/24
+ delay 2
 !
 ip route 0.0.0.0/0 10.1.0.1
 !

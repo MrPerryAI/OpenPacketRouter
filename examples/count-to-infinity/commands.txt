@@ -7,6 +7,7 @@ hostname R1
 !
 interface eth0
  ip address 10.0.12.1/30
+ delay 5
 !
 interface eth1
  ip address 10.0.13.1/30
@@ -24,6 +25,7 @@ hostname R2
 !
 interface eth0
  ip address 10.0.12.2/30
+ delay 5
 !
 interface eth1
  ip address 10.0.23.1/30

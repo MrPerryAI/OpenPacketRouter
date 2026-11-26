@@ -124,6 +124,10 @@ Selecting an interface; turning it off and on; addresses; shaping.
 | `no ip address` | interface | routers, hosts, servers, switches | Remove the interface's address |
 | `shape rate RATE burst BYTES limit QUEUE` | interface | all devices | Bytes |
 | `no shape` | interface | all devices | Send at full speed again |
+| `delay MS` | interface | all devices | Milliseconds (the default is 1) |
+| `no delay` | interface | all devices | Back to the default cable delay |
+| `loss pattern TOBAD TOGOOD INBAD INGOOD` | interface | all devices | 1: frames sent in the good state are dropped |
+| `no loss` | interface | all devices | Stop dropping frames |
 | `ipv6 address PREFIX` | interface | routers, hosts, servers | Address and prefix length, like 2001:db8:1::a/64 |
 | `no ipv6 address` | interface | routers, hosts, servers | Remove the interface's IPv6 address |
 
@@ -482,6 +486,7 @@ interface eth0
 !
 interface eth1
  ip address 10.1.0.1/24
+ delay 2
 !
 ip route 10.9.0.0/16 10.1.0.53
 !

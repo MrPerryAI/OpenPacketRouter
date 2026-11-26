@@ -202,6 +202,10 @@ export const HANDLERS = {
   // ---- link shaping (token bucket on the interface's egress)
   "shaper.set": (ctx, [rate, burst, limit]) => { curIface(ctx)["openpacketrouter:shaper"] = {rate, burst, limit}; },
   "shaper.remove": ctx => { delete curIface(ctx)["openpacketrouter:shaper"]; },
+  "linkdelay.set": (ctx, [ms]) => { curIface(ctx)["openpacketrouter:delay"] = ms; },
+  "linkdelay.remove": ctx => { delete curIface(ctx)["openpacketrouter:delay"]; },
+  "linkloss.set": (ctx, [toBad, toGood, inBad, inGood]) => { curIface(ctx)["openpacketrouter:loss"] = {toBad, toGood, inBad, inGood}; },
+  "linkloss.remove": ctx => { delete curIface(ctx)["openpacketrouter:loss"]; },
 
   // ---- OSPFv2 (openconfig-ospfv2: global router-id, one area 0, per-interface metric/timers)
   "ospf.enter": ctx => { M.ospf(ctx.model, true); ctx.s.router = "ospf"; },

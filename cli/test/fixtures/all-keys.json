@@ -1,0 +1,297 @@
+{
+ "version": 1,
+ "name": "every node key",
+ "about": "Test fixture: every node key at least once, so the CLI round trip covers all of them.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch",
+   "about": "access switch",
+   "vlans": {
+    "p1": {
+     "access": 10
+    },
+    "p2": {
+     "access": 20
+    },
+    "p3": {
+     "access": 10
+    },
+    "p4": {
+     "access": 10
+    }
+   },
+   "vlanNames": {
+    "10": "sales",
+    "20": "lab"
+   },
+   "blocked": [
+    "p3"
+   ],
+   "forwardLldp": true,
+   "ifaces": {
+    "vlan10": "10.0.10.2/24"
+   },
+   "gw": "10.0.10.1",
+   "routes": [
+    [
+     "10.7.0.0/24",
+     "10.0.10.1"
+    ]
+   ],
+   "portSecurity": {
+    "p1": {
+     "max": 1,
+     "violation": "restrict"
+    }
+   },
+   "stormControl": {
+    "p1": {
+     "broadcast": {
+      "rate": "8kbit",
+      "burst": 400
+     }
+    }
+   },
+   "monitor": {
+    "1": {
+     "destination": "p4",
+     "sources": {
+      "p1": "both"
+     }
+    }
+   },
+   "dhcpSnooping": {
+    "trusted": [
+     "p2"
+    ]
+   }
+  },
+  {
+   "name": "R",
+   "kind": "router",
+   "about": "edge router",
+   "ifaces": {
+    "e0": "10.0.10.1/24",
+    "e1": "10.1.0.1/24"
+   },
+   "ifaces6": {
+    "e0": "2001:db8:10::1/64"
+   },
+   "routes6": [
+    [
+     "2001:db8:77::/64",
+     "2001:db8:10::2"
+    ]
+   ],
+   "gw6": "2001:db8:10::2",
+   "routes": [
+    [
+     "10.8.0.0/24",
+     "10.0.10.9"
+    ]
+   ],
+   "gw": "10.0.10.9",
+   "lldp": {
+    "txInterval": 20,
+    "holdMultiplier": 3,
+    "description": "edge"
+   },
+   "ospf": {
+    "routerId": "1.1.1.1",
+    "networks": [
+     "e0",
+     "e1"
+    ],
+    "passive": [
+     "e1"
+    ]
+   },
+   "rip": {
+    "networks": [
+     "10.0.0.0/8"
+    ],
+    "triggered": false,
+    "timers": {
+     "update": 5,
+     "timeout": 15,
+     "garbage": 10
+    }
+   },
+   "nat": {
+    "inside": [
+     "e1"
+    ],
+    "outside": [
+     "e0"
+    ],
+    "overload": {
+     "src": "10.1.0.0/24"
+    }
+   },
+   "services": {
+    "dhcpRelay": {
+     "server": "10.0.10.30",
+     "clients": [
+      "e1"
+     ]
+    }
+   },
+   "acl": {
+    "lists": {
+     "FROM-LAN": [
+      {
+       "action": "permit",
+       "proto": "udp",
+       "dst": "10.0.10.30",
+       "dport": 53
+      },
+      {
+       "action": "deny",
+       "proto": "tcp",
+       "dst": "10.0.10.30",
+       "dport": 80
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "H",
+   "kind": "host",
+   "about": "a host",
+   "ifaces": {
+    "eth0": "10.0.10.20/24"
+   },
+   "gw": "10.0.10.1",
+   "routes": [
+    [
+     "10.9.0.0/24",
+     "10.0.10.1"
+    ]
+   ],
+   "lldp": {
+    "txInterval": 60
+   },
+   "services": {
+    "dns": {
+     "srv.lab": "10.0.10.30"
+    }
+   },
+   "ifaces6": {
+    "eth0": "2001:db8:10::20/64"
+   },
+   "routes6": [
+    [
+     "2001:db8:78::/64",
+     "2001:db8:10::1"
+    ]
+   ],
+   "gw6": "2001:db8:10::1"
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "about": "a server",
+   "ifaces": {
+    "eth0": "10.0.10.30/24"
+   },
+   "ifaces6": {
+    "eth0": "2001:db8:10::30/64"
+   },
+   "gw": "10.0.10.1",
+   "gw6": "2001:db8:10::1",
+   "routes": [
+    [
+     "10.9.0.0/24",
+     "10.0.10.1"
+    ]
+   ],
+   "routes6": [
+    [
+     "2001:db8:77::/64",
+     "2001:db8:10::1"
+    ]
+   ],
+   "lldp": {
+    "holdMultiplier": 4
+   },
+   "services": {
+    "tcp": {
+     "80": "http"
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "agingTime": 5,
+   "channels": {
+    "Po1": {
+     "ports": [
+      "p1",
+      "p2"
+     ]
+    }
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  }
+ ],
+ "links": [
+  [
+   "R:e0",
+   "SW:p1",
+   5,
+   {
+    "loss": {
+     "toBad": 1,
+     "toGood": 0,
+     "inBad": 1,
+     "inGood": 0
+    }
+   }
+  ],
+  [
+   "H:eth0",
+   "SW:p3"
+  ],
+  [
+   "S:eth0",
+   "SW:p4",
+   2,
+   {
+    "lossBack": {
+     "toBad": 0,
+     "toGood": 1,
+     "inBad": 0,
+     "inGood": 1
+    }
+   }
+  ],
+  [
+   "R:e1",
+   "SW:p2"
+  ],
+  [
+   "SW2:p1",
+   "SW:p5"
+  ],
+  [
+   "SW2:p2",
+   "SW:p6"
+  ],
+  [
+   "SW3:p1",
+   "SW:p7"
+  ]
+ ]
+}

@@ -87,6 +87,8 @@ export const TYPES = {
   "port": {...uint(1, 65535), help: "Port number"},
   "http-path": {hint: "/PATH", help: "URL path, like /about", test: s => /^\/[^\s%]*$/.test(s)},
   "page-text": {hint: "TEXT", help: "Page text in one word: write spaces as %20 and line breaks as %0A", test: s => { try { decodeURIComponent(s); return s.length > 0; } catch { return false; } }},
+  "bit": {...uint(0, 1), help: "0 or 1"},
+  "millis": {...uint(0, 60000), help: "Milliseconds"},
   "seconds": {...uint(1, 31536000), help: "Seconds"},
   "bytes": {...uint(1, 1e9), help: "Bytes"},
 };

@@ -37,11 +37,18 @@ export function configLines(model, {kind, ports}) {
   const acls = M.services(model).acl;
   if (acls) for (const [name, rules] of Object.entries(acls.lists)) out.push(`ip access-list ${name}`, ...rules.map(r => ` ${ruleText(r)}`), "!");
   const og = M.ospf(model);
+  // Networks and passive interfaces that name an interface come after the interface blocks: replaying the text, the
+  // interface must have its address before the router process can refer to it.
+  const ospfNets = og ? og["openpacketrouter:networks"].map(e => typeof e === "object" ? e : {network: e}) : [];
+  const ospfLate = [], lateNets = ospfNets.some(e => !/^\d/.test(e.network));   // all networks stay together, so their order survives
   if (og) {
     out.push("router ospf");
     if (og.global.config["router-id"]) out.push(` router-id ${og.global.config["router-id"]}`);
-    for (const e of og["openpacketrouter:networks"]) { const x = typeof e === "object" ? e.network : e; out.push(` network ${/^\d/.test(x) ? "" : "interface "}${x}${typeof e === "object" ? ` area ${e.area}` : ""}`); }
-    for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
+    for (const e of ospfNets) {
+      const text = ` network ${/^\d/.test(e.network) ? "" : "interface "}${e.network}${e.area !== undefined ? ` area ${e.area}` : ""}`;
+      (lateNets ? ospfLate : out).push(text);
+    }
+    for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) (lateNets ? ospfLate : out).push(` passive-interface ${p}`);
     out.push("!");
   }
 
@@ -95,10 +102,15 @@ export function configLines(model, {kind, ports}) {
       }
       const sh = ifc["openpacketrouter:shaper"];
       if (sh) out.push(` shape rate ${sh.rate} burst ${sh.burst} limit ${sh.limit}`);
+      if (ifc["openpacketrouter:delay"] !== undefined) out.push(` delay ${ifc["openpacketrouter:delay"]}`);
+      const ls = ifc["openpacketrouter:loss"];
+      if (ls) out.push(` loss pattern ${ls.toBad} ${ls.toGood} ${ls.inBad} ${ls.inGood}`);
       if (ifc.config.enabled === false) out.push(" shutdown");
     }
     out.push("!");
   }
+
+  if (ospfLate.length) out.push("router ospf", ...ospfLate, "!");
 
   const routes = M.staticList(model);
   for (const r of routes) out.push(`ip route ${r.prefix} ${r.nextHop}`);

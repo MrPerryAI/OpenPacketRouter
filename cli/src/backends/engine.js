@@ -50,6 +50,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       const r = M.statics(m)[dst] ||= {prefix: dst, config: {prefix: dst}, "next-hops": {"next-hop": {}}};
       r["next-hops"]["next-hop"][via] = {index: via, config: {index: via, "next-hop": via}};
     }
+    if (n.gw) { const r = M.statics(m)["0.0.0.0/0"] ||= {prefix: "0.0.0.0/0", config: {prefix: "0.0.0.0/0"}, "next-hops": {"next-hop": {}}}; r["next-hops"]["next-hop"][n.gw] = {index: n.gw, config: {index: n.gw, "next-hop": n.gw}}; }
     for (const [id, name] of Object.entries(n.vlanNames || {})) M.vlans(m)[id] = {"vlan-id": +id, config: {"vlan-id": +id, name}};
     for (const [p, c] of Object.entries(n.vlans || {})) {
       const sv = M.switchedVlan(M.iface(m, p));
@@ -133,6 +134,9 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     const o = l[3] || {};
     if (typeof l[0] === "string" && l[0].startsWith(device + ":") && o.shape) M.iface(m, l[0].split(":")[1])["openpacketrouter:shaper"] = {...o.shape};
     if (typeof l[1] === "string" && l[1].startsWith(device + ":") && o.shapeBack) M.iface(m, l[1].split(":")[1])["openpacketrouter:shaper"] = {...o.shapeBack};
+    if (typeof l[0] === "string" && l[0].startsWith(device + ":") && o.loss) M.iface(m, l[0].split(":")[1])["openpacketrouter:loss"] = {...o.loss};
+    if (typeof l[1] === "string" && l[1].startsWith(device + ":") && o.lossBack) M.iface(m, l[1].split(":")[1])["openpacketrouter:loss"] = {...o.lossBack};
+    if (typeof l[2] === "number" && l[2] !== 1) for (const e of [0, 1]) if (typeof l[e] === "string" && l[e].startsWith(device + ":")) M.iface(m, l[e].split(":")[1])["openpacketrouter:delay"] = l[2];
   });
   return m;
 }
@@ -164,7 +168,10 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     }
     if (Object.keys(svis).length) n.ifaces = svis;
     const srt = [];
-    for (const r of M.staticList(m)) srt.push([r.prefix, r.nextHop]);
+    for (const r of M.staticList(m)) {
+      if (r.prefix === "0.0.0.0/0") { if (n.gw) throw new Error("The engine keeps one default route"); n.gw = r.nextHop; }
+      else srt.push([r.prefix, r.nextHop]);
+    }
     if (srt.length) n.routes = srt;
     const blocked = ports.filter(p => ifs[p] && ifs[p].config.enabled === false);
     if (blocked.length) n.blocked = blocked;
@@ -302,14 +309,19 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   out.links = out.links.map(l => {
     const ends = [0, 1].filter(e => typeof l[e] === "string" && l[e].startsWith(device + ":"));
     if (!ends.length) return l;
-    const o = {...(l[3] || {})}; let touched = false;
+    const o = {...(l[3] || {})}; let touched = false, delay = l.length >= 3 ? l[2] : 1;   // delay 1 (the default) is not a setting: `delay N` appears only for other values
     for (const e of ends) {
-      const key = e === 0 ? "shape" : "shapeBack", sh = ifs[l[e].split(":")[1]]?.["openpacketrouter:shaper"];
-      if (sh) { o[key] = {...sh}; touched = true; } else if (o[key]) { delete o[key]; touched = true; }
+      const ifc = ifs[l[e].split(":")[1]];
+      for (const [key, leaf] of [[e === 0 ? "shape" : "shapeBack", "openpacketrouter:shaper"], [e === 0 ? "loss" : "lossBack", "openpacketrouter:loss"]]) {
+        const v = ifc?.[leaf];
+        if (v) { o[key] = {...v}; touched = true; } else if (o[key]) { delete o[key]; touched = true; }
+      }
+      const d = ifc?.["openpacketrouter:delay"];
+      if (typeof delay === "number" ? (d ?? 1) !== delay : d !== undefined) { delay = d ?? 1; touched = true; }
     }
     if (!touched) return l;
-    const base = [l[0], l[1], l.length >= 3 ? l[2] : 1];
-    return Object.keys(o).length ? [...base, o] : (l.length >= 3 ? base : [l[0], l[1]]);
+    const base = [l[0], l[1], delay];
+    return Object.keys(o).length ? [...base, o] : (delay !== 1 || l.length >= 3 ? base : [l[0], l[1]]);
   });
   if (name !== device) out.links = out.links.map(l => l.map(x => typeof x === "string" && x.startsWith(device + ":") ? name + x.slice(device.length) : x));
   return {spec: out, cut: newCut};
