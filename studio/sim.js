@@ -43,7 +43,6 @@ export function describeFrame(f) {
   }
   const p = f.ip;
   if (p.proto === "ospf") return `OSPF ${p.ospf.type} from ${p.ospf.routerId}: ${p.src} → ${p.dst}${p.ospf.neighbors ? `, ${p.ospf.neighbors.length} neighbor(s) listed` : ""}${tag}`;
-  if (p.proto === "vrrp") return `VRRP advert, group ${p.vrrp.vrid}, priority ${p.vrrp.priority}: ${p.src} → ${p.dst}${tag}`;
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
   const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${http}`
