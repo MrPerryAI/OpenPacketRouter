@@ -46,6 +46,9 @@ class Net6(l3.KernelNet):
                          ("net.ipv6.conf.all.accept_redirects", 0), ("net.ipv6.icmp.ratelimit", 0),
                          ("net.ipv6.conf.all.forwarding", 1 if n["kind"] == "router" else 0)]:
                 l3.sysctl(ns, k, v)
+            # The engine does not model reachability re-confirmation (NUD): pin Linux so a used entry is not probed again within a run.
+            for ifn in ["default"] + list((n.get("ifaces6") or {})):
+                l3.sysctl(ns, f"net.ipv6.neigh.{ifn}.delay_first_probe_time", 3600)
             subprocess.run(["ip", "netns", "exec", ns, "nft", "-f", "-"], input=CHATTER, text=True, check=True)
             for ifn, cidr in (n.get("ifaces6") or {}).items(): l3.sh("ip", "-n", ns, "-6", "addr", "add", cidr, "dev", ifn, "nodad")
             for dst, via in n.get("routes6", []): l3.sh("ip", "-n", ns, "-6", "route", "add", dst, "via", via)
