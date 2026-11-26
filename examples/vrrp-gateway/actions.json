@@ -1,47 +1,41 @@
 [
  {
   "do": "wait",
-  "seconds": 8,
-  "keepCaches": true
+  "seconds": 8
  },
  {
   "do": "ping",
   "src": "H1",
-  "dst": "10.0.0.254",
-  "keepCaches": true
+  "dst": "10.0.0.254"
  },
  {
   "do": "link",
   "end": "R1:eth0",
   "up": false,
-  "keepCaches": true
+  "settle": 0
  },
  {
   "do": "wait",
-  "seconds": 8,
-  "keepCaches": true
+  "seconds": 8
  },
  {
   "do": "ping",
   "src": "H1",
-  "dst": "10.0.0.254",
-  "keepCaches": true
+  "dst": "10.0.0.254"
  },
  {
   "do": "link",
   "end": "R1:eth0",
   "up": true,
-  "keepCaches": true
+  "settle": 0
  },
  {
   "do": "wait",
-  "seconds": 8,
-  "keepCaches": true
+  "seconds": 8
  },
  {
   "do": "ping",
   "src": "H1",
-  "dst": "10.0.0.254",
-  "keepCaches": true
+  "dst": "10.0.0.254"
  }
 ]
