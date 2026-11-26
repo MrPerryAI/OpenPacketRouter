@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor", "dhcpSnooping"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "routes", "gw", "services", "lldp"],
