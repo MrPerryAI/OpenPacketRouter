@@ -175,7 +175,11 @@ def main(here=HERE, cases=CASES, script=__file__):
                         else: r.append([t_, kd, 1, t_])
                     return r
                 keep = lambda t: {c: runs(sorted(v)) for c, v in sorted(t.items()) if v}
-                detail[f"{name} step {i + 1}: {label}"]["timeline_engine"] = keep(etl); detail[f"{name} step {i + 1}: {label}"]["timeline_kernel"] = keep(timelines[name])
+                # (kept out of `detail`: a GitHub annotation is cut at 4000 characters, so each side gets its own short note: only the runs
+                # that carry the flag, as "first-last kind xCount", for the cables whose direction carried one)
+                short = lambda t: {c: [f"{r[0]:g}-{r[3]:g} {r[1]} x{r[2]}" for r in rs if r[1] != "config" and r[0] < 40] for c, rs in keep(t).items()}
+                for side, tl in (("engine", etl), ("kernel", timelines[name])):
+                    l3.gh_note("error", f"Aging {side} BPDU timeline (seconds after time 0)", json.dumps({c: v for c, v in short(tl).items() if v}))
         if len(eng) != len(kern[name]): ok_all = False; detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern[name])}
     (here / "results.md").write_text("\n".join(md) + "\n"); (here / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
