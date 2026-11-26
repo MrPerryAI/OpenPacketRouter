@@ -394,9 +394,14 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ntp` | user, privileged | routers, hosts, servers | The NTP service's stratum and how many queries it has answered |
 | `show syslog` | user, privileged | routers, hosts, servers | Log messages this device has collected (needs service syslog) |
 | `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
+<<<<<<< HEAD
 | `show ipv6 route` | user, privileged | routers, hosts, servers | IPv6 routes: connected, static and learned by RIPng |
 | `show ipv6 neighbors` | user, privileged | routers, hosts, servers | IPv6 address to MAC address table (neighbor discovery cache) |
 | `show ipv6 ripng` | user, privileged | routers | The RIPng table: connected and learned prefixes with metric and next hop |
+=======
+| `show ip bgp` | user, privileged | routers | The BGP table: every path with next hop, local preference and AS path (* valid, > best) |
+| `show ip bgp summary` | user, privileged | routers | One line per neighbor: AS, session state, router ID, prefixes received |
+>>>>>>> 69e46fa (cli: BGP commands (router bgp, bgp router-id, neighbor remote-as/next-hop-self/local-preference, network, timers), show ip bgp and summary, B routes in show ip route, FRR rendering; CLI reference regenerated)
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | One list |
@@ -470,6 +475,29 @@ OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), pe
 | `show ip ospf interface` | user, privileged | routers | OSPF state of each interface |
 | `show ip ospf database` | user, privileged | routers | The link-state database: what every router announced |
 | `show ip ospf route` | user, privileged | routers | Networks OSPF has computed |
+
+### Bgp
+
+BGP-4 in FRRouting's style: router bgp ASN, then bgp router-id, neighbor ADDRESS remote-as ASN, network PREFIX and timers bgp. A neighbor in our own AS is an iBGP peer, in another AS an eBGP peer. neighbor ... local-preference is this CLI's short form of an inbound route-map that sets the local preference (the FRR rendering writes the route-map).
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `router bgp ASN` | config | routers | This router's AS number (1-65535) |
+| `no router bgp` | config | routers | Turn BGP off |
+| `bgp router-id ADDRESS` | BGP routing | routers | Like 1.1.1.1 (default: the highest interface address) |
+| `no bgp router-id` | BGP routing | routers | Go back to the default router ID |
+| `neighbor ADDRESS remote-as ASN` | BGP routing | routers | 1-65535: the same as ours is an iBGP session, another one is eBGP |
+| `no neighbor ADDRESS` | BGP routing | routers | Remove this peer |
+| `neighbor ADDRESS next-hop-self` | BGP routing | routers | Advertise ourselves as the next hop to this peer |
+| `no neighbor ADDRESS next-hop-self` | BGP routing | routers | Keep the next hop of routes we pass on |
+| `neighbor ADDRESS local-preference N` | BGP routing | routers | Local preference (default 100; higher wins) |
+| `no neighbor ADDRESS local-preference` | BGP routing | routers | Back to the default (100) |
+| `network PREFIX` | BGP routing | routers | Network and prefix length, like 10.1.0.0/24 |
+| `no network PREFIX` | BGP routing | routers | Network and prefix length |
+| `timers bgp KEEPALIVE HOLD` | BGP routing | routers | Hold time in seconds, 3 or more (default 180) |
+| `no timers bgp` | BGP routing | routers | Back to 60 s keepalive, 180 s hold |
+| `timers connect SECONDS` | BGP routing | routers | Seconds |
+| `no timers connect` | BGP routing | routers | Back to 120 s |
 
 ## Examples
 

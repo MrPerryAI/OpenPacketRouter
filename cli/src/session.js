@@ -18,7 +18,7 @@ import {TYPES} from "./types.js";
 
 export const PROMPTS = {user: ">", priv: "#", config: "(config)#", "config-if": "(config-if)#", "config-router": "(config-router)#", "config-ospf": "(config-router)#", "config-ripng": "(config-router)#",
   "config-vlan": "(config-vlan)#", "config-dhcp": "(config-dhcp)#", "config-acl": "(config-acl)#"};
-const CONFIG_MODES = new Set(["config", "config-if", "config-router", "config-ospf", "config-ripng", "config-vlan", "config-dhcp", "config-acl"]);
+const CONFIG_MODES = new Set(["config", "config-if", "config-router", "config-ospf", "config-ripng", "config-bgp", "config-vlan", "config-dhcp", "config-acl"]);
 
 const compiled = new WeakMap();
 const tableFor = defs => { if (!compiled.has(defs)) compiled.set(defs, compile(defs)); return compiled.get(defs); };
