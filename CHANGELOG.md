@@ -52,6 +52,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Commands for VLANs, inter-VLAN routing, LLDP, RIP, OSPF (including areas), VRRP, NAT, ACLs, port security, storm control, DHCP snooping, SPAN, HTTP pages, IPv6 and MAC aging (#62, #64, #65, #68, #109, #114, #116, #152, and the feature PRs above).
 - Backends: engine, Linux (devices configured only by the CLI match the engine frame for frame, #56), FRR (rendered `frr.conf` runs in real ospfd/ripd, #68, #134) and OpenWrt (rendered UCI applied by real `uci` in the OpenWrt rootfs container, #156).
 - Generated CLI reference with a freshness check (#54).
+- The engine's `--text` report has a plain line for every action, including VRRP state and LLDP neighbours (#206).
 - Every node key of the spec format has a CLI command, checked by a test over a fixture that uses each key (#175).
 
 ### Studio (browser)
@@ -62,6 +63,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Protocol panels for RIP/OSPF, NAT, ACL hits, LLDP, LACP and MAC aging (#98); playback filters and an event list (#131).
 - Keyboard access, labels, reduced motion and a phone-width layout (#139).
 - IPv6 panels and filters, DHCP snooping ports and drops, lossy cables, HTTP request lines and OSPF areas (#177).
+- A Services section in the device panel: stored syslog messages and the NTP server's stratum and answered queries (#189).
 
 ### Labs and docs
 
