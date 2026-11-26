@@ -337,6 +337,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
 | `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
 | `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
+| `show mac address-table aging-time` | user, privileged | switches | How long an unused entry is kept before it is forgotten |
 | `show port-security` | user, privileged | switches | Limits on how many hosts a switch port accepts, and the violations so far |
 | `show storm-control` | user, privileged | switches | Broadcast limits per switch port, and how many frames each let through or dropped |
 | `show monitor` | user, privileged | switches | Port mirroring sessions: destination and source ports |
