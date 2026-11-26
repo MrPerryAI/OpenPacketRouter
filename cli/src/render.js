@@ -120,6 +120,15 @@ export function configLines(model, {kind, ports}) {
     if (p.lease !== undefined) out.push(` lease ${p.lease}`);
     out.push("!");
   }
+  if (s.ripng) {
+    out.push("router ripng");
+    for (const n of s.ripng.networks) out.push(` network ${n}`);
+    for (const i of s.ripng.passive || []) out.push(` passive-interface ${i}`);
+    const t = s.ripng.timers; if (t) out.push(` timers basic ${t.update} ${t.timeout} ${t.garbage}`);
+    if (s.ripng.splitHorizon) out.push(s.ripng.splitHorizon === "off" ? " no split-horizon" : " split-horizon poisoned-reverse");
+    if (s.ripng.triggered === false) out.push(" no triggered-updates");
+    out.push("!");
+  }
   if (s.rip) {
     out.push("router rip", " version 2");
     for (const n of s.rip.networks) out.push(` network ${n}`);
