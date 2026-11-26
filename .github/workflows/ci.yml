@@ -62,6 +62,8 @@ jobs:
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/lacp/run_kernel_lacp.py
       - name: Storm control vs real Linux (tc police on bridge ports, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/storm-control/run_kernel_storm.py
+      - name: Port mirroring (SPAN) vs Linux tc mirred (frame for frame, monitor cables included)
+        run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/span/run_kernel_span.py
       - name: Link shaping vs real Linux tbf (frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)

@@ -38,6 +38,8 @@
      "help": {"port-security": "Limits on how many hosts a switch port accepts, and the violations so far"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show storm-control", "handler": "show.storm-control",
      "help": {"storm-control": "Broadcast limits per switch port, and how many frames each let through or dropped"}},
+    {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show monitor", "handler": "show.monitor",
+     "help": {"show": "Show device state", "monitor": "Port mirroring sessions: destination and source ports"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show etherchannel summary", "handler": "show.etherchannel",
      "help": {"etherchannel": "Port-channels (link aggregation)", "summary": "One line per channel, with the state of each member port"}},
     {"modes": ["user", "priv"], "kinds": ["switch"], "syntax": "show spanning-tree", "handler": "show.spanning-tree",

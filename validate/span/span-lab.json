@@ -1,0 +1,82 @@
+{
+ "name": "SPAN",
+ "about": "One switch, hosts A B C on p1-p3. Session 1 mirrors p1 (both directions) and p2 (received only) to monitor M on p4; session 2 mirrors what p3 sends to monitor N on p5.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch",
+   "monitor": {
+    "1": {
+     "destination": "p4",
+     "sources": {
+      "p1": "both",
+      "p2": "rx"
+     }
+    },
+    "2": {
+     "destination": "p5",
+     "sources": {
+      "p3": "tx"
+     }
+    }
+   }
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.3/24"
+   }
+  },
+  {
+   "name": "M",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.8/24"
+   }
+  },
+  {
+   "name": "N",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.9/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1"
+  ],
+  [
+   "B:eth0",
+   "SW:p2"
+  ],
+  [
+   "C:eth0",
+   "SW:p3"
+  ],
+  [
+   "M:eth0",
+   "SW:p4"
+  ],
+  [
+   "N:eth0",
+   "SW:p5"
+  ]
+ ]
+}
