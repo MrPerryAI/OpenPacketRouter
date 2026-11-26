@@ -73,7 +73,7 @@ export class Switch extends Device {
    *  ifaces: {"vlan10": "10.0.10.1/24"} gives a VLAN-aware switch switched virtual interfaces (SVIs) and makes it
    *  a Layer 3 switch: an IPv4 router whose interfaces sit inside the switch, like Linux vlan devices on a
    *  vlan_filtering bridge (`ip link add link br0 name vlan10 type vlan id 10`). routes/gw as for a router. */
-  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, portSecurity = null, stormControl = null, monitor = null} = {}) {
+  constructor(net, name, {blocked = [], stp = null, vlans = null, ifaces = null, routes = [], gw = null, agingTime = 300, forwardLldp = false, portSecurity = null, stormControl = null, monitor = null, dhcpSnooping = null} = {}) {
     super(net, name, "switch");
     /** portSecurity: {port: {max: N, violation: "protect"|"restrict"|"shutdown"}}. The first N source MACs heard on the port are secured for good
      *  (they never age); a frame from any other MAC is a violation: dropped before the switch learns it (protect, restrict) and counted;
@@ -82,6 +82,10 @@ export class Switch extends Device {
     /** stormControl: {port: {broadcast: {rate: "100kbit", burst: 400}}}: a policer on the port's ingress for broadcast frames (a Linux
      *  `tc filter ... flower dst_mac ff:ff:ff:ff:ff:ff action police`, which runs before the bridge sees the frame). Frames over the rate are dropped. */
     this.storm = new Map(Object.entries(stormControl || {}).map(([p, c]) => [p, {broadcast: c.broadcast ? new Police(c.broadcast) : null}]));
+    /** dhcpSnooping: {trusted: [ports]} turns DHCP snooping on: a DHCP server message (UDP source port 67, destination port 68) arriving on any port not
+     *  listed as trusted is dropped before the switch learns or forwards it, and counted. Not modeled: the binding table, dynamic ARP inspection and IP
+     *  source guard (Linux has no equivalent to validate against). Linux reference: nftables bridge prerouting `udp sport 67 udp dport 68 drop` (validate/dhcp-snooping). */
+    this.snooping = dhcpSnooping ? {trusted: new Set(dhcpSnooping.trusted || []), dropped: new Map()} : null;
     this.forwardLldp = forwardLldp; this._setupMonitor(monitor); /* true: group_fwd_mask 0x4000, LLDP frames are forwarded like other multicast */ this.channels = new Map(); this.memberOf = new Map(); /* port-channels (lacp.js): name -> Channel, member port -> Channel */ this.table = new Map(); this.seen = new Map(); this.agingTime = agingTime; this.agingOverride = null; this.blocked = new Set(blocked);   // agingOverride: set while spanning tree has the topology-change flag
     this.stp = stp ? new (stp.mode === "rstp" ? Rstp : Stp)(this, {mac: net._mac(), ...stp}) : null;
     this.vlans = vlans;
@@ -169,6 +173,8 @@ export class Switch extends Device {
   linkChange(ifname, up) { const ch = this.memberOf.get(ifname); if (ch) ch.linkChange(ifname, up); if (this.stp) this.stp.linkChange(ifname, up); }
   start() { if (this.stp) this.stp.start(); for (const c of this.channels.values()) c.start(); this._gcArm(0.1); }   // the kernel starts the collector 0.1 s after the bridge comes up
 
+  /** DHCP snooping state: {trusted: [ports], dropped: {port: count}}, or null when snooping is off. */
+  dhcpSnoopingState() { return this.snooping && {trusted: [...this.snooping.trusted].sort(), dropped: Object.fromEntries([...this.snooping.dropped].sort())}; }
   receive(ifname, f) {
     if (this.mirrorDest.has(ifname)) return;   // a monitor port is not a bridge port: nothing it hears is switched
     const mir = this.mirrorIn.get(ifname); if (mir) for (const d of mir) { this.log("mirror", `${describe(f)}: copy of what ${ifname} receives, out ${d}`); super.send(d, {...f}); }
@@ -178,6 +184,9 @@ export class Switch extends Device {
     if (ch) { if (f.type === "lacpdu") return ch.receivePdu(ifname, f); if (!ch.collecting(ifname)) return; ifname = ch.name; }   // a collecting member delivers as the channel
     else if (f.type === "lacpdu") return;   // slow-protocol frames are never bridged
     if (this.blocked.has(ifname)) return;
+    if (this.snooping && !this.snooping.trusted.has(ifname) && f.type === "ipv4" && f.ip.proto === "udp" && f.ip.udp.sport === 67 && f.ip.udp.dport === 68) {
+      this.snooping.dropped.set(ifname, (this.snooping.dropped.get(ifname) || 0) + 1); this.log("dhcp-snooping", `${describe(f)}: DHCP server message on untrusted port ${ifname}, dropped`); return;
+    }
     if (f.type === "lldp" && !this.forwardLldp) {   // link-local: never forwarded (Linux still learns the sender, br_handle_local_finish)
       const state = this.stp && this.stp.ports.get(ifname) ? this.stp.ports.get(ifname).state : "forwarding";
       const vid = this.vlans ? this.vcfg(ifname).pvid : 0;
@@ -492,7 +501,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl, dhcpSnooping: n.dhcpSnooping};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

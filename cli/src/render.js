@@ -19,6 +19,7 @@ export function configLines(model, {kind, ports}) {
     for (const [p, d] of Object.entries(s.sources)) out.push(`monitor session ${n} source interface ${p} ${d}`);
     out.push("!");
   }
+  if (sw && M.services(model).dhcpSnooping) out.push("ip dhcp snooping", "!");
   if (sw && M.stpEnabled(model)) {
     out.push("spanning-tree");
     const g = M.stpGlobal(model);
@@ -62,6 +63,7 @@ export function configLines(model, {kind, ports}) {
       for (const h of M.relayHelpers(model, name, false)) out.push(` ip helper-address ${h}`);
       if (M.lagOf(ifc)) out.push(` channel-group ${M.lagOf(ifc).slice(2)} mode active`);
       if (M.lacpInterval(model, name, false)?.interval === "FAST") out.push(" lacp rate fast");
+      if (ifc["openpacketrouter:dhcp-snooping-trust"]) out.push(" ip dhcp snooping trust");
       const sv = M.switchedVlan(ifc, false);
       if (sv && sv["interface-mode"] === "ACCESS") {
         out.push(" switchport mode access");

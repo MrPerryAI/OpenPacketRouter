@@ -163,6 +163,10 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `lacp rate slow` | interface | switches | Every 30 seconds (the default) |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
 | `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
+| `ip dhcp snooping` | config | switches | Drop DHCP server messages that arrive on ports not marked trusted (stops rogue DHCP servers) |
+| `no ip dhcp snooping` | config | switches | Let DHCP server messages through on every port again |
+| `ip dhcp snooping trust` | interface | switches | Accept DHCP server messages on this port (the uplink to the real server) |
+| `no ip dhcp snooping trust` | interface | switches | Stop trusting this port |
 | `lldp forward` | config | switches | Pass LLDP frames through this switch instead of dropping them (the switch itself does not speak LLDP) |
 | `no lldp forward` | config | switches | Drop LLDP frames again (the default) |
 | `switchport port-security maximum COUNT` | interface | switches | Number of addresses |
@@ -329,6 +333,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show interface brief` | user, privileged | all devices | One line per interface |
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
+| `show ip dhcp snooping` | user, privileged | switches | Whether DHCP snooping is on, which ports are trusted and what was dropped |
 | `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |

@@ -129,6 +129,11 @@ export const HANDLERS = {
     if (rate === "fast") M.lacpInterval(ctx.model, ifc.config.name).interval = "FAST"; else { const c = M.lacpInterval(ctx.model, ifc.config.name, false); if (c) delete c.interval; }
   },
   // ---- LLDP passes through a switch (bridge group_fwd_mask bit 14)
+  // ---- DHCP snooping (engine/src/network.js dhcpSnooping; the trust flag is an extension on the interface)
+  "snoop.on": ctx => { M.services(ctx.model).dhcpSnooping = true; },
+  "snoop.off": ctx => { delete M.services(ctx.model).dhcpSnooping; },
+  "snoop.trust": ctx => { need(M.services(ctx.model).dhcpSnooping, "Turn DHCP snooping on first (ip dhcp snooping)"); curIface(ctx)["openpacketrouter:dhcp-snooping-trust"] = true; },
+  "snoop.untrust": ctx => { delete curIface(ctx)["openpacketrouter:dhcp-snooping-trust"]; },
   "bridge.lldp-forward": ctx => { M.services(ctx.model).forwardLldp = true; },
   "bridge.no-lldp-forward": ctx => { delete M.services(ctx.model).forwardLldp; },
 
