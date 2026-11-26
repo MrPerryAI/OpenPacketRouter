@@ -93,7 +93,7 @@ def main():
             ed, kd = e.get("drops", {}), k["drops"]
             dd = {key: (ed.get(key, 0), kd.get(key, 0)) for key in sorted(set(ed) | set(kd)) if ed.get(key, 0) != kd.get(key, 0)}
             ok = same and not fd and not dd
-            what = f'{a["do"]} {a["src"]} → {a["dst"]}' + (f' ×{a["count"]} of {a["size"]} B' if "count" in a else "")
+            what = (f'{a["do"]} {a["src"]} → {a["dst"]}' if "src" in a else f'{a["do"]} {a["seconds"]} s') + (f' ×{a["count"]} of {a["size"]} B' if "count" in a else "")
             drops = ", ".join(f"{k_} {v}" for k_, v in ed.items()) or "none"
             rows.append((name, what, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', drops, "✓" if ok else "✗"))
             if not ok: detail[f"{name}: {what}"] = {"engine": e["result"], "kernel": k["result"], "frame_diffs": fd, "drop_diffs": dd}
