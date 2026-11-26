@@ -27,11 +27,11 @@ const seg = (conn, flags, len = 0, extra = {}) => conn.node.sendIp({src: conn.la
 export const MSS = 1448, RTO = 0.2, MAX_WRITE = 10 * MSS;
 
 /** Send `total` bytes as MSS-sized segments, keep them for retransmission and start the timer. */
-function sendData(conn, total) {
+function sendData(conn, total, data) {
   for (let left = total; left > 0;) {
     const n = Math.min(MSS, left); left -= n;
-    const flags = left ? "A" : "PA";
-    seg(conn, flags, n); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags}); conn.snd += n;
+    const flags = left ? "A" : "PA", extra = !left && data !== undefined ? {data} : {};   // an application message rides on the last segment
+    seg(conn, flags, n, extra); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags, ...extra}); conn.snd += n;
   }
   armRto(conn, RTO);
 }
@@ -43,7 +43,7 @@ function armRto(conn, rto) {
     const h = conn.unacked[0];
     conn.node.log("tcp", `no ACK for seq ${h.seq} within ${rto} s: retransmitting ${h.len} bytes`);
     conn.retransmits = (conn.retransmits || 0) + 1;
-    seg(conn, h.flags, h.len, {seq: h.seq}); armRto(conn, rto * 2);
+    seg(conn, h.flags, h.len, {seq: h.seq, ...(h.data !== undefined ? {data: h.data} : {})}); armRto(conn, rto * 2);
   });
 }
 /** An ACK number: forget what it covers and restart the timer for the rest. */
@@ -64,6 +64,13 @@ function drop(conn) { conn.dead = true; table(conn.node).delete(key(conn.lport, 
 export function tcpInput(node, p) {
   const t = p.tcp, conn = table(node).get(key(t.dport, p.src, t.sport));
   if (conn) return onSegment(conn, t);
+  const app = node.tcpApps && node.tcpApps.get(t.dport);
+  if (t.flags === "S" && app) {                                      // an in-engine application (BGP): it decides whether to accept
+    const c = newConn(node, p.dst, t.dport, p.src, t.sport, "SYN_RCVD");
+    c.rcv = t.seq + 1;
+    if (app(c)) { node.log("tcp", `SYN to port ${t.dport}: answering SYN+ACK`); return seg(c, "SA"); }
+    drop(c);
+  }
   const listener = node.services.tcp && node.services.tcp[t.dport];
   if (t.flags === "S" && listener) {
     const c = newConn(node, p.dst, t.dport, p.src, t.sport, "SYN_RCVD");
@@ -105,7 +112,7 @@ function onSegment(conn, t) {
       if (f === "SA") { conn.rcv = t.seq + 1; conn.snd += 1; conn.rtoGen = (conn.rtoGen || 0) + 1; setState(conn, "ESTABLISHED"); seg(conn, "A"); conn.onEvent && conn.onEvent("connected"); }
       return;
     case "SYN_RCVD":
-      if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); }
+      if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); if (conn.onEvent) conn.onEvent("connected"); }
       return;
     case "ESTABLISHED": case "FIN_WAIT_1": case "FIN_WAIT_2": {
       if (f.includes("A") && t.ack !== undefined) onAck(conn, t.ack);
@@ -118,10 +125,11 @@ function onSegment(conn, t) {
         conn.rcv += t.len; seg(conn, "A");                                       // quick ack
         if (conn.server === "echo") { conn.node.log("tcp", `echo ${t.len} bytes`); sendData(conn, t.len); }
         else if (conn.server === "discard") conn.node.log("tcp", `discard ${t.len} bytes`);
-        else if (conn.onEvent) conn.onEvent("data", t.len);
+        else if (conn.onEvent) conn.onEvent("data", t.len, t.data);
       }
       if (f.includes("F")) {
         conn.rcv += 1;
+        if (conn.onEvent && conn.state === "ESTABLISHED") conn.onEvent("peerclosed");
         if (conn.state === "ESTABLISHED") {          // the peer closed first: the app sees EOF and closes at once, so our ACK
           setState(conn, "LAST_ACK"); seg(conn, "FA"); conn.snd += 1;                 // rides on our own FIN (Linux does not ACK a FIN on its own here)
         } else { seg(conn, "A"); setState(conn, "TIME_WAIT"); drop(conn); }       // our FIN was already out
@@ -180,3 +188,33 @@ export function tcpAction(net, a) {
   net.settle(a.settle ?? 1); net.taps.delete(tap);
   return {...r, wire};
 }
+
+
+// ---- API for in-engine applications that keep a connection (BGP) -------------------------------------------------
+/** Listen on `port`: accept(conn) is called for every SYN, sets conn.onEvent and returns true to answer SYN+ACK (false: RST). */
+export function tcpListen(node, port, accept) { (node.tcpApps ||= new Map()).set(port, accept); }
+/** Open a connection from `laddr` (or the route's address) to dst:port; returns the connection, or null without a route.
+ *  conn.onEvent(ev, n, data): "connected", "data", "peerclosed", "reset", "refused", "icmp". SYN retransmits like Linux (1, 2, 4 s). */
+export function tcpConnect(node, dst, port, onEvent) {
+  const route = node.route(dst); if (!route) return null;
+  const conn = newConn(node, node.ifaces[route.iface].ip, node.nextPort++, dst, port, "SYN_SENT");
+  conn.onEvent = onEvent;
+  const syn = (rto, gen) => {
+    if (conn.dead || conn.state !== "SYN_SENT" || gen !== conn.rtoGen) return;
+    seg(conn, "S", 0, {seq: 1000}); conn.snd = 1000;
+    node.net._after(rto, () => syn(rto * 2, gen));
+  };
+  conn.rtoGen = 1; syn(1, 1);
+  return conn;
+}
+/** Write one application message of `len` bytes (carried as `data` on the last segment). */
+export function tcpWrite(conn, len, data) { if (!conn.dead && conn.state === "ESTABLISHED") sendData(conn, len, data); }
+/** Close from our side: FIN, nothing more is retransmitted. */
+export function tcpClose(conn) {
+  if (conn.dead) return;
+  conn.unacked = []; conn.rtoGen = -1;
+  if (conn.state === "ESTABLISHED") { setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
+  else drop(conn);
+}
+/** Forget the connection without a word (the cable is down). */
+export function tcpAbort(conn) { if (!conn.dead) { conn.unacked = []; conn.rtoGen = -1; drop(conn); } }

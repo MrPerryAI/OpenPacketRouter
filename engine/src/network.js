@@ -29,6 +29,7 @@ import {dhcpServer, dhcpRelay} from "./dhcp.js";
 import {tcpInput, tcpIcmpError} from "./tcp.js";
 import {BROADCAST_MAC, ipToInt, intToIp, parseCidr, inSubnet, macFor} from "./addr.js";
 import {shape, Police, lossModel} from "./link.js";
+import {Bgp} from "./bgp.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
@@ -235,7 +236,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, nat = null, lldp = null, ifaces6 = null, routes6 = [], gw6 = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, bgp = null, acl = null, nat = null, lldp = null, ifaces6 = null, routes6 = [], gw6 = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -247,6 +248,7 @@ export class IpNode extends Device {
     this.nextPort = 33000;
     this.sockets = new Set();         // UDP ports a client app has open (no "port unreachable" for these)
     this.ospf = ospf ? new Ospf(this, ospf) : null;   // OSPFv2 (ospf.js)
+    this.bgp = bgp ? new Bgp(this, bgp) : null;   // BGP-4 (bgp.js)
     this.rip = rip ? new Rip(this, rip) : null;   // RIPv2 (rip.js)
     this.acl = acl ? new Acl(acl) : null;         // access lists (acl.js)
     this.nat = nat ? new Nat(this, nat) : null;   // address translation (nat.js)
@@ -254,8 +256,8 @@ export class IpNode extends Device {
     this.v6 = ifaces6 ? new Ip6(this, {ifaces6, routes6, gw6}) : null;   // IPv6 (ipv6.js)
     if (this.v6) for (const a of this.v6.addrs) if (!this.ifaces[a.iface]) this.addIface(a.iface);
   }
-  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); }
+  start() { if (this.ospf) this.ospf.start(); if (this.bgp) this.bgp.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
+  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.bgp) this.bgp.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
@@ -276,7 +278,7 @@ export class IpNode extends Device {
   flush() { this.arp.clear(); this.pending.clear(); if (this.v6) this.v6.flush(); }   // conntrack (nat.js) survives, like Linux
 
   /** Longest-prefix match over connected subnets and static routes. */
-  route(dst) {
+  route(dst, noBgp = false) {
     let best = null;
     for (const i of Object.values(this.ifaces)) if (i.ip && inSubnet(dst, i.net, i.mask) && (!best || i.prefix > best.prefix))
       best = {prefix: i.prefix, iface: i.name, nextHop: dst, why: `connected ${intToIp(i.net)}/${i.prefix} on ${i.name}`};
@@ -284,10 +286,14 @@ export class IpNode extends Device {
       const out = Object.values(this.ifaces).find(i => i.ip && inSubnet(r.via, i.net, i.mask));
       if (out) best = {prefix: r.prefix, iface: out.name, nextHop: r.via, why: `route ${r.cidr} via ${r.via}`};
     }
+    if (this.bgp && !noBgp) for (const r of this.bgp.fib()) if (r.ebgp && inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // eBGP (distance 20) beats OSPF and RIP on a tie
+      best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `BGP route ${r.cidr} via ${r.gw} (AS path ${r.asPath.join(" ") || "-"})`};
     if (this.ospf) for (const r of this.ospf.fib()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // connected and static win a tie
       best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `OSPF route ${r.cidr} via ${r.gw} (cost ${r.metric})`};
     if (this.rip) for (const r of this.rip.fib()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // static beats RIP on a tie
       best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `RIP route ${r.cidr} via ${r.gw} (metric ${r.metric})`};
+    if (this.bgp && !noBgp) for (const r of this.bgp.fib()) if (!r.ebgp && inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // iBGP (distance 200) loses every tie
+      best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `iBGP route ${r.cidr} via ${r.gw}`};
     return best;
   }
 
@@ -496,7 +502,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, bgp: n.bgp, acl: n.acl, nat: n.nat, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {
