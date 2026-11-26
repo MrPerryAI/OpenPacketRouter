@@ -44,8 +44,9 @@ class ServicesNet(l3.KernelNet):
     def act(self, a):
         if a["do"] == "ntp":
             before = self.lines()
-            r = subprocess.run(["ip", "netns", "exec", self.ns[a["src"]], "ntpdate", "-q", "-u", "-p", "1", a["dst"]], capture_output=True, text=True, timeout=60)
-            m = re.search(r"server (\S+), stratum (\d+)", r.stdout)
+            r = subprocess.run(["ip", "netns", "exec", self.ns[a["src"]], "ntpdate", "-q", "-u", a["dst"]], capture_output=True, text=True, timeout=60)
+            # classic ntpdate: "server 10.0.0.10, stratum 2, offset ..."; ntpsec's: "2026-11-26 12:00:00.1 (+0000) +0.0 +/- 0.1 10.0.0.10 s2 no-leap"
+            m = re.search(r"server (\S+), stratum (\d+)", r.stdout) or re.search(r"(\S+) s(\d+) \S+\s*$", r.stdout, re.M)
             time.sleep(a.get("settle", 1)); after = self.lines()
             got = [m_ for name in sorted(after) for m_ in after[name][len(before[name]):]]
             if r.returncode or not m: return {"ok": False, "error": (r.stdout + r.stderr).strip()[-200:], "received": got}
@@ -82,10 +83,10 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in SPECS}))
 
 
-def comparable(r):
+def comparable(r, kind):
     r = {k: v for k, v in r.items() if k != "rtt_ms"}
     r.pop("version", None)   # ntpdate does not print the version it sent; the server's log of the request has it
-    if "received" in r and "stratum" not in r: r["received"] = [norm(m) for m in r["received"]]
+    if "received" in r and kind == "syslog": r["received"] = [norm(m) for m in r["received"]]
     return r
 
 
@@ -104,14 +105,14 @@ def main():
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
         assert len(eng) == len(kern[name]), f"{name}: engine ran {len(eng)} actions, Linux {len(kern[name])}"
         for e, k in zip(eng, kern[name]):
-            a = e["action"]; same = comparable(e["result"]) == comparable(k["result"])
+            a = e["action"]; same = comparable(e["result"], a["do"]) == comparable(k["result"], a["do"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))
             fd = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
             ok = same and not fd
-            res = comparable(e["result"])
+            res = comparable(e["result"], a["do"])
             what = f'syslog {a["src"]} → {a["dst"]}: {a["message"]}' if a["do"] == "syslog" else f'ntp {a["src"]} → {a["dst"]}'
             rows.append((name, what, ", ".join(res.get("received", [])) or "(nothing stored)", f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
-            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"]), "linux": comparable(k["result"]), "frame_diffs": fd}
+            if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"], a["do"]), "linux": comparable(k["result"], a["do"]), "frame_diffs": fd}
     md = ["| Network | Action | Stored by the receiver (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} |" for a, b, c, d, e in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n"); (HERE / "mismatches.json").write_text(json.dumps(detail, indent=1))
