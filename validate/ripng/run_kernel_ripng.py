@@ -186,7 +186,7 @@ def norm(run):
 
 def msg(p):
     return {"src": p["src"], "dst": p["dst"], "hl": p["hl"], "command": p["command"], "version": p["version"],
-            "entries": [{k: e[k] for k in ("prefix", "len", "metric", "tag")} for e in p["entries"]]}
+            "entries": [{k: e[k] for k in ("prefix", "len", "metric", "tag")} for e in p["entries"] if e["metric"] != 255]}   # metric 255 = next-hop RTE (RFC 2080 2.1.1), not a route
 
 
 def phases(run, steps_spec):
@@ -203,9 +203,14 @@ def phases(run, steps_spec):
 
 
 def last_updates(pkts):
+    """Per (cable, source): what that router's updates say about each network, most recent mention wins. A single update is
+    not comparable: FRR sends triggered updates (changed routes only) and periodic ones at random times, so which kind is
+    last before a snapshot is chance. The cumulative view is what a neighbour has learned."""
     last = {}
     for p in pkts:
-        if p["command"] == "response" and p["dst"] == GROUP: last[f'{p["cable"]} from {p["src"]}'] = msg(p)   # a switch port carries several routers' updates
+        if p["command"] == "response" and p["dst"] == GROUP:
+            st = last.setdefault(f'{p["cable"]} from {p["src"]}', {})   # a switch port carries several routers' updates
+            for e in msg(p)["entries"]: st[f'{e["prefix"]}/{e["len"]}'] = e["metric"]
     return last
 
 
