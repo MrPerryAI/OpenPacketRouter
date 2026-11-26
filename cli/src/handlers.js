@@ -260,5 +260,7 @@ export const HANDLERS = {
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },
   "tcp.discard": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "discard"; },
+  "syslog.on": ctx => { M.services(ctx.model).syslog = true; },
+  "syslog.off": ctx => { const s = M.services(ctx.model); need(s.syslog, "The syslog service is not running"); delete s.syslog; },
   "tcp.no-echo": (ctx, [port]) => { const t = M.services(ctx.model).tcp; need(t && t[port], `Nothing listens on TCP port ${port}`); delete t[port]; if (!Object.keys(t).length) delete M.services(ctx.model).tcp; },
 };

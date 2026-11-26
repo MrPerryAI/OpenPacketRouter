@@ -1,0 +1,32 @@
+[
+ {
+  "do": "syslog",
+  "src": "A",
+  "dst": "10.0.0.10",
+  "message": "link up on eth0"
+ },
+ {
+  "do": "syslog",
+  "src": "B",
+  "dst": "10.0.0.10",
+  "message": "disk 92% full",
+  "tag": "monitor",
+  "facility": "local4",
+  "severity": "warning"
+ },
+ {
+  "do": "syslog",
+  "src": "A",
+  "dst": "10.0.0.10",
+  "message": "two words and a colon: here",
+  "tag": "cron",
+  "facility": "cron",
+  "severity": "info"
+ },
+ {
+  "do": "syslog",
+  "src": "A",
+  "dst": "10.0.0.20",
+  "message": "nobody is listening"
+ }
+]

@@ -38,7 +38,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 **E. Transport and links**
 - [ ] TCP data retransmission and window behaviour vs Linux [links]
 - [ ] Link delay and loss vs netem [links]
-- [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [links]
+- [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [dhcp-tcp]: syslog done (UDP 514 receiver vs util-linux `logger`, validate/services); HTTP GET in PR #153; NTP still open
 
 **F. CLI**
 - [ ] Every spec key has a configure command and a show with `| json` [docs]

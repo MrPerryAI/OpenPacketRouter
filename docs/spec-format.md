@@ -52,6 +52,7 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `services.dhcp` | A DHCP server on the node's subnet: `{"range": ["first", "last"], "lease": 3600, "router": "ip", "dns": "ip"}`. `lease` is seconds (default 3600); `router` and `dns` are optional. The first address of the range must be on one of the node's subnets. |
 | `services.dhcp.pools` | Extra pools for relayed subnets: `[{"range": ["first", "last"], "mask": "255.255.255.0", "router": "ip"}]`. The server picks the pool that contains the relay's address. |
 | `services.dhcpRelay` | A router that relays DHCP broadcasts on some interfaces to a server elsewhere: `{"server": "10.0.0.1", "clients": ["lan"]}`. `clients` lists the router's own interfaces to listen on. |
+| `services.syslog` | `true`: a log receiver on UDP 514 that stores each datagram (the `syslog` action sends one and returns what was stored). |
 | `services.tcp` | A TCP server: `{"7": "echo"}` listens on port 7 and echoes what it receives. |
 | `forwardLldp` | Switches: `true` lets LLDP frames (01:80:c2:00:00:0e) through, like a Linux bridge with `group_fwd_mask 0x4000`; default `false` (link-local, never forwarded). |
 | `lldp` | (routers, hosts, servers) LLDP: `{"txInterval": 30, "holdMultiplier": 4}` (both optional, TTL is their product; `"description"` sets the System Description). Sends to 01:80:c2:00:00:0e on every cabled interface (first frame 1 s after carrier, then every txInterval) with chassis ID (MAC of the first interface), port ID (the interface MAC), port description, system name, system description and capabilities; keeps a neighbor table (`lldpNeighbors` action) with TTL expiry. Engine: `engine/src/lldp.js`, validated against `lldpd` in `validate/lldp/`. |
@@ -85,6 +86,7 @@ frame counts don't depend on the order of actions — the same rule the Linux va
 | `traceroute` | `src`, `dst` | `maxHops` (8) |
 | `dns` | `src`, `server`, `name` | |
 | `tcp` | `src`, `dst`, `port` | `size` (bytes to send and get echoed; none by default), `timeout` s. Opens a connection, sends the data, closes. The result is `ok` or `error` (`refused`, `timeout`) plus the `wire` list of segments the client sent and received. |
+| `syslog` | `src`, `dst`, `message` | `tag` (default `user`), `facility` (default `user`), `severity` (default `notice`), `settle` s. Sends one RFC 3164 datagram to UDP 514 and returns `received`: the messages the destination's syslog service stored. Text: `<PRI>Mmm dd hh:mm:ss HOST TAG: MESSAGE` (the engine's clock is a fixed day). Validated against util-linux `logger` in `validate/services/`. |
 | `udp` | `src`, `dst`, `port` | |
 | `udpBurst` | `src`, `dst`, `port`, `count`, `size` | sends `count` UDP datagrams of `size` bytes back to back, to load a shaped link |
 | `wait` | `seconds` | Pauses simulated time, so MAC entries age. Actions flush caches first unless `"keepCaches": true`; put it on the actions around a `wait`. |
