@@ -57,13 +57,13 @@ def kernel(name, steps_name, here=HERE):
         for n in spec["nodes"]:
             for l in json.loads(sh("ip", "-n", k.ns[n["name"]], "-j", "link", "show")):
                 if l["ifname"] != "lo": nsx(k.ns[n["name"]], "sh", "-c", f"echo 100000 > /proc/sys/net/ipv4/neigh/{l['ifname']}/delay_first_probe_time")
-        time.sleep(1.0)
+        time.sleep(1.0); cum = 0.0
         if ALIGN is not None:
             # The kernel arms the spanning-tree hold timer with round_jiffies(), which rounds to whole wall-clock seconds, so
             # a pending BPDU leaves on a second boundary. Start the bridges ALIGN seconds after one and keep every step on
             # the engine's schedule from there (engine/src/stp.js _holdTime models the same rounding with jiffyHolds = ALIGN).
             time.sleep(1 - time.time() % 1)
-            t_base = int(time.time()) + ALIGN; cum = 0.0
+            t_base = int(time.time()) + ALIGN
             time.sleep(max(t_base - time.time(), 0))
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
             if n["kind"] == "switch":
