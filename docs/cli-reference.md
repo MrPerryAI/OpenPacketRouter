@@ -333,7 +333,7 @@ Commands that run something on the device now (ping, traceroute) instead of read
 
 ### Ospf
 
-OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and the show commands.
+OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), per-interface timers and cost, and the show commands.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
@@ -345,6 +345,8 @@ OSPFv2 (single area 0): router ospf, network, per-interface timers and cost, and
 | `passive-interface IFNAME` | OSPF routing | routers | Interface name |
 | `no passive-interface IFNAME` | OSPF routing | routers | Interface name |
 | `network interface IFNAME` | OSPF routing | routers | Interface name |
+| `network PREFIX area AREA` | OSPF routing | routers | Area, like 1 or 0.0.0.1 |
+| `network interface IFNAME area AREA` | OSPF routing | routers | Area, like 1 or 0.0.0.1 |
 | `no network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
 | `no network interface IFNAME` | OSPF routing | routers | Interface name |
 | `ospf cost N` | interface | routers | Number |
