@@ -142,9 +142,11 @@ export class RipNg {
     const out = [];
     for (const r of this.sorted()) {
       if (kind === "changed" && !r.changed) continue;
-      const back = r.type === "ripng" && r.iface === ifname, own = r.type === "connected" && r.iface === ifname;
-      if (this.split === "simple" && (back || own)) continue;
-      out.push({prefix: intToIp6(r.net), len: r.len, tag: 0, metric: this.split === "poisoned" && (back || own) ? INFINITY : r.metric});
+      // ripngd applies split horizon only to routes learned from a neighbour on that interface; the interface's own
+      // (connected) prefix is always advertised with its real metric, even with poisoned reverse (checked against ripngd).
+      const back = r.type === "ripng" && r.iface === ifname;
+      if (this.split === "simple" && back) continue;
+      out.push({prefix: intToIp6(r.net), len: r.len, tag: 0, metric: this.split === "poisoned" && back ? INFINITY : r.metric});
     }
     return out;
   }
