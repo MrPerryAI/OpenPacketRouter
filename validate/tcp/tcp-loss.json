@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "TCP over a lossy hop",
+  "about": "C writes 3000 bytes to a discard service on S through a switch whose port toward S is a token bucket (burst 1700, queue 1600 bytes, 10 Mbit/s). The first two 1448-byte segments get through, the third (104 bytes) finds the queue full and is dropped by the switch, and the client's retransmission timer sends it again 200 ms later.",
+  "nodes": [
+    {"name": "SW", "kind": "switch"},
+    {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+    {"name": "S", "kind": "server", "ifaces": {"eth0": "10.0.0.2/24"}, "services": {"tcp": {"9": "discard", "7": "echo"}}}
+  ],
+  "links": [
+    ["C:eth0", "SW:p1", 0],
+    ["SW:p2", "S:eth0", 0, {"shape": {"rate": "10mbit", "burst": 1700, "limit": 1600}}]
+  ]
+}

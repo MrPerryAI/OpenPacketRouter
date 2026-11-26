@@ -18,6 +18,7 @@ export function frameBytes(f) {
   const p = f.ip;
   let l4;
   if (p.proto === "ospf") return 14 + tag + 20 + p.ospf.size;
+  if (p.proto === "tcp") return 14 + tag + 20 + (p.tcp.flags === "S" || p.tcp.flags === "SA" ? 40 : p.tcp.flags[0] === "R" ? 20 : 32) + (p.tcp.len || 0);   // Linux options: SYNs 40 bytes, resets none, the rest timestamps
   if (p.proto === "udp") l4 = 8 + (p.udp.size ?? JSON.stringify(p.udp.payload ?? null).length);
   else if (p.icmp.type === 0 || p.icmp.type === 8) l4 = 8 + (p.icmp.size ?? 16);
   else l4 = 8 + 28;                                        // ICMP error: original IP header + 8 bytes

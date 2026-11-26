@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run inside a client's namespace: connect, send SIZE bytes, read the echo, close, print JSON.
-usage: tcp_probe.py IFACE DST PORT SIZE TIMEOUT
+usage: tcp_probe.py IFACE DST PORT SIZE TIMEOUT [DISCARD PAUSE]
+DISCARD=1: the server never answers; write, wait PAUSE seconds, close.
 Also records every TCP segment on IFACE (AF_PACKET) as "out FLAGS [LEN]" / "in FLAGS [LEN]"."""
 import json, select, socket, struct, sys, threading, time
 
 iface, dst, port, size, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
+discard, pause = (sys.argv[6] == "1", float(sys.argv[7])) if len(sys.argv) > 7 else (False, 0)
 wire, times, stop = [], [], threading.Event()
 t0 = time.time()
 
@@ -33,6 +35,7 @@ th = threading.Thread(target=sniff, args=(s,), daemon=True); th.start(); time.sl
 c = socket.socket(); c.settimeout(timeout)
 try:
     c.connect((dst, port)); c.sendall(b"x" * size); got = b""
+    if discard: time.sleep(pause); got = b"x" * size
     while len(got) < size:
         d = c.recv(65535)
         if not d: break

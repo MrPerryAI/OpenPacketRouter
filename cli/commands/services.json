@@ -1,6 +1,6 @@
 {
   "feature": "services",
-  "about": "What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo.",
+  "about": "What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discard.",
   "commands": [
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "ip dns server", "handler": "dns.server",
      "help": {"ip": "IPv4 settings", "dns": "DNS service", "server": "Answer DNS questions for the names set with ip host"}},
@@ -40,6 +40,10 @@
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-echo PORT", "args": {"PORT": "port"}, "handler": "tcp.echo",
      "help": {"service": "Programs this device runs", "tcp-echo": "Listen on a TCP port and send back what arrives", "PORT": "TCP port"}},
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-echo PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
-     "help": {"service": "Stop a program", "tcp-echo": "Stop the TCP echo service on a port"}}
+     "help": {"service": "Stop a program", "tcp-echo": "Stop the TCP echo service on a port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-discard PORT", "args": {"PORT": "port"}, "handler": "tcp.discard",
+     "help": {"service": "Programs this device runs", "tcp-discard": "Listen on a TCP port and read what arrives without answering", "PORT": "TCP port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-discard PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
+     "help": {"service": "Stop a program", "tcp-discard": "Stop the TCP discard service on a port"}}
   ]
 }

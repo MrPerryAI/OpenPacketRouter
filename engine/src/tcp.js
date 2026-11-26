@@ -8,12 +8,49 @@
 //     first segments of a connection); no delayed ACKs, no window or congestion modeling yet;
 //   - teardown: FIN+ACK, FIN+ACK, ACK (the closing peer's ACK of the FIN rides on its own FIN, because its app
 //     closes at once). The side that closes first goes to TIME_WAIT (no frames).
-// Not modeled: data retransmission, reordering, windows, options, simultaneous open/close.
+//   - data is cut into segments of MSS bytes (1448: a 1500-byte MTU less 20+20 and the 12 bytes of timestamp option
+//     Linux adds); every segment but the last of a write is a plain ACK, the last one carries PSH;
+//   - data retransmission: every data segment stays on a list until acknowledged. When the oldest unacknowledged
+//     segment is not acknowledged within the RTO (200 ms, Linux's minimum; a LAN round trip is far below it) it is
+//     sent again, and the RTO doubles for each further timeout (0.2, 0.4, 0.8 s ...); an acknowledgment that
+//     advances restarts the timer at 200 ms;
+//   - a segment that is not the next in sequence (a gap, or data already received) is answered with an ACK of what
+//     was received so far (a duplicate ACK) and is not delivered.
+// Not modeled: fast retransmit and SACK, congestion windows (a write is limited to ten segments, Linux's initial
+// window), receive windows, reordering, FIN retransmission, simultaneous open/close.
 // Servers: services.tcp = {"7": "echo"} listens on port 7 and echoes what it receives, then closes when
-// the client does.
+// the client does; {"9": "discard"} reads and acknowledges but never answers.
 
 const seg = (conn, flags, len = 0, extra = {}) => conn.node.sendIp({src: conn.laddr, dst: conn.raddr, ttl: 64, proto: "tcp",
   tcp: {sport: conn.lport, dport: conn.rport, flags, seq: conn.snd, ack: conn.rcv, len, ...extra}});
+
+export const MSS = 1448, RTO = 0.2, MAX_WRITE = 10 * MSS;
+
+/** Send `total` bytes as MSS-sized segments, keep them for retransmission and start the timer. */
+function sendData(conn, total) {
+  for (let left = total; left > 0;) {
+    const n = Math.min(MSS, left); left -= n;
+    const flags = left ? "A" : "PA";
+    seg(conn, flags, n); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags}); conn.snd += n;
+  }
+  armRto(conn, RTO);
+}
+function armRto(conn, rto) {
+  const gen = conn.rtoTimer = (conn.rtoTimer || 0) + 1; conn.rto = rto;
+  if (!conn.unacked || !conn.unacked.length) return;
+  conn.node.net._after(rto, () => {
+    if (conn.dead || conn.rtoTimer !== gen || !conn.unacked.length) return;
+    const h = conn.unacked[0];
+    conn.node.log("tcp", `no ACK for seq ${h.seq} within ${rto} s: retransmitting ${h.len} bytes`);
+    seg(conn, h.flags, h.len, {seq: h.seq}); armRto(conn, rto * 2);
+  });
+}
+/** An ACK number: forget what it covers and restart the timer for the rest. */
+function onAck(conn, ack) {
+  if (!conn.unacked || !conn.unacked.length) return;
+  const n = conn.unacked.length; conn.unacked = conn.unacked.filter(u => u.seq + u.len > ack);
+  if (conn.unacked.length !== n) armRto(conn, RTO);
+}
 
 const key = (lport, raddr, rport) => `${lport}|${raddr}|${rport}`;
 const table = node => node.tcpConns || (node.tcpConns = new Map());
@@ -70,10 +107,16 @@ function onSegment(conn, t) {
       if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); }
       return;
     case "ESTABLISHED": case "FIN_WAIT_1": case "FIN_WAIT_2": {
+      if (f.includes("A") && t.ack !== undefined) onAck(conn, t.ack);
       if (f === "A" && conn.state === "FIN_WAIT_1") { setState(conn, "FIN_WAIT_2"); return; }
+      if (t.len > 0 && t.seq !== conn.rcv) {                                      // a gap or a repeat: ACK what we have
+        conn.node.log("tcp", `segment seq ${t.seq} but expected ${conn.rcv}: ACK ${conn.rcv} again`);
+        seg(conn, "A"); return;
+      }
       if (t.len > 0) {
         conn.rcv += t.len; seg(conn, "A");                                       // quick ack
-        if (conn.server === "echo") { conn.node.log("tcp", `echo ${t.len} bytes`); seg(conn, "PA", t.len); conn.snd += t.len; }
+        if (conn.server === "echo") { conn.node.log("tcp", `echo ${t.len} bytes`); sendData(conn, t.len); }
+        else if (conn.server === "discard") conn.node.log("tcp", `discard ${t.len} bytes`);
         else if (conn.onEvent) conn.onEvent("data", t.len);
       }
       if (f.includes("F")) {
@@ -91,15 +134,21 @@ function onSegment(conn, t) {
 }
 
 /** Client side: connect, send `size` bytes, read the echo, close. Returns the result object. */
-export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5} = {}) {
+export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5, discard = false, pause = 0} = {}) {
   const node = net.node(srcName);
+  if (size > MAX_WRITE) return {ok: false, error: `a write is limited to ${MAX_WRITE} bytes (ten segments)`};
   const route = node.route(dst); if (!route) return {ok: false, error: "no route"};
   const laddr = node.ifaces[route.iface].ip, lport = node.nextPort++;
   const conn = newConn(node, laddr, lport, dst, port, "SYN_SENT");
   let res = null; const t0 = net.time;
   const done = r => { if (!res) res = {...r, rtt_ms: +((net.time - t0) * 1000).toFixed(3)}; };
   conn.onEvent = (ev, n) => {
-    if (ev === "connected") { seg(conn, "PA", size); conn.snd += size; }
+    if (ev === "connected") {
+      sendData(conn, size);
+      if (discard) net._after(pause, () => {         // nothing comes back: write, wait `pause` seconds, close
+        if (conn.dead || res) return;
+        done({ok: true, from: dst, bytes: size}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; });
+    }
     else if (ev === "data") { done({ok: true, from: dst, bytes: n}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
     else if (ev === "refused") done({ok: false, error: "refused", from: dst});
     else if (ev === "reset") done({ok: false, error: "reset", from: dst});
@@ -117,7 +166,7 @@ export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5} = 
   return res;
 }
 
-/** The `tcp` action: connect, send `size` bytes, read the echo, close. `wire` lists the TCP segments on the client's cable. */
+/** The `tcp` action: connect, send `size` bytes, read the echo, close (against a `discard` service: wait `pause` s after the write, then close). `wire` lists the TCP segments on the client's cable. */
 export function tcpAction(net, a) {
   const client = net.node(a.src), wire = [];
   const tap = (node, ifname, f) => {
@@ -126,7 +175,7 @@ export function tcpAction(net, a) {
     if (out || inn) wire.push(`${out ? "out" : "in"} ${f.ip.tcp.flags}${f.ip.tcp.len ? " " + f.ip.tcp.len : ""}`);
   };
   (net.taps ||= new Set()).add(tap);
-  const r = tcpRequest(net, a.src, a.dst, a.port, {size: a.size ?? 100, timeout: a.timeout ?? 5});
+  const r = tcpRequest(net, a.src, a.dst, a.port, {size: a.size ?? 100, timeout: a.timeout ?? 5, discard: a.discard === true, pause: a.pause ?? 0});
   net.settle(a.settle ?? 1); net.taps.delete(tap);
   return {...r, wire};
 }

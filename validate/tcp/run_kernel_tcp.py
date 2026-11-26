@@ -17,7 +17,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["tcp-lan"]
+SPECS = ["tcp-lan", "tcp-loss"]
 
 
 class TcpNet(l3.KernelNet):
@@ -27,6 +27,18 @@ class TcpNet(l3.KernelNet):
         # Pin the classic exponential backoff (1, 2, 4 s) that the engine models; older kernels have no such knob.
         for ns in self.ns.values():
             l3.nsx(ns, "sh", "-c", "[ -e /proc/sys/net/ipv4/tcp_syn_linear_timeouts ] && echo 0 > /proc/sys/net/ipv4/tcp_syn_linear_timeouts || true")
+        for ns in self.ns.values():
+            # no tail loss probes (they would only move the retransmission earlier); one skb per segment, as the engine models
+            l3.nsx(ns, "sh", "-c", "echo 0 > /proc/sys/net/ipv4/tcp_early_retrans", check=False)
+            for ifn in l3.nsx(ns, "sh", "-c", "ls /sys/class/net", check=False).split():
+                if ifn != "lo": l3.nsx(ns, "ip", "link", "set", ifn, "gso_max_segs", "1", check=False)
+        for a, b, *rest in spec["links"]:                 # token buckets, as validate/links does
+            for ref, key in ((a, "shape"), (b, "shapeBack")):
+                if rest[1:] and key in rest[1]:
+                    node, ifn = ref.split(":"); sh = rest[1][key]
+                    l3.sh("ip", "-n", self.ns[node], "link", "set", ifn, "txqueuelen", "1000")
+                    l3.sh("tc", "-n", self.ns[node], "qdisc", "replace", "dev", ifn, "root", "tbf",
+                          "rate", str(sh["rate"]), "burst", str(sh["burst"]), "limit", str(sh["limit"]))
         for n in spec["nodes"]:
             ports = (n.get("services") or {}).get("tcp")
             if ports:
@@ -39,7 +51,7 @@ class TcpNet(l3.KernelNet):
         node = next(n for n in self.spec["nodes"] if n["name"] == a["src"])
         ifn = next(iter(node["ifaces"]))
         p = subprocess.run(["ip", "netns", "exec", self.ns[a["src"]], sys.executable, str(HERE / "tcp_probe.py"), ifn, a["dst"], str(a["port"]),
-                            str(a.get("size", 100)), str(a.get("timeout", 5))], capture_output=True, text=True, timeout=60)
+                            str(a.get("size", 100)), str(a.get("timeout", 5)), "1" if a.get("discard") else "0", str(a.get("pause", 0))], capture_output=True, text=True, timeout=60)
         return json.loads(p.stdout)
 
 
@@ -47,6 +59,7 @@ def kernel_run(name):
     spec = json.loads((HERE / f"{name}.json").read_text()); actions = json.loads((HERE / f"{name}.actions.json").read_text())
     k = TcpNet(spec); out = []
     try:
+        time.sleep(1)                                      # let every bucket fill
         for a in actions:
             k.flush(); before = k.counters(); r = k.act(a); time.sleep(a.get("settle", 1)); after = k.counters()
             out.append({"action": a, "result": r, "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)}})
