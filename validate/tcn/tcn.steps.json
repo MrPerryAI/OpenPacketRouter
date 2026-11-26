@@ -166,7 +166,7 @@
   }
  },
  {
-  "wait": 12
+  "wait": 13
  },
  {
   "tc": [
@@ -180,7 +180,7 @@
   "bpdus": "mark"
  },
  {
-  "wait": 5
+  "wait": 4
  },
  {
   "bpdus": true

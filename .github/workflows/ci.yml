@@ -54,6 +54,15 @@ jobs:
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/aging/run_kernel_aging.py
       - name: STP topology change notices vs real Linux bridges (flags, aging, MAC tables)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcn/run_kernel_tcn.py
+      - name: TCN flake check (temporary)
+        continue-on-error: true
+        run: |
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcn/run_kernel_tcn.py > /tmp/tcn$i.log 2>&1 && ok=$((ok+1))
+            echo "::notice title=tcn flake run $i::ok so far $ok; $(grep -o 'ring step [0-9]*[^"]*' /tmp/tcn$i.log | head -3 | tr '\n' ' ')"
+          done
+          echo "::notice title=tcn flake tally::$ok of 6 runs matched"
       - name: LACP port-channels vs real Linux bonds (802.3ad, states, LACPDUs, hash per cable)
         run: |
           sudo modprobe bonding || true
