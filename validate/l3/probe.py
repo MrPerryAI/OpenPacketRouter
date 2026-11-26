@@ -23,11 +23,11 @@ def ping(dst, ttl, timeout):
     ident = random.randint(1, 0xffff)
     pkt = struct.pack("!BBHHH", 8, 0, 0, ident, 1) + b"openpacketrouter"
     pkt = pkt[:2] + struct.pack("!H", csum(pkt)) + pkt[4:]
-    s.sendto(pkt, (dst, 0)); end = time.time() + timeout
+    s.sendto(pkt, (dst, 0)); t0 = time.time(); end = t0 + timeout
     while time.time() < end:
         if not select.select([s], [], [], max(0, end - time.time()))[0]: break
         d, a = s.recvfrom(2048); ihl = (d[0] & 15) * 4; t, c = d[ihl], d[ihl + 1]
-        if t == 0 and struct.unpack("!H", d[ihl + 4:ihl + 6])[0] == ident: return {"ok": True, "from": a[0]}
+        if t == 0 and struct.unpack("!H", d[ihl + 4:ihl + 6])[0] == ident: return {"ok": True, "from": a[0], "rtt_ms": (time.time() - t0) * 1000}
         if t in (3, 11):
             inner = d[ihl + 8:]; iihl = (inner[0] & 15) * 4
             if inner[9] == 1 and struct.unpack("!H", inner[iihl + 4:iihl + 6])[0] == ident: return {"ok": False, "from": a[0], "error": err_name(t, c)}
