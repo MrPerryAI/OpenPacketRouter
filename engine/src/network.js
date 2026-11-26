@@ -265,7 +265,9 @@ export class IpNode extends Device {
   }
   start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); }
   linkChange(ifname, up) {
-    // Linux deletes the static routes whose next hop is on an interface that loses carrier, and does not bring them back with it
+    // The Linux kernel deletes the static routes whose next hop is on an interface that loses carrier, and does not bring them back with it.
+    // Only routers running OSPF model this so far: it is what the ospf-redist validation against ospfd covers, and hosts, RIP and static-only
+    // scenarios keep their routes across a flap until they are validated the same way.
     if (!up && this.ospf) { const i = this.ifaces[ifname]; if (i && i.ip) this.routes = this.routes.filter(r => !(r.via && inSubnet(r.via, i.net, i.mask))); }
     if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up);
   }
