@@ -36,7 +36,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
 
 **E. Transport and links**
-- [ ] TCP data retransmission and window behaviour vs Linux (segments and retransmission timer done, PR #133; receive window not yet) [ui]
+- [x] TCP data retransmission and window behaviour vs Linux [ui]: segments and retransmission timer (PR #133); receive window with zero-window stall, probes and window update (PR #176)
 - [x] Link delay and loss vs netem [links]: delay and deterministic loss (Gilbert-Elliott with every probability 0% or 100%) match `tc netem` frame for frame (`validate/netem/`). Random loss (probabilities between 0 and 100%) is not validatable frame for frame, so the engine rejects it.
 - [x] Server services (HTTP GET, NTP, syslog) vs real Linux tools [dhcp-tcp]: HTTP GET and syslog done (HTTP/1.0 server vs a Python socket server and client, in validate/tcp; segments per direction, like tcp-loss); syslog: UDP 514 receiver vs util-linux `logger`, validate/services; NTP: UDP 123 server (stratum, 48-byte packets) vs `ntpdate -q` (real client) against a minimal Python responder (validate/services); compared: reply stratum, the request the server saw (version, mode, length) and frames per cable direction; NTP timestamps are wall-clock vs simulated time, so they are not compared
 
