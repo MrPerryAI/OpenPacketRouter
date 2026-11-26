@@ -37,6 +37,9 @@ class RipNgNet(v6.Net6):
     def __init__(self, spec):
         super().__init__(spec)
         self.tmp2 = tempfile.mkdtemp(); os.chmod(self.tmp2, 0o755); self.rcaps = []; self.frr = {}
+        # A pulled cable in the engine keeps the addresses; `ip link set down` would delete them (and with them the connected routes),
+        # so keep addresses on down: the link-down / link-up steps then model only the carrier, like the IPv4 RIP validator.
+        for (node, ifn) in self.ifmap: l3.sysctl(self.ns[node], f"net.ipv6.conf.{ifn}.keep_addr_on_down", 1)
         for (node, ifn), peer in sorted(self.ifmap.items()):
             f = f"{self.tmp2}/{node}-{ifn}.pcap"
             p = subprocess.Popen(["ip", "netns", "exec", self.ns[node], "tcpdump", "-i", ifn, "-Q", "out", "-U", "-n", "-s", "0",
