@@ -1,13 +1,14 @@
 // Things clients do: ping, traceroute, DNS lookups, a UDP request.
 // Each runs the simulation until an answer arrives or the timeout passes.
 
+import {ICMP6, errName6} from "./ipv6.js";
 const ICMP_ERR = {11: "time exceeded", 3: {0: "net unreachable", 1: "host unreachable", 2: "protocol unreachable", 3: "port unreachable", 13: "administratively prohibited"}};
 const errName = i => i.type === 11 ? ICMP_ERR[11] : (ICMP_ERR[3][i.code] || "unreachable");
 
 /** The IP stack of a device: a Layer 3 switch's lives in `l3` (its SVIs); routers and hosts are their own. */
 export const stackOf = (net, name) => { const n = net.node(name); if (n.l3 !== undefined && !n.l3) throw new Error(`${name} is a switch with no IP interfaces (give it SVIs: "ifaces": {"vlan10": ...})`); return n.l3 || n; };
 
-function await_(net, srcName, send, match, timeout) {
+export function await_(net, srcName, send, match, timeout) {
   const node = stackOf(net, srcName); let res = null; const t0 = net.time;
   const fn = (n, p) => { if (n === node && !res) { const r = match(p); if (r) res = {...r, rtt_ms: +((net.time - t0) * 1000).toFixed(3)}; } };
   net.listeners.add(fn);
@@ -19,6 +20,7 @@ function await_(net, srcName, send, match, timeout) {
 }
 
 export function ping(net, src, dst, {ttl = 64, timeout = 2} = {}) {
+  if (dst.includes(":")) return ping6(net, src, dst, {ttl, timeout});
   const id = net._pingId = ((net._pingId || 0) + 1) & 0xffff;
   return await_(net, src, n => n.sendIp({dst, ttl, proto: "icmp", icmp: {type: 8, code: 0, id, seq: 1}}), p => {
     if (p.proto !== "icmp") return null;
@@ -52,4 +54,15 @@ export function udpRequest(net, src, dst, dport, payload, {timeout = 2} = {}) {
 export function dns(net, src, server, name, opts) {
   const r = udpRequest(net, src, server, 53, {q: name}, opts);
   return r.ok ? {ok: true, from: r.from, answer: r.payload.a} : r;
+}
+
+/** ICMPv6 echo (ipv6.js): same result shape as ping(); errors are named "no route", "address unreachable", "time exceeded". */
+function ping6(net, src, dst, {ttl, timeout}) {
+  const id = net._pingId = ((net._pingId || 0) + 1) & 0xffff;
+  return await_(net, src, n => n.v6 && n.v6.sendIp({dst, hl: ttl, proto: "icmp6", icmp: {type: ICMP6.echoRequest, code: 0, id, seq: 1}}), p => {
+    if (p.proto !== "icmp6") return null;
+    if (p.icmp.type === ICMP6.echoReply && p.icmp.id === id) return {ok: true, from: p.src};
+    if (p.icmp.type < 128 && p.icmp.orig && p.icmp.orig.id === id) return {ok: false, from: p.src, error: errName6(p.icmp)};
+    return null;
+  }, timeout);
 }

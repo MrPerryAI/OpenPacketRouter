@@ -124,6 +124,8 @@ Selecting an interface; turning it off and on; addresses; shaping.
 | `no ip address` | interface | routers, hosts, servers, switches | Remove the interface's address |
 | `shape rate RATE burst BYTES limit QUEUE` | interface | all devices | Bytes |
 | `no shape` | interface | all devices | Send at full speed again |
+| `ipv6 address PREFIX` | interface | routers, hosts, servers | Address and prefix length, like 2001:db8:1::a/64 |
+| `no ipv6 address` | interface | routers, hosts, servers | Remove the interface's IPv6 address |
 
 ### Ip-routing
 
@@ -138,6 +140,9 @@ Static routes in FRRouting's style (ip route PREFIX NEXTHOP); the mask form and 
 | `no ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers, switches | Remove a static route |
 | `ip default-gateway GATEWAY` | config | routers, hosts, servers | Router address |
 | `no ip default-gateway` | config | routers, hosts, servers | Remove the default route |
+| `ipv6 route PREFIX NEXTHOP` | config | routers, hosts, servers | Address of the next router |
+| `no ipv6 route PREFIX NEXTHOP` | config | routers, hosts, servers | Remove an IPv6 static route |
+| `no ipv6 route PREFIX` | config | routers, hosts, servers | Remove an IPv6 static route |
 
 ### Switching
 
@@ -341,6 +346,7 @@ Commands that run something on the device now (ping, traceroute) instead of read
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
 | `ping ADDRESS` | user, privileged | routers, hosts, servers, switches | Address to ping |
+| `ping ADDRESS` | user, privileged | routers, hosts, servers | IPv6 address to ping |
 | `traceroute ADDRESS` | user, privileged | routers, hosts, servers, switches | Destination address |
 
 ### Ospf
