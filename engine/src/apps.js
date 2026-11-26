@@ -66,3 +66,27 @@ function ping6(net, src, dst, {ttl, timeout}) {
     return null;
   }, timeout);
 }
+
+// ---- syslog (RFC 3164 over UDP 514): one datagram from the client, no answer. The text mirrors what util-linux `logger -n HOST -P 514 -d`
+// sends: "<PRI>Mmm dd hh:mm:ss HOSTNAME TAG: MESSAGE", PRI = facility * 8 + severity (default user.notice = 13).
+export const FACILITIES = {kern: 0, user: 1, mail: 2, daemon: 3, auth: 4, syslog: 5, lpr: 6, news: 7, uucp: 8, cron: 9, authpriv: 10, ftp: 11,
+  local0: 16, local1: 17, local2: 18, local3: 19, local4: 20, local5: 21, local6: 22, local7: 23};
+export const SEVERITIES = {emerg: 0, alert: 1, crit: 2, err: 3, warning: 4, notice: 5, info: 6, debug: 7};
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** The datagram text. The clock is the simulation's (a fixed day), so the same run always gives the same text. */
+export function syslogText(host, time, {message, tag = "user", facility = "user", severity = "notice"}) {
+  const s = Math.floor(time), two = n => String(n).padStart(2, "0");
+  return `<${FACILITIES[facility] * 8 + SEVERITIES[severity]}>${MONTHS[0]}  1 ${two(Math.floor(s / 3600) % 24)}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)} ${host} ${tag}: ${message}`;
+}
+/** Send one syslog message from `src` to `dst` and let the network settle. Returns what the destination's syslog service logged because of it. */
+export function syslogSend(net, src, dst, opts) {
+  if (opts.facility !== undefined && !(opts.facility in FACILITIES)) return {ok: false, error: `unknown facility ${opts.facility}`};
+  if (opts.severity !== undefined && !(opts.severity in SEVERITIES)) return {ok: false, error: `unknown severity ${opts.severity}`};
+  const node = stackOf(net, src), before = {};
+  for (const n of net.nodes.values()) before[n.name] = (n.syslogLog || []).length;
+  const sport = node.nextPort++;
+  if (!node.sendIp({dst, ttl: 64, proto: "udp", udp: {sport, dport: 514, payload: syslogText(node.name, net.time, opts)}})) return {ok: false, error: "no route"};
+  net.settle(opts.settle ?? 1);
+  const got = [...net.nodes.values()].flatMap(n => (n.syslogLog || []).slice(before[n.name]));
+  return {ok: true, received: got};
+}

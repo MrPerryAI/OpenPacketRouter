@@ -55,6 +55,7 @@
           "type": "object",
           "properties": {
             "dns": {"type": "object", "additionalProperties": {"$ref": "#/$defs/ipv4"}},
+            "syslog": {"type": "boolean", "description": "true: a UDP 514 log receiver that stores every message"},
             "dhcp": {"type": "object", "required": ["range"], "properties": {
               "range": {"type": "array", "prefixItems": [{"$ref": "#/$defs/ipv4"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2},
               "lease": {"type": "integer", "minimum": 1}, "router": {"$ref": "#/$defs/ipv4"}, "dns": {"$ref": "#/$defs/ipv4"}}}

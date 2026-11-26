@@ -38,7 +38,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 **E. Transport and links**
 - [ ] TCP data retransmission and window behaviour vs Linux (segments and retransmission timer done, PR #133; receive window not yet) [ui]
 - [x] Link delay and loss vs netem [links]: delay and deterministic loss (Gilbert-Elliott with every probability 0% or 100%) match `tc netem` frame for frame (`validate/netem/`). Random loss (probabilities between 0 and 100%) is not validatable frame for frame, so the engine rejects it.
-- [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [links]
+- [ ] Server services (HTTP GET, NTP, syslog) vs real Linux tools [dhcp-tcp]: syslog done (UDP 514 receiver vs util-linux `logger`, validate/services); HTTP GET in PR #153; NTP still open
 
 **F. CLI**
 - [ ] Every spec key has a configure command and a show with `| json` [docs]

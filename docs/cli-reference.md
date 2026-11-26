@@ -234,6 +234,8 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
 | `service tcp-discard PORT` | config | routers, hosts, servers | TCP port |
 | `no service tcp-discard PORT` | config | routers, hosts, servers | Stop the TCP discard service on a port |
+| `service syslog` | config | routers, hosts, servers | Collect log messages sent to UDP port 514 |
+| `no service syslog` | config | routers, hosts, servers | Stop collecting log messages |
 
 ### Rip
 
@@ -334,6 +336,7 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show interface brief` | user, privileged | all devices | One line per interface |
 | `show ip interface brief` | user, privileged | all devices | One line per interface |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
+| `show syslog` | user, privileged | routers, hosts, servers | Log messages this device has collected (needs service syslog) |
 | `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
