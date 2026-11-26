@@ -118,6 +118,18 @@
      "garbage": 10
     }
    },
+   "ripng": {
+    "networks": [
+     "2001:db8::/32"
+    ],
+    "splitHorizon": "off",
+    "timers": {
+     "update": 5,
+     "timeout": 15,
+     "garbage": 10
+    },
+    "triggered": false
+   },
    "nat": {
     "inside": [
      "e1"
