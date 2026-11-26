@@ -15,6 +15,29 @@
 export function frameBytes(f) {
   if (f.type === "arp") return 42;
   const tag = f.vlan !== undefined ? 4 : 0;
+  // Non-IP protocols. Linux hands the qdisc an skb of Ethernet header + (802.3 LLC for spanning tree) + PDU, no FCS.
+  if (f.type === "bpdu") {   // 14 + 3 LLC + BPDU: config 35, RSTP 36, TCN 4 bytes
+    const b = f.bpdu;
+    return 14 + tag + 3 + (b.tcn ? 4 : b.version === 2 ? 36 : 35);
+  }
+  if (f.type === "lacpdu") return 14 + tag + 110;           // slow-protocols subtype + LACPDU, fixed 110 bytes
+  if (f.type === "lldp") {                                  // TLVs: chassis (MAC) 9, port (MAC) 9, TTL 4, description TLVs, capabilities 8, end 2
+    const l = f.lldp, t = x => 2 + String(x ?? "").length;
+    return 14 + tag + 9 + 9 + 4 + t(l.portDescr) + t(l.sysName) + t(l.sysDescr) + 8 + 2;
+  }
+  if (f.type === "ipv6") {
+    const p = f.ip6;
+    let l4;
+    if (p.proto === "icmp6") {
+      const t = p.icmp.type;
+      if (t === 135 || t === 136) l4 = 8 + 16 + 8;          // NS/NA: target address + one link-layer address option
+      else if (t === 128 || t === 129) l4 = 8 + (p.icmp.size ?? 16);
+      else l4 = 8 + 40 + 8;                                 // error: the original IPv6 header + 8 bytes
+    } else if (p.proto === "udp") l4 = 8 + (p.udp.size ?? JSON.stringify(p.udp.payload ?? null).length);
+    else if (p.proto === "tcp") l4 = 20 + (p.tcp.len || 0);
+    else l4 = 0;
+    return 14 + tag + 40 + l4;
+  }
   const p = f.ip;
   let l4;
   if (p.proto === "ospf") return 14 + tag + 20 + p.ospf.size;

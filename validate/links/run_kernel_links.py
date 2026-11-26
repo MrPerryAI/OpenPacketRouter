@@ -16,12 +16,18 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["tbf-host", "tbf-switch"]
+SPECS = ["tbf-host", "tbf-switch", "tbf-stp-fit", "tbf-stp-drop"]
 
 
 class ShapedNet(l3.KernelNet):
     def __init__(self, spec):
         super().__init__(spec)
+        for n in spec["nodes"]:      # spanning-tree bridges, like validate/l2
+            if n["kind"] == "switch" and n.get("stp"):
+                ns, s = self.ns[n["name"]], n["stp"]
+                l3.sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "stp_state", "1", "priority", str(s.get("priority", 32768)),
+                      "hello_time", str(int(s.get("hello", 2) * 100)), "max_age", str(int(s.get("maxAge", 20) * 100)), "forward_delay", str(int(s.get("forwardDelay", 15) * 100)))
+                l3.sh("ip", "-n", ns, "link", "set", "br0", "address", s["mac"])
         self.shaped = []
         for a, b, *rest in spec["links"]:
             opts = rest[1] if len(rest) > 1 else {}
@@ -41,6 +47,8 @@ class ShapedNet(l3.KernelNet):
         return out
 
     def act(self, a):
+        if a["do"] == "wait":
+            time.sleep(a["seconds"]); return {"waited": a["seconds"]}
         if a["do"] == "udpBurst":
             return json.loads(l3.nsx(self.ns[a["src"]], sys.executable, str(HERE / "burst.py"),
                                      a["dst"], str(a["port"]), str(a["count"]), str(a["size"])))
@@ -78,13 +86,14 @@ def main():
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
         for e, k in zip(eng, kern[name]):
             a = e["action"]
-            same = l3.comparable(e["result"]) == l3.comparable(k["result"])
+            er = {x: v for x, v in e["result"].items() if x != "time"}    # the engine's clock reading is not a network behavior
+            same = l3.comparable(er) == l3.comparable(k["result"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))
             fd = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
             ed, kd = e.get("drops", {}), k["drops"]
             dd = {key: (ed.get(key, 0), kd.get(key, 0)) for key in sorted(set(ed) | set(kd)) if ed.get(key, 0) != kd.get(key, 0)}
             ok = same and not fd and not dd
-            what = f'{a["do"]} {a["src"]} → {a["dst"]}' + (f' ×{a["count"]} of {a["size"]} B' if "count" in a else "")
+            what = (f'{a["do"]} {a["src"]} → {a["dst"]}' if "src" in a else f'{a["do"]} {a["seconds"]} s') + (f' ×{a["count"]} of {a["size"]} B' if "count" in a else "")
             drops = ", ".join(f"{k_} {v}" for k_, v in ed.items()) or "none"
             rows.append((name, what, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', drops, "✓" if ok else "✗"))
             if not ok: detail[f"{name}: {what}"] = {"engine": e["result"], "kernel": k["result"], "frame_diffs": fd, "drop_diffs": dd}
