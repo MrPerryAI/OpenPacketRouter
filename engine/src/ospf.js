@@ -36,7 +36,7 @@ export const OSPF_ALL_SPF = "224.0.0.5", OSPF_ALL_SPF_MAC = "01:00:5e:00:00:05";
 export const OSPF_ALL_DR = "224.0.0.6", OSPF_ALL_DR_MAC = "01:00:5e:00:00:06";
 export const OSPF_DEFAULTS = {hello: 10, dead: 40, retransmit: 5, priority: 1, cost: 10};
 const TYPES = ["broadcast", "point-to-point"];
-const MAX_AGE = 3600, MAX_AGE_DIFF = 900, MIN_LS_INTERVAL = 5, MIN_LS_ARRIVAL = 1, REFRESH = 1800, INITIAL_SEQ = 0x80000001;
+const MAX_AGE = 3600, MAX_AGE_DIFF = 900, MIN_LS_INTERVAL = 5, MIN_LS_ARRIVAL = 1, MAXAGE_KEEP = 60, REFRESH = 1800, INITIAL_SEQ = 0x80000001;
 const ST = {Down: 0, Init: 1, "2-Way": 2, ExStart: 3, Exchange: 4, Loading: 5, Full: 6};
 const MAX_DD_HEADERS = 72;                   // (1500 MTU - 20 IP - 24 OSPF header - 8 DD fields) / 20 bytes per LSA header
 const key = (area, type, id, adv) => `${type === 5 ? "-" : area}|${type}|${id}|${adv}`;       // type 5 (AS external) is flooded in every area; the rest belong to one
@@ -423,7 +423,14 @@ export class Ospf {
   _gcMaxAge() {
     const busy = [...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.state === "Exchange" || m.state === "Loading"));
     if (busy) return;
-    for (const [k, l] of this.lsdb) if (this._isMaxAge(l) && ![...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.rxmt.has(k)))) { this.lsdb.delete(k); this._spf(); }
+    for (const [k, l] of this.lsdb) {
+      if (!this._isMaxAge(l)) continue;
+      // like ospfd, a MaxAge LSA stays in the database for a while after it is acknowledged (a new instance of it takes the next
+      // sequence number, and a copy that arrives again is acknowledged as a duplicate)
+      if (l.maxAt === undefined) { l.maxAt = this.net.time; this._after(MAXAGE_KEEP, () => this._gcMaxAge()); }
+      if (this.net.time - l.maxAt < MAXAGE_KEEP) continue;
+      if (![...this.ifs.values()].some(x => [...x.nbrs.values()].some(m => m.rxmt.has(k)))) { this.lsdb.delete(k); this._spf(); }
+    }
   }
 
   // ----- the database -----
@@ -497,6 +504,8 @@ export class Ospf {
       if (!cur || r.cost < cur.metric) want.set(k, {mask: r.mask, metric: r.cost});
     }
     this.summaries = want;
+    // a summary LSA of ours that is flushed but still in the database is flooded again on every pass (ospfd flushes the ones no longer approved each time)
+    for (const l of [...this.lsdb.values()]) if (l.type === 3 && l.adv === this.routerId() && l.maxAge && !want.has(`${l.area}|${l.id}`)) this._flood(l, null);
     for (const [k, body] of want) { const [area, id] = k.split("|"); this._originate(3, id, body, false, area); }
     for (const l of [...this.lsdb.values()]) if (l.type === 3 && l.adv === this.routerId() && !l.maxAge && !want.has(`${l.area}|${l.id}`)) {
       this.log("ospf-lsa", `${this._name(l)}: no longer reachable outside area ${l.area}: flushing it`);
