@@ -32,6 +32,7 @@ import {shape, Police, lossModel} from "./link.js";
 import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from "./ospf.js";
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
+import {ntpServer} from "./apps.js";
 import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
 import {Lldp, LLDP_MAC} from "./lldp.js";
 import {Ip6} from "./ipv6.js";
@@ -377,7 +378,7 @@ export class IpNode extends Device {
       if (!svc && p.dst === "255.255.255.255") return;                // no ICMP errors for broadcasts
       if (!svc) { this.log("port-closed", `nothing listens on UDP ${p.udp.dport}`); return this.icmpError(p, 3, 3, p.dst); }
       const reply = svc(p.udp.payload, p, ifname);
-      if (reply !== undefined) this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "udp", udp: {sport: p.udp.dport, dport: p.udp.sport, payload: reply}});
+      if (reply !== undefined) this.sendIp({src: p.dst, dst: p.src, ttl: 64, proto: "udp", udp: {sport: p.udp.dport, dport: p.udp.sport, payload: reply, ...(reply && reply.wireSize ? {size: reply.wireSize} : {})}});
     }
   }
   udpService(port) {
@@ -386,6 +387,7 @@ export class IpNode extends Device {
     if (port === 53 && this.services.dns) return payload => { const a = this.services.dns[payload.q] ?? null;
       this.log("dns", `query ${payload.q} → ${a ?? "not found"}`); return {q: payload.q, a}; };
     if (port === 514 && this.services.syslog) return payload => { (this.syslogLog ||= []).push(String(payload)); this.log("syslog", `received: ${payload}`); };
+    if (port === 123 && this.services.ntp) return this._ntpd ||= ntpServer(this, this.services.ntp);
     return this.services.udp && this.services.udp[port];
   }
 

@@ -151,6 +151,7 @@ export function configLines(model, {kind, ports}) {
     out.push("!");
   }
   if (s.tcp) { for (const [port, app] of Object.entries(s.tcp)) if (["echo", "discard", "http", "slow"].includes(app)) out.push(`service tcp-${app} ${port}`); for (const [path, text] of Object.entries(s.http || {})) out.push(`http page ${path} ${encodeURIComponent(text)}`); out.push("!"); }
+  if (s.ntp) out.push(`service ntp ${s.ntp}`, "!");
   if (s.syslog) out.push("service syslog", "!");
   out.push("end");
   return out;

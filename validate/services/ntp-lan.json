@@ -1,0 +1,64 @@
+{
+ "version": 1,
+ "name": "NTP",
+ "about": "Two hosts, a time server (stratum 2) and a second server with no NTP service, on one switch. The time server answers each client query on UDP 123; queries to the other server get ICMP port unreachable.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "LOG",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.10/24"
+   },
+   "services": {
+    "ntp": 2
+   }
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.20/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1",
+   0
+  ],
+  [
+   "B:eth0",
+   "SW:p2",
+   0
+  ],
+  [
+   "LOG:eth0",
+   "SW:p3",
+   0
+  ],
+  [
+   "S:eth0",
+   "SW:p4",
+   0
+  ]
+ ]
+}

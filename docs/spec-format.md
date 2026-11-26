@@ -52,6 +52,7 @@ are invalid (every problem is printed to stderr as `error: spec $.path: message`
 | `services.dhcp` | A DHCP server on the node's subnet: `{"range": ["first", "last"], "lease": 3600, "router": "ip", "dns": "ip"}`. `lease` is seconds (default 3600); `router` and `dns` are optional. The first address of the range must be on one of the node's subnets. |
 | `services.dhcp.pools` | Extra pools for relayed subnets: `[{"range": ["first", "last"], "mask": "255.255.255.0", "router": "ip"}]`. The server picks the pool that contains the relay's address. |
 | `services.dhcpRelay` | A router that relays DHCP broadcasts on some interfaces to a server elsewhere: `{"server": "10.0.0.1", "clients": ["lan"]}`. `clients` lists the router's own interfaces to listen on. |
+| `services.ntp` | A stratum from 1 to 15: an NTP server on UDP 123 that answers each client query (mode 3) with a 48-byte server packet (mode 4) at that stratum. |
 | `services.syslog` | `true`: a log receiver on UDP 514 that stores each datagram (the `syslog` action sends one and returns what was stored). |
 | `services.tcp` | A TCP server: `{"7": "echo"}` listens on port 7 and echoes what it receives; `"discard"` reads and never answers; `"slow"` reads nothing for one second with a small receive buffer (a zero-window stall, see `validate/tcp`); `"http"` answers a GET with a page from `services.http`. |
 | `services.http` | Pages for an `http` listener: `{"/": "hello\n"}` maps a path to its text. The reply is HTTP/1.0 (status line, `Content-Type: text/plain`, `Content-Length`, the page), then the server closes; an unknown path gets a 404. Validated against a real Python socket server in `validate/tcp/`. |
@@ -89,6 +90,7 @@ frame counts don't depend on the order of actions — the same rule the Linux va
 | `traceroute` | `src`, `dst` | `maxHops` (8) |
 | `dns` | `src`, `server`, `name` | |
 | `tcp` | `src`, `dst`, `port` | `http` (a path like `"/"`: send a GET for it instead of `size` bytes, read until the server closes; the result has `status` and `bytes` of body), `size` (bytes to send and get echoed; none by default), `timeout` s. Opens a connection, sends the data, closes. The result is `ok` or `error` (`refused`, `timeout`) plus the `wire` list of segments the client sent and received. |
+| `ntp` | `src`, `dst` | `version` (default 4), `timeout` | One NTP client query to UDP 123 on `dst`; returns `{ok, from, stratum, version, received}` (`received` is what each server logged for this query: `vn=4 mode=3 len=48`). |
 | `syslog` | `src`, `dst`, `message` | `tag` (default `user`), `facility` (default `user`), `severity` (default `notice`), `settle` s. Sends one RFC 3164 datagram to UDP 514 and returns `received`: the messages the destination's syslog service stored. Text: `<PRI>Mmm dd hh:mm:ss HOST TAG: MESSAGE` (the engine's clock is a fixed day). Validated against util-linux `logger` in `validate/services/`. |
 | `udp` | `src`, `dst`, `port` | |
 | `udpBurst` | `src`, `dst`, `port`, `count`, `size` | sends `count` UDP datagrams of `size` bytes back to back, to load a shaped link |

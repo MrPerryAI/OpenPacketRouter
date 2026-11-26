@@ -322,6 +322,8 @@ export const HANDLERS = {
   "tcp.http": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "http"; },
   "http.page": (ctx, [path, text]) => { const s = M.services(ctx.model); s.http ||= {}; s.http[path] = decodeURIComponent(text); },
   "http.no-page": (ctx, [path]) => { const s = M.services(ctx.model); need(s.http && path in s.http, `There is no page ${path}`); delete s.http[path]; if (!Object.keys(s.http).length) delete s.http; },
+  "ntp.on": (ctx, [stratum]) => { M.services(ctx.model).ntp = Number(stratum); },
+  "ntp.off": ctx => { const s = M.services(ctx.model); need(s.ntp, "The NTP service is not running"); delete s.ntp; },
   "syslog.on": ctx => { M.services(ctx.model).syslog = true; },
   "syslog.off": ctx => { const s = M.services(ctx.model); need(s.syslog, "The syslog service is not running"); delete s.syslog; },
   "tcp.slow": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "slow"; },
