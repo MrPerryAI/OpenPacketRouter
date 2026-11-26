@@ -1,0 +1,47 @@
+{
+ "version": 1,
+ "name": "HTTP GET, small pages",
+ "about": "C fetches pages from an HTTP/1.0 server on S: a page that fits one segment, and an unknown path (404). The server closes after the response, so its FIN comes first.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   },
+   "services": {
+    "tcp": {
+     "80": "http",
+     "7": "echo"
+    },
+    "http": {
+     "/": "hello from S\n",
+     "/about": "OpenPacketRouter test page\n"
+    }
+   }
+  }
+ ],
+ "links": [
+  [
+   "C:eth0",
+   "SW:p1",
+   0
+  ],
+  [
+   "SW:p2",
+   "S:eth0",
+   0
+  ]
+ ]
+}

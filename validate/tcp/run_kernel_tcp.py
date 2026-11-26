@@ -17,7 +17,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["tcp-lan", "tcp-loss"]
+SPECS = ["tcp-lan", "tcp-loss", "tcp-http", "tcp-http-big"]
 
 
 class TcpNet(l3.KernelNet):
@@ -42,7 +42,8 @@ class TcpNet(l3.KernelNet):
         for n in spec["nodes"]:
             ports = (n.get("services") or {}).get("tcp")
             if ports:
-                self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], sys.executable, str(HERE / "tcp_server.py"), *ports.keys()]))
+                env = {**os.environ, "OPR_KINDS": json.dumps(ports), "OPR_PAGES": json.dumps((n.get("services") or {}).get("http") or {})}
+                self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], sys.executable, str(HERE / "tcp_server.py"), *ports.keys()], env=env))
         time.sleep(0.5)
 
     def act(self, a):
@@ -51,7 +52,8 @@ class TcpNet(l3.KernelNet):
         node = next(n for n in self.spec["nodes"] if n["name"] == a["src"])
         ifn = next(iter(node["ifaces"]))
         p = subprocess.run(["ip", "netns", "exec", self.ns[a["src"]], sys.executable, str(HERE / "tcp_probe.py"), ifn, a["dst"], str(a["port"]),
-                            str(a.get("size", 100)), str(a.get("timeout", 5)), "1" if a.get("discard") else "0", str(a.get("pause", 0))], capture_output=True, text=True, timeout=60)
+                            str(a.get("size", 100)), str(a.get("timeout", 5)), "1" if a.get("discard") else "0", str(a.get("pause", 0))],
+                           capture_output=True, text=True, timeout=60, env={**os.environ, **({"OPR_HTTP_PATH": a["http"]} if "http" in a else {})})
         return json.loads(p.stdout)
 
 
@@ -76,7 +78,7 @@ def inner():
 # Linux over a zero-latency veth pair sends the first segment of a write, then handles its ACK (softirq) before the
 # rest of the write leaves; the engine sends the whole write at one instant. The segments and ACKs and their order
 # within each direction are identical, so for these specs the two directions are compared separately.
-PER_DIRECTION = {"tcp-loss"}
+PER_DIRECTION = {"tcp-loss", "tcp-http", "tcp-http-big"}
 
 
 def comparable(r, name=None):
@@ -102,8 +104,8 @@ def main():
             fd = {key: (e["frames"].get(key, 0), k["frames"].get(key, 0)) for key in keys if e["frames"].get(key, 0) != k["frames"].get(key, 0)}
             ok = same and not fd
             res = e["result"]
-            what = f'tcp {a["src"]} → {a["dst"]}:{a["port"]}' + (f' ({a.get("size", 100)} bytes)' if res.get("ok") else "")
-            summary = (f'echo of {res["bytes"]} bytes' if res.get("ok") else res.get("error")) + " · " + " ".join(w.replace("out ", ">").replace("in ", "<") for w in res["wire"])
+            what = f'tcp {a["src"]} → {a["dst"]}:{a["port"]}' + (f' (GET {a["http"]})' if "http" in a and res.get("ok") else f' ({a.get("size", 100)} bytes)' if res.get("ok") else "")
+            summary = ((f'HTTP {res["status"]}, {res["bytes"]} body bytes' if "status" in res else f'echo of {res["bytes"]} bytes') if res.get("ok") else res.get("error")) + " · " + " ".join(w.replace("out ", ">").replace("in ", "<") for w in res["wire"])
             rows.append((name, what, summary, f'{sum(e["frames"].values())} frames on {len(e["frames"])} cable directions', "✓" if ok else "✗"))
             if not ok: detail[f"{name}: {what}"] = {"engine": comparable(e["result"], name), "kernel": comparable(k["result"], name), "frame_diffs": fd}
     md = ["| Network | Action | Engine result and client-side segments (same in Linux?) | Frames (engine = Linux, cable by cable?) | Match |", "|---|---|---|---|---|"]
