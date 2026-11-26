@@ -41,3 +41,5 @@ The comparison stays strict. If a network's only differences are Acknowledgments
 side is run again in fresh namespaces, up to two more times, and the network passes if one real ospfd run matches the
 engine on every row; the results table then says "matched on run N of 3". Any other difference (another packet type,
 a cable on a switch, neighbors, routes, database, Hellos) fails at once with no retry.
+
+Known difference: the engine removes a flushed (MaxAge) LSA at once; ospfd keeps it until a periodic sweep (about 30 s, random phase), so a neighbour returning within that window can get the old copy echoed back. The scenarios wait longer than one sweep, so this case is not compared.
