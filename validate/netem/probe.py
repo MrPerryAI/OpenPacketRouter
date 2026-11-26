@@ -8,6 +8,7 @@ def run(params):
     ns = "np"; sh("ip", "netns", "add", ns)
     try:
         sh("ip", "link", "add", "v0", "type", "veth", "peer", "name", "v1", "netns", ns)
+        sh("sysctl", "-qw", "net.ipv6.conf.v0.disable_ipv6=1"); sh("ip", "netns", "exec", ns, "sysctl", "-qw", "net.ipv6.conf.v1.disable_ipv6=1"); sh("ip", "netns", "exec", ns, "sysctl", "-qw", "net.ipv6.conf.default.disable_ipv6=1")
         sh("ip", "addr", "add", "10.9.0.1/24", "dev", "v0"); sh("ip", "link", "set", "v0", "up")
         sh("ip", "netns", "exec", ns, "ip", "addr", "add", "10.9.0.2/24", "dev", "v1"); sh("ip", "netns", "exec", ns, "ip", "link", "set", "v1", "up")
         sh("ip", "neigh", "replace", "10.9.0.2", "lladdr", sh("ip", "netns", "exec", ns, "cat", "/sys/class/net/v1/address").strip(), "dev", "v0", "nud", "permanent")
@@ -28,6 +29,6 @@ print(got)"""], stdout=subprocess.PIPE, text=True)
 
 CASES = [["100%", "100%", "100%", "0%"], ["100%", "100%", "0%", "100%"], ["100%", "0%", "100%", "0%"], ["100%", "0%", "0%", "100%"], ["0%", "100%", "100%", "100%"], ["0%", "0%", "0%", "100%"], ["0%", "0%", "100%", "0%"], ["100%", "100%", "100%", "100%"], ["100%", "100%", "0%", "0%"]]
 lines = []
-for p in CASES:
+for p in CASES + CASES:
     r = run(p); lines.append(f"gemodel {' '.join(p)} -> {r}"); print(lines[-1], flush=True)
 print("::notice title=netem probe::" + " | ".join(lines))
