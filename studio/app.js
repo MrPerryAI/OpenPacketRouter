@@ -13,13 +13,15 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp"];
+const KIND_LABEL = {bpdu: "STP"};   // the filter and the list say STP for spanning-tree BPDUs
+const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
 const vlanColor = v => v === 1 ? "#98a2b3" : VLAN_COLORS[(v * 7) % VLAN_COLORS.length];
 const HALF = {switch: [34, 16], router: [24, 24], server: [24, 22], host: [28, 18]};   // half width/height of each device shape
 const ms = t => `${(t * 1000).toFixed(t < 0.01 ? 3 : 1)} ms`;
 
-export const S = {sessions: new Map(), console: null, spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
+export const S = {hidden: new Set(), sessions: new Map(), console: null, spec: null, actions: [], name: "", cut: new Set(), sim: null, an: null, pos: {}, step: -1,
   playing: false, speed: 1, selected: null, timer: null, anim: null, error: null, tool: "select", pending: null};
 
 // ---------------------------------------------------------------- loading
@@ -97,7 +99,7 @@ export function rerun() {
     S.sim = simulate(S.spec, S.actions, {cut});
   } catch (e) { showErrors([String(e.message || e)]); S.sim = {actions: [], steps: [], routes: {}, final: {}}; }
   S.step = -1;
-  drawMap(); drawStorm(); drawActions(); showStep(); drawDevice();
+  drawMap(); drawStorm(); drawActions(); drawFilters(); drawEvents(); showStep(); drawDevice();
   if (!S.loading) autosave();
 }
 
@@ -198,7 +200,7 @@ export function toggleCut(i) {
 }
 
 function drawLegend() {
-  $("#legend").innerHTML = KINDS.map(k => `<span><i style="background:var(--${k})"></i>${k.toUpperCase()}</span>`).join("") +
+  $("#legend").innerHTML = KINDS.map(k => `<span><i style="background:var(--${k})"></i>${kindName(k)}</span>`).join("") +
     `<span><i style="background:#12b76a"></i>forwarding port</span><span><i style="background:#f04438"></i>blocked port</span><span><i style="background:#f79009"></i>listening / learning</span>`;
 }
 
@@ -237,10 +239,55 @@ function currentState() {
   return S.an ? S.an.devices : null;
 }
 
+// ---------------------------------------------------------------- protocol filters and the event list
+
+const shown = st => !S.hidden.has(st.kind);
+/** The nearest frame after (dir 1) or before (dir -1) the current one whose protocol is not filtered out; -1 / null at the ends. */
+export function nextShown(dir) {
+  const steps = S.sim.steps;
+  for (let i = S.step + dir; i >= 0 && i < steps.length; i += dir) if (shown(steps[i])) return i;
+  return dir < 0 ? -1 : null;
+}
+
+function drawFilters() {
+  const box = $("#filters"), count = {};
+  for (const st of S.sim.steps) count[st.kind] = (count[st.kind] || 0) + 1;
+  box.innerHTML = Object.keys(count).length ? `<b>Show</b>` : "";
+  for (const k of KINDS.filter(k => count[k])) {
+    const l = document.createElement("label");
+    l.innerHTML = `<input type="checkbox" data-kind="${k}" ${S.hidden.has(k) ? "" : "checked"}><span style="color:var(--${k})">●</span> ${kindName(k)} <span class="n">${count[k]}</span>`;
+    l.querySelector("input").addEventListener("change", e => { if (e.target.checked) S.hidden.delete(k); else S.hidden.add(k);
+      if (S.step >= 0 && S.sim.steps[S.step] && !shown(S.sim.steps[S.step])) { stop(); goto(nextShown(-1)); }
+      drawEvents(); showStep(); });
+    box.appendChild(l);
+  }
+}
+
+const EVENT_CAP = 1500;
+/** Packet Tracer style event list: one row per frame that passes the filter. Click a row to jump there. */
+function drawEvents() {
+  const box = $("#events"); box.innerHTML = "";
+  const rows = S.sim.steps.filter(shown);
+  $("#evCount").textContent = S.sim.steps.length ? `${rows.length} of ${S.sim.steps.length}` : "";
+  if (!S.sim.steps.length) { box.innerHTML = `<p class="hint">No frames yet.</p>`; return; }
+  for (const st of rows.slice(0, EVENT_CAP)) {
+    const r = document.createElement("div"); r.className = `ev${st.i === S.step ? " current" : ""}`; r.dataset.step = st.i; r.setAttribute("role", "option");
+    r.innerHTML = `<span>${st.i + 1}</span><span>${ms(st.t)}</span><span><span class="k" style="color:var(--${st.kind})">${kindName(st.kind)}</span> ${esc(st.from)} → ${esc(st.to)}: ${esc(st.desc)}</span>`;
+    r.addEventListener("click", () => { stop(); goto(st.i); });
+    box.appendChild(r);
+  }
+  if (rows.length > EVENT_CAP) box.insertAdjacentHTML("beforeend", `<p class="hint">Showing the first ${EVENT_CAP}; hide some protocols to see the rest.</p>`);
+}
+function markEvent() {
+  for (const r of document.querySelectorAll("#events .ev.current")) r.classList.remove("current");
+  const cur = document.querySelector(`#events .ev[data-step="${S.step}"]`);
+  if (cur) { cur.classList.add("current"); cur.scrollIntoView({block: "nearest"}); }
+}
+
 export function goto(k) {
   const n = S.sim.steps.length;
   S.step = Math.max(-1, Math.min(n - 1, k));
-  showStep(); drawDevice(); refreshPorts();
+  showStep(); drawDevice(); refreshPorts(); markEvent();
 }
 
 function refreshPorts() {
@@ -252,7 +299,8 @@ function refreshPorts() {
 
 function showStep() {
   const n = S.sim.steps.length, st = S.sim.steps[S.step];
-  $("#counter").textContent = n ? `frame ${S.step + 1} / ${n}${S.sim.truncated ? "+" : ""}` : "no frames";
+  const vis = S.sim.steps.filter(shown).length;
+  $("#counter").textContent = n ? `frame ${S.step + 1} / ${n}${S.sim.truncated ? "+" : ""}${vis < n ? ` (${vis} shown)` : ""}` : "no frames";
   for (const li of document.querySelectorAll("#actions li[data-action]")) li.classList.toggle("current", !!st && +li.dataset.action === st.action);
   for (const c of Object.values(S.cableEls || {})) c.classList.remove("active");
   for (const g of document.querySelectorAll(".node.busy")) g.classList.remove("busy");
@@ -289,9 +337,9 @@ function animatePacket(st) {
 const interval = () => 900 / S.speed;
 export function play() {
   if (!S.sim.steps.length) return;
-  if (S.step >= S.sim.steps.length - 1) goto(-1);
+  if (nextShown(1) === null) goto(-1);
   S.playing = true; $("#play").textContent = "⏸";
-  const tick = () => { if (!S.playing) return; if (S.step >= S.sim.steps.length - 1) return stop(); goto(S.step + 1); S.timer = setTimeout(tick, interval()); };
+  const tick = () => { if (!S.playing) return; const nx = nextShown(1); if (nx === null) return stop(); goto(nx); S.timer = setTimeout(tick, interval()); };
   tick();
 }
 export function stop() { S.playing = false; clearTimeout(S.timer); const b = $("#play"); if (b) b.textContent = "▶"; }
@@ -486,16 +534,16 @@ async function init() {
     addEventListener("pointermove", move); addEventListener("pointerup", up);
   });
   $("#play").addEventListener("click", () => S.playing ? stop() : play());
-  $("#step").addEventListener("click", () => { stop(); goto(S.step + 1); });
-  $("#back").addEventListener("click", () => { stop(); goto(S.step - 1); });
+  $("#step").addEventListener("click", () => { stop(); const n = nextShown(1); if (n !== null) goto(n); });
+  $("#back").addEventListener("click", () => { stop(); goto(nextShown(-1)); });
   $("#first").addEventListener("click", () => { stop(); goto(-1); });
   const sp = $("#speed"); const setSpeed = () => { S.speed = 2 ** +sp.value; $("#speedOut").textContent = `${+S.speed.toFixed(2)}×`; };
   sp.addEventListener("input", setSpeed); setSpeed();
   document.addEventListener("keydown", e => {
     if (e.target.closest && e.target.closest("input, select, textarea")) return;
     if (e.key === " ") { e.preventDefault(); S.playing ? stop() : play(); }
-    else if (e.key === "ArrowRight") { stop(); goto(S.step + 1); }
-    else if (e.key === "ArrowLeft") { stop(); goto(S.step - 1); }
+    else if (e.key === "ArrowRight") { stop(); const n = nextShown(1); if (n !== null) goto(n); }
+    else if (e.key === "ArrowLeft") { stop(); goto(nextShown(-1)); }
     else if (e.key === "Home") { stop(); goto(-1); }
   });
   for (const b of document.querySelectorAll("[data-add]")) b.addEventListener("click", () => addDevice(b.dataset.add));
