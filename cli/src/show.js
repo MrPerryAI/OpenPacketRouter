@@ -25,6 +25,16 @@ export const SHOWS = {
     if (!s) return {json: {enabled: false}, text: "DHCP snooping is off (ip dhcp snooping)."};
     return {json: {enabled: true, trusted: s.trusted, dropped: s.dropped}, text: ["DHCP snooping is on.", "Trusted ports: " + (s.trusted.join(", ") || "none"), "Server messages dropped on untrusted ports: " + (Object.entries(s.dropped).map(([p, c]) => `${p} ${c}`).join(", ") || "none")].join("\n")};
   },
+  "show.vrrp": ctx => {
+    const cfg = M.services(ctx.model).vrrp || [], live = ctx.state().vrrp || [];
+    const rows = cfg.map(g => {
+      const l = live.find(x => x.iface === g.iface && x.vrid === g.vrid);
+      return {interface: g.iface, group: g.vrid, address: g.ip ?? null, priority: g.priority ?? 100, interval: g.interval ?? 1, preempt: g.preempt !== false,
+        virtualMac: !!g.virtualMac, state: l ? l.state : "not running", master: l?.masterIp ?? null};
+    });
+    return {json: rows, text: rows.length ? table(["Interface", "Group", "State", "Master", "Virtual address", "Priority", "Interval", "Preempt"],
+      rows.map(r => [r.interface, r.group, r.state, r.master ?? "-", r.address ?? "(none yet)", r.priority, `${r.interval} s`, r.preempt ? "yes" : "no"])) : "No VRRP groups (use \"vrrp GROUP address ADDRESS\" on an interface)"};
+  },
   "show.lldp": ctx => {
     const cfg = M.services(ctx.model).lldp, live = ctx.state().lldp;
     if (!cfg) return {json: {enabled: false}, text: "LLDP is not running (use \"lldp run\" in configuration mode)"};

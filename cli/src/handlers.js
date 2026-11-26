@@ -17,6 +17,13 @@ const TIMERS = new Set(["hello-interval", "dead-interval", "retransmission-inter
 const ospfIfCtx = ctx => { need(M.ospf(ctx.model), "OSPF is not running: use router ospf first"); return M.ospfIf(ctx.model, curIface(ctx).config.name); };
 const curIface = ctx => { need(ctx.s.iface, "No interface selected"); return M.iface(ctx.model, ctx.s.iface); };
 const rip = ctx => { need(ctx.s.router === "rip" && M.services(ctx.model).rip, "Not in RIP configuration"); return M.services(ctx.model).rip; };
+const vrrpGroup = (ctx, id, make = false) => {
+  const ifn = curIface(ctx).config.name, list = (M.services(ctx.model).vrrp ||= []);
+  let g = list.find(x => x.iface === ifn && x.vrid === +id);
+  if (!g && make) { g = {iface: ifn, vrid: +id}; list.push(g); }
+  need(g, `VRRP group ${id} is not set up on ${ifn}`);
+  return g;
+};
 const lldp = ctx => { need(M.services(ctx.model).lldp, "LLDP is not running: use \"lldp run\" first"); return M.services(ctx.model).lldp; };
 const acl = ctx => { need(ctx.s.acl && M.services(ctx.model).acl?.lists[ctx.s.acl], "Not in access-list configuration"); return M.services(ctx.model).acl.lists[ctx.s.acl]; };
 const natSame = (a, b) => ["proto", "inside", "insidePort", "outside", "outsidePort"].every(k => a[k] === b[k]);
@@ -257,6 +264,15 @@ export const HANDLERS = {
   "dhcp.set": (ctx, [v], leaf) => { pool(ctx)[leaf] = leaf === "netmask" ? prefixToMask(maskToPrefix(v)) : v; },
   "dhcp.unset": (ctx, args, leaf) => { delete pool(ctx)[leaf]; },
 
+  // ---- VRRP (kept under services.vrrp, a list shaped like the spec's vrrp groups; "interface" is the spec's iface)
+  "vrrp.address": (ctx, [id, ip]) => { vrrpGroup(ctx, id, true).ip = ip; },
+  "vrrp.priority": (ctx, [id, n]) => { vrrpGroup(ctx, id, true).priority = +n; },
+  "vrrp.interval": (ctx, [id, n]) => { vrrpGroup(ctx, id, true).interval = +n; },
+  "vrrp.preempt": (ctx, [id]) => { delete vrrpGroup(ctx, id, true).preempt; },
+  "vrrp.no-preempt": (ctx, [id]) => { vrrpGroup(ctx, id, true).preempt = false; },
+  "vrrp.virtual-mac": (ctx, [id]) => { vrrpGroup(ctx, id, true).virtualMac = true; },
+  "vrrp.no-virtual-mac": (ctx, [id]) => { delete vrrpGroup(ctx, id, true).virtualMac; },
+  "vrrp.remove": (ctx, [id]) => { const g = vrrpGroup(ctx, id); const l = M.services(ctx.model).vrrp; l.splice(l.indexOf(g), 1); if (!l.length) delete M.services(ctx.model).vrrp; },
   // ---- LLDP (kept under services.lldp, shaped like the spec's lldp block)
   "lldp.run": ctx => { const s = M.services(ctx.model); s.lldp ||= {}; },
   "lldp.remove": ctx => { const s = M.services(ctx.model); need(s.lldp, "LLDP is not running"); delete s.lldp; },

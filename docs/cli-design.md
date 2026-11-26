@@ -271,3 +271,7 @@ printf 'conf t\ninterface p3\nswitchport access vlan 20\nend\nwrite\n' | node cl
 4. `docs/cli-reference.md`: every command, generated from the definition files where possible.
 5. One working proof per real backend: Linux first (checked in the Docker validator), then FRR, then
    OpenWrt. Linux: done for routers, hosts and plain switches (`validate/cli/`, 12/12 frame-for-frame matches).
+
+## VRRP wording
+
+The commands live on the interface and keep to our own vocabulary: `vrrp <group> address <ip>`, `priority`, `interval <seconds>`, `virtual-mac`, and `no vrrp <group> preempt` to stop a recovered higher-priority router taking over again. We chose `address` (it is the virtual address clients use as their gateway) and spelled-out `virtual-mac` rather than copying vendor keywords. The protocol terms (group, priority, master, backup, preempt) stay because they come from RFC 3768, not from any one vendor. `show vrrp` prints one row per group with the live state taken from the engine; `| json` gives the same rows.
