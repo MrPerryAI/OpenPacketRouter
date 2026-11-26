@@ -25,11 +25,9 @@ Get started with the [README quick start](../README.md). The full list of change
 | Switching | STP, TCN, RSTP, VLANs and trunks, MAC aging, LACP, LLDP, port security, storm control, DHCP snooping, SPAN | kernel bridge, mstpd, bonding, lldpd, nftables, `tc police`, `tc mirred` |
 | Links | capacity, queues and drops, delay, deterministic loss, broadcast storm math | `tbf`, `netem`, kernel bridges |
 | IPv4 | ARP, ICMP, static routes, inter-VLAN routing, ACLs, NAT | kernel, nftables, conntrack |
-| Services | DHCP and DHCP relay, TCP (with retransmission), HTTP GET, syslog\* | dnsmasq, udhcpc, Linux sockets, util-linux `logger` |
+| Services | DHCP and DHCP relay, TCP (with retransmission), HTTP GET, syslog | dnsmasq, udhcpc, Linux sockets, util-linux `logger` |
 | Routing | RIPv2, OSPFv2 (several areas, ABRs) | FRRouting ripd, ospfd |
 | IPv6 | global addresses, neighbor discovery, ICMPv6 echo, static routes | kernel |
-
-\* Approved and waiting for a rebase at the time of writing. This table is updated as they merge.
 
 ## Not validatable, so not built
 
