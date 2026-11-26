@@ -45,8 +45,8 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   The pure edit functions live in `editor.js`.
 - **Save and export**: *Save spec* downloads the network as spec JSON (what the editor and the console changed),
   *Save actions* the actions; *Open spec…* reads such a file back. Every change is also autosaved in the browser's
-  storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. YAML export
-  waits until the CLI reads YAML specs.
+  storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. *Save YAML* downloads the spec as YAML;
+  *Open spec…* and *Open actions…* read `.yaml`/`.yml` as well as JSON.
 
 ## Files
 
