@@ -217,7 +217,7 @@ export function tcpAction(net, a) {
 /** Listen on `port`: accept(conn) is called for every SYN, sets conn.onEvent and returns true to answer SYN+ACK (false: RST). */
 export function tcpListen(node, port, accept) { (node.tcpApps ||= new Map()).set(port, accept); }
 /** Open a connection from `laddr` (or the route's address) to dst:port; returns the connection, or null without a route.
- *  conn.onEvent(ev, n, data): "connected", "data", "peerclosed", "reset", "refused", "icmp". SYN retransmits like Linux (1, 2, 4 s). */
+ *  conn.onEvent(ev, n, data): "connected", "data", "eof", "reset", "refused", "icmp". SYN retransmits like Linux (1, 2, 4 s). */
 export function tcpConnect(node, dst, port, onEvent) {
   const route = node.route(dst); if (!route) return null;
   const conn = newConn(node, node.ifaces[route.iface].ip, node.nextPort++, dst, port, "SYN_SENT");
