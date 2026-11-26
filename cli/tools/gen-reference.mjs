@@ -13,7 +13,7 @@ import {DEFINITIONS} from "../commands/index.js";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = path.join(ROOT, "docs/cli-reference.md");
 
-const MODE = {user: "user", priv: "privileged", config: "config", "config-if": "interface", "config-router": "routing", "config-ospf": "OSPF routing", "config-vlan": "vlan", "config-dhcp": "DHCP pool"};
+const MODE = {user: "user", priv: "privileged", config: "config", "config-if": "interface", "config-router": "routing", "config-ospf": "OSPF routing", "config-bgp": "BGP routing", "config-vlan": "vlan", "config-dhcp": "DHCP pool"};
 const KIND = {router: "routers", switch: "switches", host: "hosts", server: "servers"};
 
 /** One session on one device of an example lab; returns the transcript text for the given commands. */

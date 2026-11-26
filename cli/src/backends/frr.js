@@ -22,7 +22,7 @@ const RIP_SPLIT = {simple: " ip rip split-horizon", poisoned: " ip rip split-hor
 
 export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}) {
   const out = [`hostname ${M.hostname(model)}`, "!"];
-  const rip = M.services(model).rip;
+  const rip = M.services(model).rip, bgp = M.services(model).bgp;
   for (const p of ports) {
     const ifc = M.iface(model, p, false); if (!ifc) continue;
     const addrs = M.addressesOf(ifc);
@@ -50,6 +50,25 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
     for (const n of rip.networks) out.push(` network ${n}`);
     for (const i of rip.passive || []) out.push(` passive-interface ${i}`);
     out.push("exit");
+  }
+  if (bgp) {   // neighbor ... local-preference is a short form of an inbound route-map that sets it
+    const t = bgp.timers || {};
+    out.push(`router bgp ${bgp.asn}`);
+    if (bgp.routerId) out.push(` bgp router-id ${bgp.routerId}`);
+    out.push(" no bgp ebgp-requires-policy");
+    if (t.keepalive !== undefined) out.push(` timers bgp ${t.keepalive} ${t.hold}`);
+    for (const x of bgp.neighbors) {
+      out.push(` neighbor ${x.ip} remote-as ${x.remoteAs}`);
+      if (t.connect !== undefined) out.push(` neighbor ${x.ip} timers connect ${t.connect}`);
+    }
+    out.push(" address-family ipv4 unicast");
+    for (const n of bgp.networks) out.push(`  network ${n}`);
+    for (const x of bgp.neighbors) {
+      if (x.nextHopSelf) out.push(`  neighbor ${x.ip} next-hop-self`);
+      if (x.localPref !== undefined) out.push(`  neighbor ${x.ip} route-map LP${x.localPref} in`);
+    }
+    out.push(" exit-address-family", "exit");
+    for (const v of [...new Set(bgp.neighbors.filter(x => x.localPref !== undefined).map(x => x.localPref))].sort((a, b) => a - b)) out.push(`route-map LP${v} permit 10`, ` set local-preference ${v}`, "exit");
   }
   out.push("!", "end");
   return out.join("\n");
