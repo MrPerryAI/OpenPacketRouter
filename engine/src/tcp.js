@@ -27,11 +27,11 @@ const seg = (conn, flags, len = 0, extra = {}) => conn.node.sendIp({src: conn.la
 export const MSS = 1448, RTO = 0.2, MAX_WRITE = 10 * MSS;
 
 /** Send `total` bytes as MSS-sized segments, keep them for retransmission and start the timer. */
-function sendData(conn, total) {
-  for (let left = total; left > 0;) {
+function sendData(conn, total, payload) {
+  for (let left = total, off = 0; left > 0;) {
     const n = Math.min(MSS, left); left -= n;
-    const flags = left ? "A" : "PA";
-    seg(conn, flags, n); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags}); conn.snd += n;
+    const flags = left ? "A" : "PA", data = payload === undefined ? undefined : payload.slice(off, off + n); off += n;
+    seg(conn, flags, n, data === undefined ? {} : {data}); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags, data}); conn.snd += n;
   }
   armRto(conn, RTO);
 }
@@ -43,7 +43,7 @@ function armRto(conn, rto) {
     const h = conn.unacked[0];
     conn.node.log("tcp", `no ACK for seq ${h.seq} within ${rto} s: retransmitting ${h.len} bytes`);
     conn.retransmits = (conn.retransmits || 0) + 1;
-    seg(conn, h.flags, h.len, {seq: h.seq}); armRto(conn, rto * 2);
+    seg(conn, h.flags, h.len, h.data === undefined ? {seq: h.seq} : {seq: h.seq, data: h.data}); armRto(conn, rto * 2);
   });
 }
 /** An ACK number: forget what it covers and restart the timer for the rest. */
@@ -118,10 +118,12 @@ function onSegment(conn, t) {
         conn.rcv += t.len; seg(conn, "A");                                       // quick ack
         if (conn.server === "echo") { conn.node.log("tcp", `echo ${t.len} bytes`); sendData(conn, t.len); }
         else if (conn.server === "discard") conn.node.log("tcp", `discard ${t.len} bytes`);
-        else if (conn.onEvent) conn.onEvent("data", t.len);
+        else if (conn.server === "http") httpServe(conn, t);
+        else if (conn.onEvent) conn.onEvent("data", t.len, t.data);
       }
       if (f.includes("F")) {
         conn.rcv += 1;
+        if (conn.onEvent) conn.onEvent("eof");
         if (conn.state === "ESTABLISHED") {          // the peer closed first: the app sees EOF and closes at once, so our ACK
           setState(conn, "LAST_ACK"); seg(conn, "FA"); conn.snd += 1;                 // rides on our own FIN (Linux does not ACK a FIN on its own here)
         } else { seg(conn, "A"); setState(conn, "TIME_WAIT"); drop(conn); }       // our FIN was already out
@@ -134,22 +136,43 @@ function onSegment(conn, t) {
   }
 }
 
+/** The "http" server: collect request bytes until the blank line, answer with the page for the path (HTTP/1.0 style: the
+ *  server closes after the response, so its FIN follows the data). services.http maps a path to its body; anything else is a 404. */
+export function httpResponse(pages, path) {
+  const body = Object.prototype.hasOwnProperty.call(pages || {}, path) ? pages[path] : null;
+  const text = body === null ? "not found\n" : body;
+  return `HTTP/1.0 ${body === null ? "404 Not Found" : "200 OK"}\r\nContent-Type: text/plain\r\nContent-Length: ${text.length}\r\n\r\n${text}`;
+}
+export const httpRequest = (path, host) => `GET ${path} HTTP/1.0\r\nHost: ${host}\r\n\r\n`;
+function httpServe(conn, t) {
+  conn.rx = (conn.rx || "") + (t.data || "");
+  if (conn.answered || !conn.rx.includes("\r\n\r\n")) return;
+  conn.answered = true;
+  const path = (conn.rx.split(" ")[1] || "/"), resp = httpResponse(conn.node.services.http, path);
+  conn.node.log("tcp", `HTTP GET ${path}: answering ${resp.length} bytes, then closing`);
+  sendData(conn, resp.length, resp);
+  setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1;
+}
+
 /** Client side: connect, send `size` bytes, read the echo, close. Returns the result object. */
-export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5, discard = false, pause = 0} = {}) {
+export function tcpRequest(net, srcName, dst, port, {size = 100, timeout = 5, discard = false, pause = 0, http = null} = {}) {
   const node = net.node(srcName);
+  const req = http === null ? null : httpRequest(http, dst); if (req) size = req.length;
   if (size > MAX_WRITE) return {ok: false, error: `a write is limited to ${MAX_WRITE} bytes (ten segments)`};
   const route = node.route(dst); if (!route) return {ok: false, error: "no route"};
   const laddr = node.ifaces[route.iface].ip, lport = node.nextPort++;
   const conn = newConn(node, laddr, lport, dst, port, "SYN_SENT");
   let res = null; const t0 = net.time;
   const done = r => { if (!res) res = {...r, rtt_ms: +((net.time - t0) * 1000).toFixed(3)}; };
-  conn.onEvent = (ev, n) => {
+  conn.onEvent = (ev, n, d) => {
     if (ev === "connected") {
-      sendData(conn, size);
+      sendData(conn, size, req === null ? undefined : req);
       if (discard) net._after(pause, () => {         // nothing comes back: write, wait `pause` seconds, close
         if (conn.dead || res) return;
         done({ok: true, from: dst, bytes: size, unacked: conn.unacked.length, retransmits: conn.retransmits || 0}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; });
     }
+    else if (req !== null && ev === "data") conn.rx = (conn.rx || "") + (d || "");
+    else if (req !== null && ev === "eof") { const i = (conn.rx || "").indexOf("\r\n\r\n"); done({ok: true, from: dst, status: +(conn.rx.split(" ")[1]), bytes: i < 0 ? 0 : conn.rx.length - i - 4}); }
     else if (ev === "data") { done({ok: true, from: dst, bytes: n}); setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
     else if (ev === "refused") done({ok: false, error: "refused", from: dst});
     else if (ev === "reset") done({ok: false, error: "reset", from: dst});
@@ -176,7 +199,7 @@ export function tcpAction(net, a) {
     if (out || inn) wire.push(`${out ? "out" : "in"} ${f.ip.tcp.flags}${f.ip.tcp.len ? " " + f.ip.tcp.len : ""}`);
   };
   (net.taps ||= new Set()).add(tap);
-  const r = tcpRequest(net, a.src, a.dst, a.port, {size: a.size ?? 100, timeout: a.timeout ?? 5, discard: a.discard === true, pause: a.pause ?? 0});
+  const r = tcpRequest(net, a.src, a.dst, a.port, {size: a.size ?? 100, timeout: a.timeout ?? 5, discard: a.discard === true, pause: a.pause ?? 0, http: a.http ?? null});
   net.settle(a.settle ?? 1); net.taps.delete(tap);
   return {...r, wire};
 }

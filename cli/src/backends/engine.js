@@ -98,6 +98,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     }
     if (sv.dhcpRelay) for (const c of sv.dhcpRelay.clients || Object.keys(n.ifaces || {})) M.relayHelpers(m, c).push(sv.dhcpRelay.server);
     if (sv.tcp) out.tcp = {...sv.tcp};
+    if (sv.http) out.http = {...sv.http};
     if (n.lldp) out.lldp = {...n.lldp};
     if (n.nat) {
       out.nat = {...(n.nat.overload ? {overload: n.nat.overload === true ? true : {...n.nat.overload}} : {}), ...(n.nat.static?.length ? {static: n.nat.static.map(x => ({...x}))} : {})};
@@ -259,6 +260,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
       svc.dhcpRelay = {server: [...servers][0], clients: relay.map(([p]) => p)};
     }
     if (s.tcp) svc.tcp = {...s.tcp};
+    if (s.http) svc.http = {...s.http};
     if (s.lldp) n.lldp = {...s.lldp};
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
     if (s.acl) {

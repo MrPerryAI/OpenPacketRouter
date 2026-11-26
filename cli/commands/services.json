@@ -44,6 +44,14 @@
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-discard PORT", "args": {"PORT": "port"}, "handler": "tcp.discard",
      "help": {"service": "Programs this device runs", "tcp-discard": "Listen on a TCP port and read what arrives without answering", "PORT": "TCP port"}},
     {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-discard PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
-     "help": {"service": "Stop a program", "tcp-discard": "Stop the TCP discard service on a port"}}
+     "help": {"service": "Stop a program", "tcp-discard": "Stop the TCP discard service on a port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "service tcp-http PORT", "args": {"PORT": "port"}, "handler": "tcp.http",
+     "help": {"service": "Programs this device runs", "tcp-http": "Answer web page requests (GET) on a TCP port, from the pages set with http page", "PORT": "TCP port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no service tcp-http PORT", "args": {"PORT": "port"}, "handler": "tcp.no-echo",
+     "help": {"service": "Stop a program", "tcp-http": "Stop the web service on a port"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "http page PATH TEXT", "args": {"PATH": "http-path", "TEXT": "page-text"}, "handler": "http.page",
+     "help": {"http": "Web service pages", "page": "Set the text served for a URL path", "PATH": "URL path, like /about", "TEXT": "Page text in one word (%20 is a space, %0A a line break)"}},
+    {"modes": ["config"], "kinds": ["router", "host", "server"], "syntax": "no http page PATH", "args": {"PATH": "http-path"}, "handler": "http.no-page",
+     "help": {"no": "Undo a setting", "http": "Web service pages", "page": "Remove a page", "PATH": "URL path"}}
   ]
 }

@@ -310,5 +310,8 @@ export const HANDLERS = {
   // ---- TCP services
   "tcp.echo": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "echo"; },
   "tcp.discard": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "discard"; },
+  "tcp.http": (ctx, [port]) => { const s = M.services(ctx.model); s.tcp ||= {}; s.tcp[port] = "http"; },
+  "http.page": (ctx, [path, text]) => { const s = M.services(ctx.model); s.http ||= {}; s.http[path] = decodeURIComponent(text); },
+  "http.no-page": (ctx, [path]) => { const s = M.services(ctx.model); need(s.http && path in s.http, `There is no page ${path}`); delete s.http[path]; if (!Object.keys(s.http).length) delete s.http; },
   "tcp.no-echo": (ctx, [port]) => { const t = M.services(ctx.model).tcp; need(t && t[port], `Nothing listens on TCP port ${port}`); delete t[port]; if (!Object.keys(t).length) delete M.services(ctx.model).tcp; },
 };

@@ -3,7 +3,7 @@
 usage: tcp_probe.py IFACE DST PORT SIZE TIMEOUT [DISCARD PAUSE]
 DISCARD=1: the server never answers; write, wait PAUSE seconds, close.
 Also records every TCP segment on IFACE (AF_PACKET) as "out FLAGS [LEN]" / "in FLAGS [LEN]"."""
-import json, select, socket, struct, sys, threading, time
+import json, os, select, socket, struct, sys, threading, time
 
 iface, dst, port, size, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
 discard, pause = (sys.argv[6] == "1", float(sys.argv[7])) if len(sys.argv) > 7 else (False, 0)
@@ -34,9 +34,15 @@ s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3)); s.bind((i
 th = threading.Thread(target=sniff, args=(s,), daemon=True); th.start(); time.sleep(0.1)
 c = socket.socket(); c.settimeout(timeout)
 try:
-    c.connect((dst, port)); c.sendall(b"x" * size); got = b""
+    c.connect((dst, port)); got = b""
+    path = os.environ.get("OPR_HTTP_PATH")
+    c.sendall(f"GET {path} HTTP/1.0\r\nHost: {dst}\r\n\r\n".encode() if path else b"x" * size)
     if discard: time.sleep(pause)
-    while not discard and len(got) < size:
+    while path and True:             # HTTP: read until the server closes
+        d = c.recv(65535)
+        if not d: break
+        got += d
+    while not path and not discard and len(got) < size:
         d = c.recv(65535)
         if not d: break
         got += d
@@ -44,6 +50,8 @@ try:
         ti = c.getsockopt(socket.IPPROTO_TCP, socket.TCP_INFO, 192)
         unacked, total_retrans = struct.unpack_from("I", ti, 8 + 4 * 4)[0], struct.unpack_from("I", ti, 8 + 23 * 4)[0]
         c.close(); out = {"ok": True, "from": dst, "bytes": size, "unacked": unacked, "retransmits": total_retrans}
+    elif path:
+        c.close(); head, _, body = got.partition(b"\r\n\r\n"); out = {"ok": True, "from": dst, "status": int(head.split(b" ")[1]), "bytes": len(body)}
     else:
         c.close(); out = {"ok": True, "from": dst, "bytes": len(got)}
 except ConnectionRefusedError: out = {"ok": False, "error": "refused", "from": dst}
