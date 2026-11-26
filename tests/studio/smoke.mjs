@@ -296,6 +296,24 @@ try {
   check(rh.ok && !/spec /.test(rh.errors), "HTTP spec loads", rh.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /\(GET \//.test(st.desc))), "an HTTP GET request is named in the frame description");
 
+  const rs = await vload("services/syslog-lan.json", "services/syslog-lan.actions.json");
+  check(rs.ok && !/spec /.test(rs.errors), "syslog lab loads", rs.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); });
+  const svcPanel = await page.textContent("#device");
+  check(/Services/.test(svcPanel) && /Syslog receiver/.test(svcPanel), "a server's panel lists its syslog receiver", svcPanel.slice(0, 80));
+
+  const rn = await vload("services/ntp-lan.json", "services/ntp-lan.actions.json");
+  check(rn.ok && !/spec /.test(rn.errors), "NTP lab loads", rn.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); window.studio.goto && window.studio.goto(window.studio.S.sim.steps.length); });
+  const ntpPanel = await page.textContent("#device");
+  const nm = /NTP server \(UDP 123\) at stratum (\d+): (\d+) client quer/.exec(ntpPanel);
+  check(nm && +nm[2] > 0, "the NTP server's panel shows its stratum and a query count above 0", ntpPanel.slice(0, 120));
+
+  const rw = await vload("tcp/tcp-window.json", "tcp/tcp-window.actions.json");
+  check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
   await page.evaluate(() => window.studio.select("R2"));

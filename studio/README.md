@@ -60,6 +60,11 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   says how many in the action list (a lost frame never reaches the wire, so it has no playback step). A TCP segment that
   carries an HTTP request or response names its first line. The OSPF panel shows the router's areas (and says when it is
   an area border router), each interface's area, and marks routes as intra-area or inter-area.
+- **TCP window**: a segment from a limited-buffer receiver names the window it advertises ("window 0 B (full: the sender
+  must wait)" for a zero window), so a stall and its window update can be followed frame by frame.
+- **Services**: a router, host or server that runs the syslog receiver or the NTP server gets a
+  *Services* section in its device panel: the stored syslog messages, and the NTP stratum with how many queries it has
+  answered, at the current playback frame.
 - **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
   play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per

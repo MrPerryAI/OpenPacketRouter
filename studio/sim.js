@@ -45,7 +45,7 @@ export function describeFrame(f) {
   if (p.proto === "ospf") return `OSPF ${p.ospf.type} from ${p.ospf.routerId}: ${p.src} → ${p.dst}${p.ospf.neighbors ? `, ${p.ospf.neighbors.length} neighbor(s) listed` : ""}${tag}`;
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
   const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
-  const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${http}`
+  const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${p.tcp.win !== undefined ? `, window ${p.tcp.win} B${p.tcp.win === 0 ? " (full: the sender must wait)" : ""}` : ""}${http}`
     : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : ""}`;
   return `IPv4 ${p.src} → ${p.dst} ${l4}, TTL ${p.ttl}${tag}`;
 }
@@ -91,6 +91,8 @@ export function snapshotDevices(net) {
         neighbors: [...n.v6.cache].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface}))};
       if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
       if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
+      const sv = n.services || {};
+      if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }

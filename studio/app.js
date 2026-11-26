@@ -408,6 +408,12 @@ function featurePanels(n, d) {
     if (d.v6.routes.length) h += `<h4>IPv6 routes</h4>` + table(["destination", "via"], d.v6.routes.map(r => [r.dst, r.via]));
     h += `<h4>IPv6 neighbors</h4>` + table(["address", "MAC", "iface"], d.v6.neighbors.map(x => [x.ip, x.mac, x.iface]));
   }
+  if (d.services) {
+    h += `<h4>Services</h4>`;
+    if (d.services.ntp) h += `<div class="when">NTP server (UDP 123) at stratum ${d.services.ntp.stratum}: ${d.services.ntp.queries} client ${d.services.ntp.queries === 1 ? "query" : "queries"} answered so far.</div>`;
+    if (d.services.syslog) h += `<div class="when">Syslog receiver (UDP 514): ${d.services.syslog.length} message${d.services.syslog.length === 1 ? "" : "s"} stored.</div>` +
+      table(["message"], d.services.syslog.map(m => [m]));
+  }
   if (d.lldp) h += `<h4>LLDP neighbors</h4>` + table(["iface", "system", "port", "description"], d.lldp.map(x => [x.iface, x.sysName, x.portId, x.portDescr]));
   return h;
 }
