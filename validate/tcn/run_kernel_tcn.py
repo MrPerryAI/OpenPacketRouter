@@ -15,6 +15,8 @@ steps in tcn.steps.json on the engine and on kernel bridges: wait, cut a cable, 
     Windows that end in the middle of a reconvergence are not reported ("bpdus": "mark"): whether an acknowledgment
     carries the TC flag too depends on which hello slot the flag reaches the bridge in, and the kernel rounds its
     1 s hold timer to wall-clock seconds. The leaf-port flap at the end gives crisp sets.
+The snapshot after the leaf port returns waits 12 s (not 10): the kernel only learns of the new topology change a TCN and a hello
+slot after the port forwards (8 s), so at 10 s it can still show the flag cleared while the engine already shows it set.
 Snapshots sit on plateaus, a few seconds from any transition, because BPDU timing differs by up to the
 kernel's 1 s hold timer. It reuses the step runner of validate/aging.
 """
