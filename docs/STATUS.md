@@ -19,7 +19,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [x] LLDP: exact LLDPDU counts per cable (PR #87) [checker]
 
 **B. Routing**
-- [ ] OSPF multi-area (ABR, summary LSAs) vs ospfd [checker]
+- [x] OSPF multi-area (ABR, summary LSAs) vs ospfd [checker] (PR #90)
 - [ ] OSPF redistribution (ASBR, external LSAs) vs ospfd [checker]
 - [ ] BGP basics (eBGP, iBGP, prefixes, basic path selection) vs bgpd [checker]
 - [ ] VRRP first-hop redundancy vs keepalived, CLI in our own words [first free agent]
@@ -31,8 +31,8 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [x] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
 
 **D. Mirroring and IPv6**
-- [x] SPAN port mirroring vs tc mirred [dhcp-tcp] (PR #138: frame counts and the ordered frames each monitor port sends)
-- [x] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp] (PR #145). Modelled = global addresses, NS/NA, echo, static routes. Not modelled yet = link-local addresses as routing targets (they are used only as solicitation sources), NUD re-probing of used neighbors (the validator pins Linux's delay_first_probe_time high), DAD, MLD, RS/RA/SLAAC (the validator pins Linux with nodad and drops MLD/RS/DAD chatter on output, so those are simply absent from the comparison).
+- [x] SPAN port mirroring vs tc mirred [dhcp-tcp] (PR #144: frame counts and the ordered frames each monitor port sends)
+- [x] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp] (PR #155). Modelled = global addresses, NS/NA, echo, static routes. Not modelled yet = link-local addresses as routing targets (they are used only as solicitation sources), NUD re-probing of used neighbors (the validator pins Linux's delay_first_probe_time high), DAD, MLD, RS/RA/SLAAC (the validator pins Linux with nodad and drops MLD/RS/DAD chatter on output, so those are simply absent from the comparison).
 - [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
 
 **E. Transport and links**
@@ -44,14 +44,14 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [ ] Every spec key has a configure command and a show with `| json` [docs]
 - [x] YAML spec input (PR #93; Studio opens and saves YAML, PR #121) [docs]
 - [ ] FRR backend proof: rendered frr.conf in real FRR gives the engine's tables (OSPF PR #68 and RIP PR #134 done; static routes and new protocols as they land) [docs]
-- [x] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs] (`validate/openwrt/`, PR #150). Covers addresses, static and default routes; `uci` accepts and stores them. netifd is not booted; VLAN/firewall rendering not yet proven.
+- [x] OpenWrt backend proof: OpenWrt rootfs container in CI applies the rendered UCI [docs] (`validate/openwrt/`, PR #156). Covers addresses, static and default routes; `uci` accepts and stores them. netifd is not booted; VLAN/firewall rendering not yet proven.
 - [x] A student guide for every example lab (PR #101; a test makes every new lab ship one) [docs]
 
 **G. Studio**
 - [ ] Browser topology editor (PR #89) and visual features: save/export JSON and YAML (#105, #121), protocol panels (#98), console tabs (#125), playback filters (#131), keyboard and phone layout (#139) done [ui]
 
 **H. Release prep**
-- [ ] README quick start (done), CHANGELOG and v1.0 release notes (no tag, npm publish or GitHub release: the owner decides) [lead]
+- [ ] README quick start (done), CHANGELOG (`CHANGELOG.md`, kept current) and v1.0 release notes (`docs/release-notes-v1.0.md`, draft) (no tag, npm publish or GitHub release: the owner decides) [lead]
 
 **Later, not in v1.0:** the research ideas in `docs/vision.md` (mixed detail levels, device handoff, git-style state, quirk layers), vendor images, wireless.
 
