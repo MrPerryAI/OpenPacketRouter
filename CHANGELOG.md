@@ -23,7 +23,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 ### Engine: links
 
 - Storm math inside the engine, including steady per-cable storm rates and shaped link capacity (#6, #18, #19).
-- Link capacity, queues and drops against `tbf` (#13).
+- Link capacity, queues and drops against `tbf` (#13). Shaped cables also carry spanning-tree, LACP, LLDP and IPv6 frames, sized as Linux sizes them (#184).
 - Link delay and deterministic loss against `tc netem` (#135). Random loss can't be matched frame for frame, so the engine rejects it.
   Cable delay and loss patterns are set from the CLI (`delay`, `loss pattern`) and round-trip in the running-config (#175).
 
@@ -31,9 +31,10 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 
 - Routers, clients and servers (ARP, ICMP, static routes) frame for frame against Linux.
 - DHCP against dnsmasq and udhcpc (#17); DHCP relay (#38).
-- TCP against Linux sockets: handshake, data, close (#30); segments and data retransmission over a lossy hop (#133).
+- TCP against Linux sockets: handshake, data, close (#30); segments and data retransmission over a lossy hop (#133); the receive window: a full receiver stalls the sender, which probes until a window update (#176).
 - HTTP GET (HTTP/1.0 server and client) over the engine's TCP (#168).
 - Syslog: a UDP 514 receiver and a `syslog` action, against util-linux `logger` (#173).
+- NTP: a UDP 123 server (`service ntp STRATUM`, `show ntp`) and an `ntp` query action, against the real `ntpdate` client; NTP timestamps (wall clock vs simulated time) are not compared (#185).
 - IPv4 access lists against nftables (#74). NAT (overload, static 1:1, port forwarding) against nftables, with the translation table compared to conntrack (#79, #83).
 - RIPv2 against FRRouting ripd (#70).
 - OSPFv2 against FRRouting ospfd: point-to-point and broadcast, DR election, passive interfaces, timers (#59, #71, #75, #77); several areas with ABRs, type 3 summary LSAs and inter-area routes (#90).
