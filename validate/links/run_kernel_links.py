@@ -86,6 +86,7 @@ def main():
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
         for e, k in zip(eng, kern[name]):
             a = e["action"]
+            if a.get("warmup"): continue   # runs on both sides to get past start-up, but its window is not compared: the number of hellos in it depends on the kernel timer's phase
             er = {x: v for x, v in e["result"].items() if x != "time"}    # the engine's clock reading is not a network behavior
             same = l3.comparable(er) == l3.comparable(k["result"])
             keys = sorted(set(e["frames"]) | set(k["frames"]))
