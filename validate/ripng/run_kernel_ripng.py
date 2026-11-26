@@ -189,7 +189,7 @@ def norm(run):
 
 def msg(p):
     return {"src": p["src"], "dst": p["dst"], "hl": p["hl"], "command": p["command"], "version": p["version"],
-            "entries": [{k: e[k] for k in ("prefix", "len", "metric", "tag")} for e in p["entries"] if e["metric"] != 255]}   # metric 255 = next-hop RTE (RFC 2080 2.1.1), not a route
+            "entries": [{k: e[k] for k in ("prefix", "len", "metric", "tag")} for e in p["entries"]]}   # every RTE is compared, a metric-255 next-hop RTE (RFC 2080 2.1.1) included
 
 
 def phases(run, steps_spec):
