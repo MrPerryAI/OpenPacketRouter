@@ -57,6 +57,7 @@
             "dns": {"type": "object", "additionalProperties": {"$ref": "#/$defs/ipv4"}},
             "tcp": {"type": "object", "propertyNames": {"pattern": "^[0-9]{1,5}$"}, "additionalProperties": {"enum": ["echo", "discard", "http"]}, "description": "port → server kind; \"http\" answers GET from services.http"},
             "http": {"type": "object", "propertyNames": {"pattern": "^/"}, "additionalProperties": {"type": "string"}, "description": "path → page text, served by an \"http\" tcp listener (HTTP/1.0, closes after the response)"},
+            "syslog": {"type": "boolean", "description": "true: a UDP 514 log receiver that stores every message"},
             "dhcp": {"type": "object", "required": ["range"], "properties": {
               "range": {"type": "array", "prefixItems": [{"$ref": "#/$defs/ipv4"}, {"$ref": "#/$defs/ipv4"}], "minItems": 2, "maxItems": 2},
               "lease": {"type": "integer", "minimum": 1}, "router": {"$ref": "#/$defs/ipv4"}, "dns": {"$ref": "#/$defs/ipv4"}}}

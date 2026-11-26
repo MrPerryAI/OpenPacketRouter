@@ -4,6 +4,7 @@
 #   validate/docker/run.sh l3         # just the engine-vs-Linux L3 check
 #   validate/docker/run.sh storm      # just the storm-math kernel-bridge check
 #   validate/docker/run.sh links      # just the link-shaping (tbf) check
+#   validate/docker/run.sh services   # just the server-services check (syslog via util-linux logger)
 #   validate/docker/run.sh tcp        # just the TCP check (python sockets)
 #   validate/docker/run.sh dhcp       # just the DHCP check (dnsmasq + udhcpc)
 #   validate/docker/run.sh ospf       # just the OSPFv2 check (FRRouting ospfd)
@@ -31,6 +32,7 @@ storm='cd poc/storm-math && python3 run_kernel.py'
 links='python3 validate/links/run_kernel_links.py'
 dhcp='python3 validate/dhcp/run_kernel_dhcp.py'
 tcp='python3 validate/tcp/run_kernel_tcp.py'
+services='python3 validate/services/run_kernel_services.py'
 cli='python3 validate/cli/run_kernel_cli.py'
 intervlan='python3 validate/intervlan/run_kernel_intervlan.py'
 ospf='python3 validate/ospf/run_kernel_ospf.py'
@@ -43,7 +45,7 @@ lacp='python3 validate/lacp/run_kernel_lacp.py'
 nat='python3 validate/nat/run_kernel_nat.py'
 span='python3 validate/span/run_kernel_span.py'
 ipv6='python3 validate/ipv6/run_kernel_ipv6.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$lldp"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; '"$span"'; '"$ipv6"'; ('"$storm"')'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$lldp"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; '"$span"'; '"$ipv6"'; '"$services"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
@@ -52,6 +54,7 @@ case "${1:-all}" in
   links) cmd="$links" ;;
   dhcp)  cmd="$dhcp" ;;
   tcp)   cmd="$tcp" ;;
+  services) cmd="$services" ;;
   cli)   cmd="$cli" ;;
   intervlan) cmd="$intervlan" ;;
   ospf)  cmd="$ospf" ;;
@@ -64,10 +67,10 @@ case "${1:-all}" in
   nat)   cmd="$nat" ;;
   span)  cmd="$span" ;;
   ipv6)  cmd="$ipv6" ;;
-  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; $span; $ipv6; ($storm)" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; $span; $ipv6; $services; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|span|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|span|services|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.

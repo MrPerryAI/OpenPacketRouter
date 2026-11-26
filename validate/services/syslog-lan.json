@@ -1,0 +1,64 @@
+{
+ "version": 1,
+ "name": "Syslog",
+ "about": "Two hosts and a log server on one switch, and a second server with no syslog service. The log server's UDP 514 listener stores every datagram; messages to the other server are answered with ICMP port unreachable (which `logger` ignores).",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  },
+  {
+   "name": "LOG",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.10/24"
+   },
+   "services": {
+    "syslog": true
+   }
+  },
+  {
+   "name": "S",
+   "kind": "server",
+   "ifaces": {
+    "eth0": "10.0.0.20/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1",
+   0
+  ],
+  [
+   "B:eth0",
+   "SW:p2",
+   0
+  ],
+  [
+   "LOG:eth0",
+   "SW:p3",
+   0
+  ],
+  [
+   "S:eth0",
+   "SW:p4",
+   0
+  ]
+ ]
+}
