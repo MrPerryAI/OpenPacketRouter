@@ -70,7 +70,9 @@ class RipNgNet(v6.Net6):
         for (node, ifn) in self.ifmap:
             if next(n for n in self.spec["nodes"] if n["name"] == node)["kind"] == "switch": continue
             for a in json.loads(l3.nsx(self.ns[node], "ip", "-j", "-6", "addr", "show", "dev", ifn, "scope", "link") or "[]"):
-                for i in a.get("addr_info", []): out[ipaddress.IPv6Address(i["local"]).compressed] = f"{node}:{ifn}"
+                for i in a.get("addr_info", []):
+                    addr = i.get("local") or i.get("address")
+                    if addr and addr.lower().startswith("fe80"): out[ipaddress.IPv6Address(addr).compressed] = f"{node}:{ifn}"
         return out
 
     def conf_dir(self, name): return f"{self.tmp2}/frr-{name}"
