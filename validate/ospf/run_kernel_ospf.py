@@ -130,7 +130,10 @@ class OspfNet(l3.KernelNet):
         ifs = json.loads(self.vty(name, "show ip ospf interface json") or "{}")
         db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary", "asbr-summary", "external")}
         if raw: print(f"=== {name} neighbor", json.dumps(nb, indent=1), f"=== {name} interface", json.dumps(ifs, indent=1), f"=== {name} database", json.dumps(db, indent=1), file=open(raw, "a"))
-        return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db)}
+        dbg = {"kernel": [f'{r.get("dst")} via {r.get("gateway")} dev {r.get("dev")} proto {r.get("protocol")}' for r in json.loads(l3.nsx(self.ns[name], "ip", "-j", "route", "show"))],
+               "zebra": {pfx: [f'{r.get("protocol")}{" selected" if r.get("selected") else ""} {[(n.get("ip"), n.get("interfaceName"), "active" if n.get("active") else "inactive") for n in r.get("nexthops", [])]}' for r in rs]
+                         for pfx, rs in json.loads(self.vty(name, "show ip route json") or "{}").items()}}   # not compared: what zebra and the kernel hold, for reading a mismatch
+        return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db), "debug": dbg}
 
     def routes(self, name):
         """The routes ospfd got into the kernel (`ip route`: next hops) with their OSPF cost (zebra's table: the kernel metric is not the cost)."""
@@ -383,6 +386,7 @@ def compare(name, eng, kr):
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:12]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
+            if not (checks["routes"] and checks["database"]): d["linux debug (zebra RIB and kernel routes)"] = {r: v.get("debug") for r, v in ks["routers"].items()}
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
@@ -441,7 +445,7 @@ def main():
             if chunk: part += 1; l3.gh_note("notice", f"OSPF results {part}", "\n".join(chunk))
             chunk = []
         if row is not None: chunk.append(row)
-    if detail: print(json.dumps(detail, indent=1)[:8000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
+    if detail: print(json.dumps(detail, indent=1)[:60000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
 
