@@ -28,7 +28,7 @@ def sh(args, stdin=None):
 
 def render(spec, dev):
     r = sh(["node", "cli/bin/opr-cli.mjs", spec, dev, "--render", "openwrt"])
-    if r.returncode: sys.exit(f"render {spec} {dev}: {r.stderr}")
+    if r.returncode: raise RuntimeError(f"render {spec} {dev}: {r.stderr.strip()[:300]}")
     return r.stdout
 
 def apply(cmds):
@@ -56,10 +56,17 @@ def pull():
 
 def check(spec, node, secs):
     errs = []
-    want_ifs = {n: ipaddress.ip_interface(c) for n, c in (node.get("ifaces") or {}).items() if isinstance(c, str)}
+    errs = []
     got = {v.get("device"): v for v in secs.values() if v.get("_type") == "interface"}
-    for name, ifc in want_ifs.items():
+    for name, c in (node.get("ifaces") or {}).items():
+        if not isinstance(c, str): continue
         g = got.get(name)
+        if c.strip().lower() == "dhcp":           # a DHCP client: OpenWrt must store proto=dhcp and no static address
+            if not g: errs.append(f"{name}: no interface section")
+            elif g.get("proto") != "dhcp" or "ipaddr" in g: errs.append(f"{name}: want proto dhcp, got {g.get('proto')} {g.get('ipaddr')}")
+            continue
+        try: ifc = ipaddress.ip_interface(c)
+        except ValueError: errs.append(f"{name}: spec value {c!r} is neither CIDR nor dhcp"); continue
         if not g: errs.append(f"{name}: no interface section"); continue
         if g.get("ipaddr") != str(ifc.ip) or g.get("netmask") != str(ifc.netmask):
             errs.append(f"{name}: got {g.get('ipaddr')}/{g.get('netmask')}, want {ifc.ip}/{ifc.netmask}")
@@ -81,10 +88,12 @@ def main():
         for node in json.load(open(path))["nodes"]:
             if not (node.get("ifaces") or node.get("routes") or node.get("gw")): continue
             if node["kind"] == "switch" and not any(isinstance(c, str) for c in (node.get("ifaces") or {}).values()) and not node.get("routes"): continue
-            out, err = apply(render(spec, node["name"]))
             checked += 1
-            if out is None: errs = [f"uci refused: {err.strip()[:300]}"]
-            else: errs = check(spec, node, parse(out))
+            try:
+                out, err = apply(render(spec, node["name"]))
+                errs = [f"uci refused: {err.strip()[:300]}"] if out is None else check(spec, node, parse(out))
+            except Exception as e:       # one bad device is a FAIL with an annotation, not the end of the run
+                errs = [f"{type(e).__name__}: {e}"]
             tag = f"{spec} {node['name']}"
             if errs:
                 bad += 1; print(f"FAIL {tag}: " + "; ".join(errs)); rows.append(f"FAIL {tag}")
