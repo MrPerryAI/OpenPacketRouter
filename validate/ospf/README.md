@@ -13,7 +13,7 @@ the routes ospfd installs, the link state database and the OSPF packets on every
 | `ospf-lan` | Three routers on a switched LAN: the highest router ID is DR. The DR's cable is cut (BDR takes over) and repaired (no preemption). |
 | `ospf-priority` | DR election by priority, one router with priority 0 (never DR or BDR). Host LANs are passive interfaces. |
 | `ospf-mixed` | Five routers: point-to-point links on both sides of a transit LAN with DR R3 / BDR R4, so paths cross a network LSA and LSAs are flooded over several hops; passive host LANs, unequal costs. A router's LAN cable is cut and repaired. |
-| `ospf-areas` | Three areas: a switched backbone (R2, R3, R4) and ABRs R2 (to area 1) and R4 (to area 2). Type 3 summary LSAs and inter-area routes, a separate LSDB per area. R1-R2 is cut and repaired; R4's backbone cable is cut (it stops being an ABR, its area is cut off) and repaired. |
+| `ospf-areas` | Three areas: a switched backbone (R2, R3, R4) and ABRs R2 (to area 1) and R4 (to area 2). Type 3 summary LSAs and inter-area routes, a separate LSDB per area. R1-R2 is cut and repaired; R4's backbone cable is cut (it stops being an ABR, its area is cut off) and repaired. The wait while R4 is cut off is 40 s, longer than ospfd's 30 s sweep that removes flushed (MaxAge) LSAs: if R4 came back sooner, R1 sometimes still held the flushed summary and answered R2's fresh one with its own copy (an LSU, RFC 2328 13(8)), which is a race in real time, not an engine difference (seen on 2 of about 20 runs with a 25 s wait). |
 
 The specs end in `.net`, not `.json`, on purpose: `cli/test/roundtrip.test.js` reads every `*.json` spec in
 `validate/` and `examples/` and needs a CLI command for every key in them. OSPF gets its CLI commands in a later
