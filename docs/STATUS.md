@@ -27,7 +27,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 **C. Switching**
 - [ ] Port security, or recorded here as not validatable [stp-vlan]
 - [ ] Storm control, or recorded here as not validatable [stp-vlan]
-- [ ] DHCP snooping, or recorded here as not validatable [stp-vlan]
+- [x] DHCP snooping, or recorded here as not validatable [stp-vlan]
 - [ ] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
 
 **D. Mirroring and IPv6**
@@ -135,6 +135,7 @@ Each step counts as done only when it matches real Linux (or real FRRouting) fra
 10. **LACP link aggregation: done** (`engine/src/lacp.js`, `validate/lacp/`): parallel cables between switches bundle into a port-channel (`channels` spec key; CLI `channel-group N mode active`, `lacp rate fast`, `show etherchannel summary`). The LACP state machines follow the Linux bonding driver (mode 802.3ad); validated against kernel bonds on every member's carrier and LACP state bytes through a handshake, a cut cable and its return, which LACPDU kinds each cable carries, and the data frames per cable (transmit hash `layer2`, with the engine's MAC addresses on the kernel interfaces). LACPDU timing is only compared as windows (the kernel's 100 ms timer drifts under load). Not yet: passive mode, `min-links`, other hash policies, spanning tree over a channel.
 11. **NAT on routers: done** (PR #79): source NAT overload (PAT), static 1:1 NAT and port forwarding, with CLI `ip nat` commands. Validated against Linux nftables (masquerade, snat, dnat) in namespaces: pings, TCP, UDP, DNS and traceroute through the NAT, frame for frame on every cable direction, 12/12 rows (`validate/nat/`, in CI, `validate/docker/run.sh nat`). Lab: `examples/nat-lab`.
 12. **LLDP: engine done** (PR #82): LLDP on routers, hosts and servers (`lldp` spec key, `engine/src/lldp.js`); switches drop LLDP unless `forwardLldp` is set (bridge `group_fwd_mask`). Validated against lldpd in namespaces: neighbor tables, LLDPDU contents per cable direction and exact LLDPDU counts per cable (PR #87; the engine's start-up LLDPDU is left out of the first window, because lldpd sends its own before capture starts), through cable cuts, TTL expiry and restores, 7/7 snapshots (`validate/lldp/`, in CI). Not yet: CLI commands (`lldp run`, `show lldp neighbors`) and an example lab.
+15. **DHCP snooping (server-message filtering): done** (`stp-vlan-snoop`): `dhcpSnooping: {trusted: [ports]}` on a switch (CLI `ip dhcp snooping`, `ip dhcp snooping trust`, `show ip dhcp snooping`): a DHCP server message (UDP 67 to 68) on any untrusted port is dropped and counted, so rogue servers are ignored. Validated against nftables bridge rules (`udp sport 67 udp dport 68 drop`) with dnsmasq servers (one rogue) and udhcpc clients: client results, frames per cable and per-port drop counts (`validate/dhcp-snooping/`, in CI). **Not validatable, so not built:** the binding table, dynamic ARP inspection and IP source guard (Linux has no equivalent). Example lab `examples/dhcp-snooping`.
 
 ### Routing protocol decisions
 

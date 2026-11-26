@@ -8,6 +8,7 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [Switch ring with spanning tree](loop-with-stp.md) | How spanning tree breaks a loop: it picks a root switch and blocks exactly enough ports to leave a tree. |
 | [Spanning tree topology change](stp-topology-change.md) | What a switch does when a cable fails: it announces the change and shortens how long it remembers addresses. |
 | [MAC address aging](mac-aging.md) | A switch forgets a host that has been silent for the aging time, and floods traffic to it until it learns again. |
+| [DHCP snooping](dhcp-snooping.md) | A switch accepts DHCP server messages only from its trusted port, so a rogue DHCP server is ignored. |
 | [Two VLANs across a trunk](vlans.md) | How VLANs split one switch network into separate broadcast domains, and how one trunk cable carries several of them. |
 | [LACP port-channel](lacp-channel.md) | Several cables between two switches behaving as one fat link, negotiated with LACP. |
 | [Router on a stick](intervlan-roas.md) | One router, one cable, several VLANs: the router has a subinterface per VLAN and routes between them. |

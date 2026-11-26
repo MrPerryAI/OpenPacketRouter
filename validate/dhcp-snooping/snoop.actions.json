@@ -1,0 +1,6 @@
+[
+ {"do": "dhcp", "src": "PC1", "settle": 1},
+ {"do": "dhcpSnooping", "switch": "SW"},
+ {"do": "dhcp", "src": "PC2", "settle": 1},
+ {"do": "dhcpSnooping", "switch": "SW"}
+]

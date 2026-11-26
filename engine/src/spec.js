@@ -22,7 +22,7 @@ export const RESULT_FORMAT = "openpacketrouter.result/1";
 const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
-  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
+  switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "dhcpSnooping"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
   router: ["ifaces", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "routes", "gw", "services", "lldp"],
@@ -199,6 +199,11 @@ export function validateSpec(spec) {
     for (const k of Object.keys(n)) if (![...NODE_KEYS.common, ...NODE_KEYS[n.kind]].includes(k))
       warn(`${p}.${k}`, `node "${n.name}" (${n.kind}): unknown key "${k}" (ignored)`);
     if (n.kind === "switch") {
+      if (n.dhcpSnooping !== undefined) {   // {"trusted": ["p1"]}: DHCP snooping on, only the listed ports may carry DHCP server messages (see Switch in network.js)
+        const q = `${p}.dhcpSnooping`, ds = n.dhcpSnooping;
+        if (!isObj(ds) || (ds.trusted !== undefined && !Array.isArray(ds.trusted))) err(q, `node "${n.name}": dhcpSnooping must be an object like {"trusted": ["p1"]}`);
+        else for (const pn of ds.trusted || []) if (!(Array.isArray(spec.links) ? spec.links : []).some(l => Array.isArray(l) && l.slice(0, 2).includes(`${n.name}:${pn}`))) err(`${q}.trusted`, `node "${n.name}": dhcpSnooping trusts port "${pn}", which has no cable in the links`);
+      }
       if (n.forwardLldp !== undefined && typeof n.forwardLldp !== "boolean") err(`${p}.forwardLldp`, `node "${n.name}": forwardLldp is true or false`);
       if (n.vlanNames !== undefined && !(isObj(n.vlanNames) && Object.entries(n.vlanNames).every(([id, v]) => /^\d+$/.test(id) && +id >= 1 && +id <= 4094 && typeof v === "string" && v)))
         err(`${p}.vlanNames`, `node "${n.name}": vlanNames must map VLAN numbers (1-4094) to non-empty names, like {"10": "sales"}`);
@@ -329,6 +334,11 @@ export const ACTIONS = {
     return {switch: a.switch, ...n.stp.describe()};
   }},
   // The MAC address table of a switch right now: [{vlan, mac, port, age}]
+  // DHCP snooping on a switch right now: {switch, trusted: [ports], dropped: {port: count}}
+  dhcpSnooping: {required: ["switch"], run: (net, a) => {
+    const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
+    return {switch: a.switch, ...(n.dhcpSnoopingState() || {trusted: [], dropped: {}})};
+  }},
   macTable: {required: ["switch"], run: (net, a) => {
     const n = net.nodes.get(a.switch); if (!n || n.kind !== "switch") throw new Error(`no switch named ${a.switch}`);
     return {switch: a.switch, entries: n.macTable()};

@@ -20,6 +20,11 @@ export const SHOWS = {
     return {json, text: `OpenPacketRouter CLI (Apache-2.0)\nDevice ${ctx.device}, a ${ctx.kind}, running on the ${ctx.backend.name} backend`};
   },
 
+  "show.dhcp-snooping": ctx => {
+    const s = ctx.state().dhcpSnooping;
+    if (!s) return {json: {enabled: false}, text: "DHCP snooping is off (ip dhcp snooping)."};
+    return {json: {enabled: true, trusted: s.trusted, dropped: s.dropped}, text: ["DHCP snooping is on.", "Trusted ports: " + (s.trusted.join(", ") || "none"), "Server messages dropped on untrusted ports: " + (Object.entries(s.dropped).map(([p, c]) => `${p} ${c}`).join(", ") || "none")].join("\n")};
+  },
   "show.lldp": ctx => {
     const cfg = M.services(ctx.model).lldp, live = ctx.state().lldp;
     if (!cfg) return {json: {enabled: false}, text: "LLDP is not running (use \"lldp run\" in configuration mode)"};
