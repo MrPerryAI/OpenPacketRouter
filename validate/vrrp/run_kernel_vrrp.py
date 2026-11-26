@@ -28,7 +28,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["vrrp-preempt", "vrrp-nopreempt"]
+SPECS = ["vrrp-preempt", "vrrp-nopreempt", "vrrp-backup-flap"]
 
 
 def netfile(name): return HERE / f"{name}.net"      # .net, not .json: the CLI round-trip test reads every *.json spec
