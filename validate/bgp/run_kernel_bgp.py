@@ -211,7 +211,8 @@ def parse_update(b):
         elif code == 2:
             asp = []
             while v:
-                cnt = v[0]; asp += [struct.unpack("!I", v[2 + 4 * i:6 + 4 * i])[0] for i in range(cnt)]; v = v[2 + 4 * cnt:]   # bgpd negotiates 4-byte AS numbers
+                cnt = v[0]; w = 4 if len(v) - 2 >= 4 * cnt else 2      # 4-byte AS numbers when negotiated (bgpd offers them), else 2-byte
+                asp += [int.from_bytes(v[2 + w * i:2 + w * (i + 1)], "big") for i in range(cnt)]; v = v[2 + w * cnt:]
             pk["asPath"] = " ".join(map(str, asp))
         elif code == 3: pk["nextHop"] = ip4(v)
     return pk
