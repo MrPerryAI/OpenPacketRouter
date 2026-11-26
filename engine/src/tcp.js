@@ -45,7 +45,7 @@ function pump(conn) {
     const forced = conn.maxw !== undefined && conn.snd + n - conn.pushed > Math.floor(conn.maxw / 2);
     const flags = conn.pend && !forced ? "A" : "PA"; if (flags === "PA") conn.pushed = conn.snd + n;
     // a string is cut into the segments' bytes; any other payload (a BGP message) rides on the last segment
-    const data = conn.ppay === undefined ? undefined : typeof conn.ppay === "string" ? conn.ppay.slice(conn.poff, conn.poff + n) : conn.pend ? undefined : conn.ppay; conn.poff += n;
+    const data = conn.ppay === undefined ? undefined : typeof conn.ppay === "string" ? conn.ppay.slice(conn.poff, conn.poff + n) : conn.pend ? undefined : conn.ppay; conn.poff += n; if (!conn.pend && typeof conn.ppay !== "string") conn.ppay = undefined;
     seg(conn, flags, n, data === undefined ? {} : {data}); conn.unacked.push({seq: conn.snd, len: n, flags, data}); conn.snd += n;
   }
   if (conn.unacked.length) { conn.persist = (conn.persist || 0) + 1; armRto(conn, conn.rto0 || RTO); }
