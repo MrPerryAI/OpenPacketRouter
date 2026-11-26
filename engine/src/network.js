@@ -496,7 +496,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {

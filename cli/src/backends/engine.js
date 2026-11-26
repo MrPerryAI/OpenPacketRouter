@@ -145,7 +145,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "gw", "routes", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "rip", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
