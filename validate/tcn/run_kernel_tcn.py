@@ -19,8 +19,7 @@ Timing: the kernel arms its spanning-tree hold timer with round_jiffies(), so a 
 TC flag passed down the tree) leaves on a whole wall-clock second. The kernel bridges therefore start half a second after a
 second boundary and every step runs on the engine's schedule from there; the engine models the same rounding
 (net.jiffyHolds = 0.5, engine/src/stp.js _holdTime). Events then sit half a second from the rounding threshold and from
-every snapshot. After the leaf-port flap the TC flag reaches SW4 at 9.5 s on the engine's clock, and the kernel's copy of it lags by
-a hello or so; the snapshot is therefore taken at 13 s, 3.5 s into the plateau (SW4 holds the flag from 9.5 to about 19.5 s).
+every snapshot, which keeps the 10 s snapshot after the leaf-port flap exact (the TC flag reaches SW4 at 9.5 s).
 Snapshots sit on plateaus, a few seconds from any transition, because BPDU timing differs by up to the
 kernel's 1 s hold timer. It reuses the step runner of validate/aging.
 """
