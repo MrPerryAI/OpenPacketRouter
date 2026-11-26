@@ -11,7 +11,7 @@ entries from a garbage-collection timer, not at the exact instant. The whole run
 a Linux host re-probes an ARP entry 5 s after first using it (a unicast ARP pair the engine does not model), so the
 harness pins delay_first_probe_time high on every interface, like the other pinned settings.
 """
-import json, os, shutil, subprocess, sys, time
+import json, os, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -46,6 +46,9 @@ def table(k, sw, owner, fresh=False):
     return out
 
 
+TIMELINES = {}   # case name -> {cable: [[seconds, kind]]}, printed with a mismatch
+
+
 def kernel(name, steps_name, here=HERE):
     spec = json.loads((here / f"{name}.json").read_text()); steps = json.loads((here / f"{steps_name}.json").read_text())
     Net.DEFER_UP = True
@@ -65,6 +68,7 @@ def kernel(name, steps_name, here=HERE):
             time.sleep(1 - time.time() % 1)
             t_base = int(time.time()) + ALIGN
             time.sleep(max(t_base - time.time(), 0))
+        t_zero = time.time()
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
             if n["kind"] == "switch":
                 sh("ip", "-n", k.ns[n["name"]], "link", "set", "br0", "up")
@@ -121,6 +125,9 @@ def kernel(name, steps_name, here=HERE):
             elif "table" in s: out.append({"table": s["table"], "tables": {sw: table(k, sw, owner, s.get("fresh", False)) for sw in s["table"]}})
     finally:
         for p in sniffers: p.kill()
+        if cables:   # diagnostic: when each cable direction sent each BPDU, in seconds after the engine's time 0 (the step schedule's origin)
+            off = time.time() - time.monotonic(); t0 = (t_base if ALIGN is not None else t_zero) - off
+            TIMELINES[name] = {c: [[round(float(l.split()[1]) - t0, 2), l.split()[0]] for l in open(f).read().splitlines() if l.split()[0] != "data"] for c, f in cables.items()}
         if os.environ.get("CABLE_DEBUG"):   # keep the per-cable timelines next to the steps, to read by hand
             for c, f in cables.items(): shutil.copy(f, here / f"timeline-{c.replace(':', '_').replace('>', '-')}.txt")
         k.close()
@@ -129,7 +136,8 @@ def kernel(name, steps_name, here=HERE):
 
 def inner(here=HERE, cases=CASES):
     sh("mount", "-t", "tmpfs", "none", "/run")
-    print(json.dumps({n: kernel(n, st, here) for n, st in cases}))
+    res = {n: kernel(n, st, here) for n, st in cases}
+    print(json.dumps({**res, "timelines": TIMELINES}))
 
 
 def main(here=HERE, cases=CASES, script=__file__):
@@ -138,10 +146,12 @@ def main(here=HERE, cases=CASES, script=__file__):
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, script, "--inner"], capture_output=True, text=True, timeout=900)
     if proc.returncode:
         print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "Aging kernel side failed", proc.stderr[-6000:]); return 1
-    kern = json.loads(proc.stdout)
+    kern = json.loads(proc.stdout); timelines = kern.pop("timelines", {})
     md = ["| Network | Step | Result | Match |", "|---|---|---|---|"]; ok_all = True; detail = {}
     for name, steps_name in cases:
+        tlf = tempfile.mktemp(suffix=".json"); os.environ["OPR_TIMELINE_FILE"] = tlf
         eng = json.loads(sh("node", str(ROOT / "engine/tools/run_aging.mjs"), str(here / f"{name}.json"), str(here / f"{steps_name}.json")))
+        etl = json.loads(open(tlf).read()) if os.path.exists(tlf) else {}
         for i, (e, k) in enumerate(zip(eng, kern[name])):
             wire = k.pop("wire", None); ok = e == k; ok_all &= ok
             if "ping" in e:
@@ -157,6 +167,15 @@ def main(here=HERE, cases=CASES, script=__file__):
                 label = "MAC tables " + ", ".join(e["table"]); res = " · ".join(f'{sw}: {len(t)} entries' for sw, t in e["tables"].items())
             md.append(f'| {name} | {i + 1}. {label} | {res} | {"✓" if ok else "✗"} |')
             if not ok: detail[f"{name} step {i + 1}: {label}"] = {"engine": e, "kernel": k, "kernel_wire": wire}
+            if not ok and "tc" in e and name in timelines:   # when each cable direction carried the TC flag or a TCN, per side (seconds after time 0)
+                def runs(v):   # [[first time, kind, count, last time]] for each run of one kind of BPDU
+                    r = []
+                    for t_, kd in v:
+                        if r and r[-1][1] == kd: r[-1][2] += 1; r[-1][3] = t_
+                        else: r.append([t_, kd, 1, t_])
+                    return r
+                keep = lambda t: {c: runs(sorted(v)) for c, v in sorted(t.items()) if v}
+                detail[f"{name} step {i + 1}: {label}"]["timeline_engine"] = keep(etl); detail[f"{name} step {i + 1}: {label}"]["timeline_kernel"] = keep(timelines[name])
         if len(eng) != len(kern[name]): ok_all = False; detail[f"{name}: step count"] = {"engine": len(eng), "kernel": len(kern[name])}
     (here / "results.md").write_text("\n".join(md) + "\n"); (here / "mismatches.json").write_text(json.dumps(detail, indent=1))
     print("\n".join(md))
