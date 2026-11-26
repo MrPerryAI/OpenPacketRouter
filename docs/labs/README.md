@@ -8,6 +8,7 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [Switch ring with spanning tree](loop-with-stp.md) | How spanning tree breaks a loop: it picks a root switch and blocks exactly enough ports to leave a tree. |
 | [Spanning tree topology change](stp-topology-change.md) | What a switch does when a cable fails: it announces the change and shortens how long it remembers addresses. |
 | [MAC address aging](mac-aging.md) | A switch forgets a host that has been silent for the aging time, and floods traffic to it until it learns again. |
+| [Storm control](storm-control.md) | A switch port that rate-limits broadcasts: a burst gets only its first frames through and the rest are dropped. |
 | [Two VLANs across a trunk](vlans.md) | How VLANs split one switch network into separate broadcast domains, and how one trunk cable carries several of them. |
 | [LACP port-channel](lacp-channel.md) | Several cables between two switches behaving as one fat link, negotiated with LACP. |
 | [Router on a stick](intervlan-roas.md) | One router, one cable, several VLANs: the router has a subinterface per VLAN and routes between them. |
