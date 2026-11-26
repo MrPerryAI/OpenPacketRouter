@@ -30,7 +30,8 @@ export const MSS = 1448, RTO = 0.2, MAX_WRITE = 10 * MSS;
 function sendData(conn, total, payload) {
   for (let left = total, off = 0; left > 0;) {
     const n = Math.min(MSS, left); left -= n;
-    const flags = left ? "A" : "PA", data = payload === undefined ? undefined : payload.slice(off, off + n); off += n;
+    // a string is cut into the segments' bytes; any other payload (a BGP message) rides on the last segment
+    const flags = left ? "A" : "PA", data = payload === undefined ? undefined : typeof payload === "string" ? payload.slice(off, off + n) : left ? undefined : payload; off += n;
     seg(conn, flags, n, data === undefined ? {} : {data}); (conn.unacked ||= []).push({seq: conn.snd, len: n, flags, data}); conn.snd += n;
   }
   armRto(conn, RTO);
@@ -64,6 +65,13 @@ function drop(conn) { conn.dead = true; table(conn.node).delete(key(conn.lport, 
 export function tcpInput(node, p) {
   const t = p.tcp, conn = table(node).get(key(t.dport, p.src, t.sport));
   if (conn) return onSegment(conn, t);
+  const app = node.tcpApps && node.tcpApps.get(t.dport);
+  if (t.flags === "S" && app) {                                      // an in-engine application (BGP): it decides whether to accept
+    const c = newConn(node, p.dst, t.dport, p.src, t.sport, "SYN_RCVD");
+    c.rcv = t.seq + 1;
+    if (app(c)) { node.log("tcp", `SYN to port ${t.dport}: answering SYN+ACK`); return seg(c, "SA"); }
+    drop(c);
+  }
   const listener = node.services.tcp && node.services.tcp[t.dport];
   if (t.flags === "S" && listener) {
     const c = newConn(node, p.dst, t.dport, p.src, t.sport, "SYN_RCVD");
@@ -105,7 +113,7 @@ function onSegment(conn, t) {
       if (f === "SA") { conn.rcv = t.seq + 1; conn.snd += 1; conn.rtoGen = (conn.rtoGen || 0) + 1; setState(conn, "ESTABLISHED"); seg(conn, "A"); conn.onEvent && conn.onEvent("connected"); }
       return;
     case "SYN_RCVD":
-      if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); }
+      if (f === "A") { conn.snd += 1; setState(conn, "ESTABLISHED"); if (conn.onEvent) conn.onEvent("connected"); }
       return;
     case "ESTABLISHED": case "FIN_WAIT_1": case "FIN_WAIT_2": {
       if (f.includes("A") && t.ack !== undefined) onAck(conn, t.ack);
@@ -203,3 +211,33 @@ export function tcpAction(net, a) {
   net.settle(a.settle ?? 1); net.taps.delete(tap);
   return {...r, wire};
 }
+
+
+// ---- API for in-engine applications that keep a connection (BGP) -------------------------------------------------
+/** Listen on `port`: accept(conn) is called for every SYN, sets conn.onEvent and returns true to answer SYN+ACK (false: RST). */
+export function tcpListen(node, port, accept) { (node.tcpApps ||= new Map()).set(port, accept); }
+/** Open a connection from `laddr` (or the route's address) to dst:port; returns the connection, or null without a route.
+ *  conn.onEvent(ev, n, data): "connected", "data", "peerclosed", "reset", "refused", "icmp". SYN retransmits like Linux (1, 2, 4 s). */
+export function tcpConnect(node, dst, port, onEvent) {
+  const route = node.route(dst); if (!route) return null;
+  const conn = newConn(node, node.ifaces[route.iface].ip, node.nextPort++, dst, port, "SYN_SENT");
+  conn.onEvent = onEvent;
+  const syn = (rto, gen) => {
+    if (conn.dead || conn.state !== "SYN_SENT" || gen !== conn.rtoGen) return;
+    seg(conn, "S", 0, {seq: 1000}); conn.snd = 1000;
+    node.net._after(rto, () => syn(rto * 2, gen));
+  };
+  conn.rtoGen = 1; syn(1, 1);
+  return conn;
+}
+/** Write one application message of `len` bytes (carried as `data` on the last segment). */
+export function tcpWrite(conn, len, data) { if (!conn.dead && conn.state === "ESTABLISHED") sendData(conn, len, data); }
+/** Close from our side: FIN, nothing more is retransmitted. */
+export function tcpClose(conn) {
+  if (conn.dead) return;
+  conn.unacked = []; conn.rtoGen = -1;
+  if (conn.state === "ESTABLISHED") { setState(conn, "FIN_WAIT_1"); seg(conn, "FA"); conn.snd += 1; }
+  else drop(conn);
+}
+/** Forget the connection without a word (the cable is down). */
+export function tcpAbort(conn) { if (!conn.dead) { conn.unacked = []; conn.rtoGen = -1; drop(conn); } }

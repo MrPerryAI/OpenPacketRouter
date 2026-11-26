@@ -1,0 +1,1 @@
+[{"wait": 25}, {"snapshot": "converged: R4 picks the high local preference"}, {"ping": ["H4", "10.1.0.10"]}, {"linkDown": "R5:eth1"}, {"wait": 25}, {"snapshot": "R5-R4 cut: back to the short path"}, {"ping": ["H4", "10.1.0.10"]}, {"linkUp": "R5:eth1"}, {"wait": 40}, {"snapshot": "cable restored"}, {"ping": ["H4", "10.1.0.10"]}]

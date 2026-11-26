@@ -1,0 +1,207 @@
+{
+ "version": 1,
+ "name": "BGP path selection: local preference beats AS path length",
+ "about": "Same network as bgp-paths, but R4 gives paths learned from R5 local preference 200: it prefers the long path through R5 over the short one through R2, and uses R2 only when R5-R4 is cut.",
+ "nodes": [
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.1/24",
+    "eth1": "10.13.0.1/24",
+    "eth2": "10.1.0.1/24"
+   },
+   "bgp": {
+    "asn": 65001,
+    "routerId": "1.1.1.1",
+    "networks": [
+     "10.1.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.2",
+      "remoteAs": 65002
+     },
+     {
+      "ip": "10.13.0.3",
+      "remoteAs": 65003
+     }
+    ]
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.2/24",
+    "eth1": "10.24.0.2/24"
+   },
+   "bgp": {
+    "asn": 65002,
+    "routerId": "2.2.2.2",
+    "networks": [],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.1",
+      "remoteAs": 65001
+     },
+     {
+      "ip": "10.24.0.4",
+      "remoteAs": 65004
+     }
+    ]
+   }
+  },
+  {
+   "name": "R3",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.13.0.3/24",
+    "eth1": "10.35.0.3/24"
+   },
+   "bgp": {
+    "asn": 65003,
+    "routerId": "3.3.3.3",
+    "networks": [],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.13.0.1",
+      "remoteAs": 65001
+     },
+     {
+      "ip": "10.35.0.5",
+      "remoteAs": 65005
+     }
+    ]
+   }
+  },
+  {
+   "name": "R5",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.35.0.5/24",
+    "eth1": "10.45.0.5/24"
+   },
+   "bgp": {
+    "asn": 65005,
+    "routerId": "5.5.5.5",
+    "networks": [],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.35.0.3",
+      "remoteAs": 65003
+     },
+     {
+      "ip": "10.45.0.4",
+      "remoteAs": 65004
+     }
+    ]
+   }
+  },
+  {
+   "name": "R4",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.24.0.4/24",
+    "eth1": "10.45.0.4/24",
+    "eth2": "10.4.0.1/24"
+   },
+   "bgp": {
+    "asn": 65004,
+    "routerId": "4.4.4.4",
+    "networks": [
+     "10.4.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.24.0.2",
+      "remoteAs": 65002
+     },
+     {
+      "ip": "10.45.0.5",
+      "remoteAs": 65005,
+      "localPref": 200
+     }
+    ]
+   }
+  },
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.1.0.10/24"
+   },
+   "gw": "10.1.0.1"
+  },
+  {
+   "name": "H4",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.4.0.10/24"
+   },
+   "gw": "10.4.0.1"
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "R2:eth0",
+   1
+  ],
+  [
+   "R1:eth1",
+   "R3:eth0",
+   1
+  ],
+  [
+   "R2:eth1",
+   "R4:eth0",
+   1
+  ],
+  [
+   "R3:eth1",
+   "R5:eth0",
+   1
+  ],
+  [
+   "R5:eth1",
+   "R4:eth1",
+   1
+  ],
+  [
+   "H1:eth0",
+   "R1:eth2",
+   1
+  ],
+  [
+   "H4:eth0",
+   "R4:eth2",
+   1
+  ]
+ ]
+}

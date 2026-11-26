@@ -112,6 +112,15 @@ jobs:
           validate/docker/run.sh ospf
           # Same comparison again, but ospfd is configured from the device CLI (model -> FRR rendering); any mismatch fails
           OSPF_RENDER=cli validate/docker/run.sh ospf
+      - name: BGP-4 vs FRRouting bgpd (sessions, best paths, kernel routes and messages on every cable)
+        # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh bgp` locally.
+        run: |
+          # Same AppArmor handling as the OSPF step: a host "bgpd" profile would deny its pid lock file in our per-router dirs.
+          sudo aa-status 2>/dev/null | grep -iE 'frr|bgpd|zebra' || true
+          f=$(grep -lE '^ *profile +bgpd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
+          if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f"; fi
+          sudo aa-status 2>/dev/null | grep -iE 'bgpd' && { echo "bgpd profile still loaded"; exit 1; } || true
+          validate/docker/run.sh bgp
       - name: LLDP vs lldpd (neighbor tables, LLDPDU contents and counts on every cable)
         # Runs in the project's privileged container (validate/docker/Dockerfile has lldpd), like `run.sh lldp` locally.
         run: |
