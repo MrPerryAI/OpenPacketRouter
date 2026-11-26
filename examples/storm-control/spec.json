@@ -1,0 +1,12 @@
+{
+ "version": 1,
+ "name": "Storm control",
+ "about": "A chatty host A is plugged into SW1:p1, which limits broadcasts to 8 kbit/s (burst 400 bytes). A broadcast burst gets only its first frames through; unicast to B is not limited.",
+ "nodes": [
+  {"name": "SW1", "kind": "switch", "stormControl": {"p1": {"broadcast": {"rate": "8kbit", "burst": 400}}}},
+  {"name": "A", "kind": "host", "ifaces": {"eth0": "10.0.0.1/24"}},
+  {"name": "B", "kind": "host", "ifaces": {"eth0": "10.0.0.2/24"}},
+  {"name": "C", "kind": "host", "ifaces": {"eth0": "10.0.0.3/24"}}
+ ],
+ "links": [["A:eth0", "SW1:p1"], ["B:eth0", "SW1:p2"], ["C:eth0", "SW1:p3"]]
+}

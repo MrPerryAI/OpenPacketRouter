@@ -1,0 +1,13 @@
+[
+ {"do": "udpBurst", "src": "A", "dst": "255.255.255.255", "port": 9, "count": 10, "size": 100},
+ {"do": "wait", "seconds": 1},
+ {"do": "udpBurst", "src": "A", "dst": "255.255.255.255", "port": 9, "count": 12, "size": 20},
+ {"do": "wait", "seconds": 1},
+ {"do": "udpBurst", "src": "A", "dst": "255.255.255.255", "port": 9, "count": 4, "size": 200},
+ {"do": "wait", "seconds": 1},
+ {"do": "udpBurst", "src": "B", "dst": "255.255.255.255", "port": 9, "count": 10, "size": 100},
+ {"do": "wait", "seconds": 1},
+ {"do": "ping", "src": "A", "dst": "10.0.0.2"},
+ {"do": "wait", "seconds": 1},
+ {"do": "ping", "src": "C", "dst": "10.0.0.1"}
+]

@@ -26,7 +26,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 
 **C. Switching**
 - [x] Port security, or recorded here as not validatable [stp-vlan]
-- [ ] Storm control, or recorded here as not validatable [stp-vlan]
+- [x] Storm control, or recorded here as not validatable [stp-vlan]
 - [ ] DHCP snooping, or recorded here as not validatable [stp-vlan]
 - [x] RSTP, CI-only check with mstpd in the runner's initial namespace [stp-vlan]
 
@@ -136,6 +136,7 @@ Each step counts as done only when it matches real Linux (or real FRRouting) fra
 11. **NAT on routers: done** (PR #79): source NAT overload (PAT), static 1:1 NAT and port forwarding, with CLI `ip nat` commands. Validated against Linux nftables (masquerade, snat, dnat) in namespaces: pings, TCP, UDP, DNS and traceroute through the NAT, frame for frame on every cable direction, 12/12 rows (`validate/nat/`, in CI, `validate/docker/run.sh nat`). Lab: `examples/nat-lab`.
 12. **LLDP: engine done** (PR #82): LLDP on routers, hosts and servers (`lldp` spec key, `engine/src/lldp.js`); switches drop LLDP unless `forwardLldp` is set (bridge `group_fwd_mask`). Validated against lldpd in namespaces: neighbor tables, LLDPDU contents per cable direction and exact LLDPDU counts per cable (PR #87; the engine's start-up LLDPDU is left out of the first window, because lldpd sends its own before capture starts), through cable cuts, TTL expiry and restores, 7/7 snapshots (`validate/lldp/`, in CI). Not yet: CLI commands (`lldp run`, `show lldp neighbors`) and an example lab.
 13. **Port security: done** (PR #128): `portSecurity: {port: {max, violation}}` on a switch (CLI `switchport port-security maximum N`, `violation protect|restrict|shutdown`, `show port-security`). The first N source MACs on a port are secured for good; others are dropped before learning and counted. Validated against Linux nftables (bridge-family prerouting with a dynamic set of `size N`; Linux bridges have no per-port MAC limit of their own): `validate/portsec/`. `shutdown` (err-disable) has no netfilter equivalent and is covered by engine tests only. Example lab `examples/port-security`.
+14. **Storm control (broadcast): done** (PR #141): `stormControl: {port: {broadcast: {rate, burst}}}` on a switch (CLI `storm-control broadcast rate RATE burst BYTES`, `show storm-control`): a token-bucket policer on the port's ingress that drops broadcast frames over the rate, before the switch sees them. Validated against Linux `tc ... flower dst_mac ff:ff:ff:ff:ff:ff action police` on bridge ports (`validate/storm-control/`: frames per cable and policer drops). Multicast limits are not modeled (no engine host originates multicast to compare). Hosts can now send to the limited broadcast address 255.255.255.255. Example lab `examples/storm-control`.
 
 ### Routing protocol decisions
 

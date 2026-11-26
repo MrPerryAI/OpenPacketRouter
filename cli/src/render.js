@@ -67,6 +67,8 @@ export function configLines(model, {kind, ports}) {
       }
       const ps = ifc["openpacketrouter:port-security"];
       if (ps) { out.push(` switchport port-security maximum ${ps.max}`); if (ps.violation) out.push(` switchport port-security violation ${ps.violation}`); }
+      const sc = ifc["openpacketrouter:storm-control"]?.broadcast;
+      if (sc) out.push(` storm-control broadcast rate ${sc.rate} burst ${sc.burst}`);
       const sp = M.stpPort(model, name, false);
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);

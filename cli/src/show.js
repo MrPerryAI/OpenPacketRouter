@@ -81,7 +81,11 @@ export const SHOWS = {
 
   "show.port-security": ctx => {
     const rows = ctx.state().portSecurity || [];
-    return {json: rows, text: rows.length ? table(["Port", "Max", "Secured", "Violation", "Violations", "State"], rows.map(r => [r.port, r.max, r.secured.length, r.violation, r.violations, r.errdisabled ? "err-disabled" : "secure-up"])) : "Port security is not on for any port (switchport port-security maximum N, on an access port)"};
+    return {json: rows, text: rows.length ? table(["Port", "Max", "Secured", "Violation", "Violations", "State"], rows.map(r => [r.port, r.max, r.secured.length, r.violation, r.violations, r.errdisabled ? "err-disabled" : "secure-up"])) : "Port security is not on for any port (switchport port-security maximum N, on an access port)"};  },
+
+  "show.storm-control": ctx => {
+    const rows = ctx.state().stormControl || [];
+    return {json: rows, text: rows.length ? table(["Port", "Type", "Rate", "Burst (bytes)", "Passed", "Dropped"], rows.filter(r => r.broadcast).map(r => [r.port, "broadcast", r.broadcast.rate, r.broadcast.burst, r.broadcast.passed, r.broadcast.dropped])) : "Storm control is not on for any port (storm-control broadcast rate RATE burst BYTES, on a switch port)"};
   },
 
   "show.etherchannel": ctx => {
