@@ -277,7 +277,7 @@ def kinds(win):
     t = {}
     for p in win:
         if p["type"] != "keepalive": t.setdefault(p["cable"], set()).add(p["type"])
-    return {c: sorted(v) for c, v in sorted(t.items())}
+    return {c: sorted(v, key=str) for c, v in sorted(t.items())}
 
 
 def counts(win):
