@@ -33,7 +33,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 **D. Mirroring and IPv6**
 - [ ] SPAN port mirroring vs tc mirred [dhcp-tcp]
 - [x] IPv6: addresses, NDP, ICMPv6, static routes vs Linux [dhcp-tcp] (PR #140). Modelled = global addresses, NS/NA, echo, static routes. Not modelled yet = link-local addresses, DAD, MLD, RS/RA/SLAAC (the validator pins Linux with nodad and drops MLD/RS/DAD chatter on output, so those are simply absent from the comparison).
-- [ ] RIPng or OSPFv3 vs FRRouting [dhcp-tcp]
+- [x] RIPng vs FRRouting ripngd [dhcp-tcp] (tables and packets on every cable; link-local next hops). Not modelled: next-hop entries on send, route maps, redistribution. OSPFv3 is still open.
 
 **E. Transport and links**
 - [ ] TCP data retransmission and window behaviour vs Linux [links]

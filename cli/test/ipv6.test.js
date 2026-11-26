@@ -46,3 +46,14 @@ test("ping to an IPv6 address from the CLI", () => {
   const b = engineBackend(lab());
   assert.match(createSession(b, "A", {mode: "priv"}).exec("ping 2001:db8:2::c").output, /!|success|2001:db8:2::c|ok/i);
 });
+
+test("router ripng: networks, passive interfaces and timers reach the spec, and the running-config round-trips", () => {
+  const b = engineBackend(JSON.parse(fs.readFileSync(path.join(ROOT, "validate/ripng/ripng-chain.json"), "utf8"))), s = createSession(b, "R1", {mode: "config"});
+  s.exec("no router ripng"); assert.equal(node(b, "R1").ripng, undefined);
+  s.exec("router ripng"); s.exec("network eth1"); s.exec("network 2001:db8::/32"); s.exec("passive-interface eth0"); s.exec("timers basic 5 15 10"); s.exec("split-horizon poisoned-reverse");
+  assert.deepEqual(node(b, "R1").ripng, {networks: ["eth1", "2001:db8::/32"], passive: ["eth0"], timers: {update: 5, timeout: 15, garbage: 10}, splitHorizon: "poisoned"});
+  s.exec("end");
+  const cfg = createSession(b, "R1", {mode: "priv"}).exec("show running-config").output;
+  assert.match(cfg, /router ripng\n network eth1\n network 2001:db8::\/32\n passive-interface eth0\n timers basic 5 15 10\n split-horizon poisoned-reverse/);
+  assert.match(createSession(b, "R1", {mode: "config"}).exec("router ripng").output + "", /^$/);
+});

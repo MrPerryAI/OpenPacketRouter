@@ -247,6 +247,28 @@ RIPv2 in FRRouting's style: router rip, then network, passive-interface and time
 | `triggered-updates` | routing | routers | Send changes at once (the default) |
 | `no triggered-updates` | routing | routers | Wait for the update timer (a teaching setting, not in FRR) |
 
+### Ripng
+
+RIPng, RIP for IPv6: router ripng, then network, passive-interface and timers basic. Split horizon and triggered updates are per router here.
+
+| Command | Mode | Devices | What it does |
+|---|---|---|---|
+| `router ripng` | config | routers | RIP for IPv6 |
+| `no router ripng` | config | routers | Turn RIPng off |
+| `network PREFIX` | config-ripng | routers | Network and prefix length |
+| `network IFNAME` | config-ripng | routers | Run RIPng on this interface |
+| `no network PREFIX` | config-ripng | routers | Network and prefix length |
+| `no network IFNAME` | config-ripng | routers | Interface name |
+| `passive-interface IFNAME` | config-ripng | routers | Interface name |
+| `no passive-interface IFNAME` | config-ripng | routers | Interface name |
+| `timers basic UPDATE TIMEOUT GARBAGE` | config-ripng | routers | Seconds an invalid route is kept (default 120) |
+| `no timers basic` | config-ripng | routers | Back to the default timers |
+| `split-horizon simple` | config-ripng | routers | Leave them out (the default) |
+| `split-horizon poisoned-reverse` | config-ripng | routers | Advertise them with metric 16 |
+| `no split-horizon` | config-ripng | routers | Advertise everything everywhere |
+| `triggered-updates` | config-ripng | routers | Send changes at once (the default) |
+| `no triggered-updates` | config-ripng | routers | Wait for the update timer (a teaching setting, not in FRR) |
+
 ### Acl
 
 IPv4 access lists on routers: ip access-list NAME with permit/deny rules, applied with ip access-group NAME in|out. First match wins; a packet no rule matches is denied. A denied packet is dropped and the sender gets ICMP administratively prohibited. Multicast and broadcast are never filtered.
