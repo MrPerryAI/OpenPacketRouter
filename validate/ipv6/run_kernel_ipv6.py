@@ -5,7 +5,7 @@
 
 The network is built from namespaces like validate/l3 (it reuses that harness with IPv6 left on for hosts and routers, off for
 switches). Linux settings that change which frames appear are pinned to what the engine models: duplicate address detection
-off (addresses are added with nodad), no router solicitations or advertisements, ICMP rate limit off, and an nftables rule
+off (addresses are added with nodad), no router solicitations or advertisements, ICMP rate limit off, no neighbor reachability re-probing, and an nftables rule
 that drops the link's own chatter on output (MLD reports, router solicitations, DAD probes from ::) so only neighbor
 discovery and the echo traffic are counted. Hosts and routers use global addresses and static routes via global addresses
 (link-local addresses are not modelled).
@@ -116,7 +116,7 @@ def main():
         print("Needs root, unshare, iproute2 and nftables.")
         if os.environ.get("GITHUB_ACTIONS"): print("This check is required in CI: failing instead of skipping."); return 1
         print("Skipping."); return 0
-    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, capture_output=True, text=True, timeout=900).stdout)
+    kern = json.loads(subprocess.run(["unshare", "-n", "-m", sys.executable, __file__, "--inner"], check=True, stdout=subprocess.PIPE, text=True, timeout=900).stdout)
     rows, detail = [], {}
     for name in SPECS:
         eng = json.loads(l3.sh("node", str(ROOT / "engine" / "tools" / "run_spec.mjs"), str(HERE / f"{name}.json"), str(HERE / f"{name}.actions.json")))
