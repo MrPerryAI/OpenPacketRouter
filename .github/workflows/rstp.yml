@@ -26,12 +26,3 @@ jobs:
           mstpd -h 2>&1 | head -1 || true; git log --oneline -1
       - name: RSTP engine vs mstpd
         run: sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py
-      - name: Flake check (temporary)
-        continue-on-error: true
-        run: |
-          ok=0
-          for i in 1 2 3 4 5 6; do
-            sudo env "PATH=$PATH" python3 validate/rstp/run_kernel_rstp.py > /tmp/run$i.log 2>&1 && ok=$((ok+1))
-            echo "::notice title=flake run $i::exit-ok-count=$ok marks=$(grep -c '✓' /tmp/run$i.log) $(grep -E 'MISMATCH|✗' /tmp/run$i.log | head -3 | tr '\n' ' ')"
-          done
-          echo "::notice title=flake tally::$ok of 6 runs matched"
