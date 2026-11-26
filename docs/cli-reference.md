@@ -248,7 +248,7 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo and discar
 | `no http page PATH` | config | routers, hosts, servers | URL path |
 | `service syslog` | config | routers, hosts, servers | Collect log messages sent to UDP port 514 |
 | `no service syslog` | config | routers, hosts, servers | Stop collecting log messages |
-| `service ntp stratum STRATUM` | config | routers, hosts, servers | Answer time requests on UDP port 123 |
+| `service ntp stratum STRATUM` | config | routers, hosts, servers | 1 to 15 |
 | `no service ntp` | config | routers, hosts, servers | Stop answering time requests |
 
 ### Rip
