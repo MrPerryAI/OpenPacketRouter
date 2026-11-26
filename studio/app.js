@@ -387,6 +387,7 @@ const ruleText = r => `${r.action} ${r.proto || "ip"} ${r.src || "any"}${r.sport
 /** Tables for the routing, NAT, ACL and LLDP features a device has, from the snapshot at the current frame. */
 function featurePanels(n, d) {
   let h = "";
+  if (d.vrrp && d.vrrp.length) h += `<h4>VRRP</h4>` + table(["iface", "vrid", "virtual IP", "priority", "state", "master"], d.vrrp.map(g => [g.iface, g.vrid, g.ip, g.priority + (g.preempt ? "" : " (no preempt)"), g.state.toUpperCase(), g.masterIp || ""]));
   if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.ospf) {
     h += `<div class="when">${d.ospf.areas.length > 1 ? `Area border router (ABR) between areas ${esc(d.ospf.areas.join(", "))}.` : `Area ${esc(d.ospf.areas.join(", ") || "none")}.`}</div>`;

@@ -313,6 +313,11 @@ try {
   check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+  const rv = await vload("vrrp/vrrp-preempt.net");
+  check(rv.ok && !/spec /.test(rv.errors), "VRRP spec loads", rv.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("R1"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
+  const vp = await page.textContent("#device");
+  check(/VRRP/.test(vp) && /(MASTER|BACKUP)/.test(vp), "a VRRP router's panel shows its group state", vp.slice(0, 100));
 
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
