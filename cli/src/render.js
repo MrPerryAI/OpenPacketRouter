@@ -48,6 +48,7 @@ export function configLines(model, {kind, ports}) {
       const text = ` network ${/^\d/.test(e.network) ? "" : "interface "}${e.network}${e.area !== undefined ? ` area ${e.area}` : ""}`;
       (lateNets ? ospfLate : out).push(text);
     }
+    for (const r of og["openpacketrouter:redistribute"] || []) out.push(` redistribute ${r.source}${r.metric !== undefined ? ` metric ${r.metric}` : ""}${r.metricType !== undefined ? ` metric-type ${r.metricType}` : ""}`);
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) (lateNets ? ospfLate : out).push(` passive-interface ${p}`);
     out.push("!");
   }

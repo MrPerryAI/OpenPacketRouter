@@ -43,6 +43,7 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
       const ifc = M.iface(model, x, false);
       for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area ${area}`);
     }
+    for (const r of og["openpacketrouter:redistribute"] || []) out.push(` redistribute ${r.source === "static" ? "kernel" : r.source} metric ${r.metric ?? 20} metric-type ${r.metricType ?? 2}`);   // ospfd sees `ip route` routes as kernel routes
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
     out.push("exit");
   }

@@ -107,3 +107,14 @@ test("network ... area puts interfaces in another area; it renders and reaches t
   assert.match(s.exec("show running-config").output, / network 10\.0\.0\.0\/24 area 0\.0\.0\.1\n network interface eth0 area 0\.0\.0\.2\n network 10\.9\.0\.0\/24\n/);
   assert.match(s.exec("show running-config").output, /area 0\.0\.0\.1/);
 });
+
+test("redistribute lands in the spec, running-config and FRR config (static is kernel for ospfd)", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "network 10.0.0.0/8", "redistribute connected", "redistribute static metric 30 metric-type 1", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf.redistribute, [{source: "connected"}, {source: "static", metric: 30, metricType: 1}]);
+  assert.match(s.exec("show running-config").output, / redistribute connected\n redistribute static metric 30 metric-type 1/);
+  const frr = frrConfig(b.getConfig("R1"), {ports: ["eth0"]});
+  assert.match(frr, / redistribute connected metric 20 metric-type 2\n redistribute kernel metric 30 metric-type 1/);
+  ok(run(s, ["configure terminal", "router ospf", "no redistribute connected", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf.redistribute, [{source: "static", metric: 30, metricType: 1}]);
+});

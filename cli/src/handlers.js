@@ -221,6 +221,8 @@ export const HANDLERS = {
   "ospf.router-id": (ctx, [id]) => { ospfG(ctx).global.config["router-id"] = id; },
   "ospf.no-router-id": ctx => { delete ospfG(ctx).global.config["router-id"]; },
   "ospf.passive": (ctx, [i]) => { need(M.iface(ctx.model, i, false), `No interface named ${i}`); M.ospfIf(ctx.model, i).config.passive = true; },
+  "ospf.redist": (ctx, [m, t], src) => { const o = M.ospf(ctx.model, false), l = o["openpacketrouter:redistribute"] ||= [], i = l.findIndex(r => r.source === src), e = {source: src, ...(m !== undefined ? {metric: m} : {}), ...(t !== undefined ? {metricType: t} : {})}; if (i < 0) l.push(e); else l[i] = e; },
+  "ospf.no-redist": (ctx, a, src) => { const l = M.ospf(ctx.model, false)?.["openpacketrouter:redistribute"]; if (l) { const i = l.findIndex(r => r.source === src); if (i >= 0) l.splice(i, 1); } },
   "ospf.no-passive": (ctx, [i]) => { const e = M.ospfIf(ctx.model, i, false); if (e) delete e.config.passive; },
   // a network entry is the bare name for area 0, {network, area} for any other area
   "ospf.network": (ctx, [p, area]) => ospfNet(ctx, p, area),

@@ -473,6 +473,146 @@
     "ospf": "OSPF",
     "route": "Networks OSPF has computed"
    }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static",
+   "handler": "ospf.redist:static",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "static": "Static routes"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static metric N",
+   "args": {
+    "N": "uint:0-16777214"
+   },
+   "handler": "ospf.redist:static",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "static": "Static routes",
+    "metric": "Metric of the external routes (default 20)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static metric N metric-type T",
+   "args": {
+    "N": "uint:0-16777214",
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:static",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "static": "Static routes",
+    "metric": "Metric of the external routes (default 20)",
+    "N": "Number",
+    "metric-type": "1 adds the cost to the ASBR, 2 (default) does not",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no redistribute static",
+   "handler": "ospf.no-redist:static",
+   "help": {
+    "no": "Undo a setting",
+    "redistribute": "Stop announcing routes from another source",
+    "static": "Static routes"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected",
+   "handler": "ospf.redist:connected",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "connected": "Connected networks"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected metric N",
+   "args": {
+    "N": "uint:0-16777214"
+   },
+   "handler": "ospf.redist:connected",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "connected": "Connected networks",
+    "metric": "Metric of the external routes (default 20)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected metric N metric-type T",
+   "args": {
+    "N": "uint:0-16777214",
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:connected",
+   "help": {
+    "redistribute": "Announce routes from another source into OSPF as external routes",
+    "connected": "Connected networks",
+    "metric": "Metric of the external routes (default 20)",
+    "N": "Number",
+    "metric-type": "1 adds the cost to the ASBR, 2 (default) does not",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no redistribute connected",
+   "handler": "ospf.no-redist:connected",
+   "help": {
+    "no": "Undo a setting",
+    "redistribute": "Stop announcing routes from another source",
+    "connected": "Connected networks"
+   }
   }
  ]
 }
