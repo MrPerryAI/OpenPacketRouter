@@ -13,6 +13,16 @@
     "./frr": "./src/backends/frr.js",
     "./openwrt": "./src/backends/openwrt.js"
   },
-  "bin": {"opr-cli": "bin/opr-cli.mjs"},
-  "scripts": {"test": "node --test"}
+  "bin": {
+    "opr-cli": "bin/opr-cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": [
+    "bin",
+    "src",
+    "commands",
+    "README.md"
+  ]
 }
