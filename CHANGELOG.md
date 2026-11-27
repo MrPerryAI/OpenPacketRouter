@@ -72,6 +72,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - IPv6 panels and filters, DHCP snooping ports and drops, lossy cables, HTTP request lines and OSPF areas (#177).
 - A Services section in the device panel: stored syslog messages and the NTP server's stratum and answered queries (#189).
 - A VRRP table in the device panel and VRRP frames in playback and filters (#205).
+- A RIPng routes table in the device panel; RIPng messages named in playback with their own filter (#234).
 - The Studio smoke test plays every example lab and checks that every frame is described, has a filter, and that every device panel opens (#210).
 - Opening an example lab shows its student guide beside the map, with buttons that run the guide's commands in the right device console (#221).
 
