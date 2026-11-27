@@ -394,6 +394,9 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ntp` | user, privileged | routers, hosts, servers | The NTP service's stratum and how many queries it has answered |
 | `show syslog` | user, privileged | routers, hosts, servers | Log messages this device has collected (needs service syslog) |
 | `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
+| `show ipv6 route` | user, privileged | routers, hosts, servers | IPv6 routes: connected, static and learned by RIPng |
+| `show ipv6 neighbors` | user, privileged | routers, hosts, servers | IPv6 address to MAC address table (neighbor discovery cache) |
+| `show ipv6 ripng` | user, privileged | routers | The RIPng table: connected and learned prefixes with metric and next hop |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | One list |

@@ -13,7 +13,7 @@
 
 import {validateSpec, loadSpec, ACTIONS} from "../../../engine/src/spec.js";
 import {intToIp, inSubnet} from "../../../engine/src/addr.js";
-import {parseCidr6, intToIp6, ip6ToInt} from "../../../engine/src/addr6.js";
+import {parseCidr6, intToIp6, ip6ToInt, inSubnet6} from "../../../engine/src/addr6.js";
 import * as M from "../model.js";
 import {maskToPrefix, prefixToMask} from "../types.js";
 
@@ -354,6 +354,7 @@ function convergeTime(spec) {
   if ((spec.nodes || []).some(n => n.lldp)) t = Math.max(t, 3);   // the first LLDPDU leaves 1 s after start
   // RIP learns routes over a few update periods
   for (const n of spec.nodes || []) if (n.rip) t = Math.max(t, 3 * (n.rip.timers?.update ?? 30));
+  for (const n of spec.nodes || []) if (n.ripng) t = Math.max(t, 3 * (n.ripng.timers?.update ?? 30));
   return t;
 }
 function freshNet(spec, cut) {
@@ -373,6 +374,17 @@ function routesOf(n) {
   }
   if (n.ospf) for (const r of n.ospf.fib()) routes.push({prefix: r.cidr, protocol: "ospf", nextHop: r.gw, interface: r.iface, metric: r.metric});
   if (n.rip) for (const r of n.rip.fib()) routes.push({prefix: r.cidr, protocol: "rip", nextHop: r.gw, interface: r.iface ?? null, metric: r.metric});
+  return routes;
+}
+
+function routes6Of(n) {
+  const v = n.v6, routes = [];
+  for (const a of v.addrs) routes.push({prefix: `${intToIp6(a.net)}/${a.prefix}`, protocol: "connected", interface: a.iface});
+  for (const r of v.routes) {
+    const out = v.addrs.find(a => inSubnet6(r.via, a.net, a.mask));
+    routes.push({prefix: r.cidr, protocol: "static", nextHop: r.via, interface: out ? out.iface : null});
+  }
+  if (n.ripng) for (const r of n.ripng.fib()) routes.push({prefix: r.cidr, protocol: "ripng", nextHop: r.gw, interface: r.iface ?? null, metric: r.metric});
   return routes;
 }
 
@@ -407,6 +419,8 @@ export function stateOf(net, device, spec) {
     ...(n.vrrp ? {vrrp: n.vrrp.describe()} : {}),
     ...(n.lldp ? {lldp: {txInterval: n.lldp.txInterval, holdMultiplier: n.lldp.holdMultiplier, description: n.lldp.description, neighbors: n.lldp.neighbors()}} : {}),
     ...(n.rip ? {rip: n.rip.describe()} : {}),
+    ...(n.ripng ? {ripng: n.ripng.describe()} : {}),
+    ...(n.v6 ? {routes6: routes6Of(n), neighbors6: [...n.v6.cache].map(([ip, e]) => ({address: ip, mac: e.mac, interface: e.iface}))} : {}),
     ...(n.services.ntp ? {ntp: {stratum: n.services.ntp, requests: [...(n.ntpLog || [])]}} : {}),
     ...(n.services.syslog ? {syslog: [...(n.syslogLog || [])]} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],

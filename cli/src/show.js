@@ -82,6 +82,30 @@ export const SHOWS = {
     return {json: rows, text: rows.length ? table(["Code", "Network", "Next hop", "Metric", "Interface"], rows.map(r => [r.type, r.network, r.type === "C" ? "-" : r.nextHop, r.metric, r.iface ?? "-"])) : "The RIP table is empty"};
   },
 
+  "show.ipv6-route": ctx => {
+    const rows = ctx.state().routes6;
+    if (!rows) return {json: [], text: "IPv6 is not configured on this device (give an interface an address with ipv6 address)"};
+    const legend = [rows.some(r => r.protocol === "ripng") && ", R = learned by RIPng"].filter(Boolean).join("");
+    const lines = [`Legend: C = connected network, S = static route${legend}`, ""];
+    for (const r of rows) lines.push(r.protocol === "connected"
+      ? `C  ${r.prefix} on ${r.interface} (directly connected)`
+      : `${r.protocol === "ripng" ? "R" : "S"}  ${r.prefix} via ${r.nextHop}${r.interface ? `, out ${r.interface}` : ", next hop not on any connected network"}${r.protocol === "ripng" ? ` [metric ${r.metric}]` : ""}`);
+    return {json: rows, text: lines.join("\n")};
+  },
+
+  "show.ipv6-neighbors": ctx => {
+    const rows = ctx.state().neighbors6;
+    if (!rows) return {json: [], text: "IPv6 is not configured on this device (give an interface an address with ipv6 address)"};
+    return {json: rows, text: rows.length ? table(["Address", "MAC", "Interface"], rows.map(r => [r.address, r.mac, r.interface]))
+      : "The IPv6 neighbor table is empty (it fills when this device sends or answers traffic: try ping)"};
+  },
+
+  "show.ipv6-ripng": ctx => {
+    const rows = ctx.state().ripng;
+    if (!rows) return {json: [], text: "RIPng is not running on this device"};
+    return {json: rows, text: rows.length ? table(["Code", "Network", "Next hop", "Metric", "Interface"], rows.map(r => [r.type, r.network, r.type === "C" ? "-" : r.nextHop, r.metric, r.iface ?? "-"])) : "The RIPng table is empty"};
+  },
+
   "show.ntp": ctx => {
     const r = ctx.state().ntp;
     if (!r) return {json: {}, text: "The NTP service is not running (service ntp STRATUM)"};
