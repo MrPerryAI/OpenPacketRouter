@@ -204,3 +204,18 @@ test("the spec check catches bad redistribute settings", () => {
   const paths = validateSpec(s).errors.map(e => e.path);
   for (const p of ["[0].source", "[1].metricType", "[1].metric", "[1].x"]) assert.ok(paths.includes(`$.nodes[2].ospf.redistribute${p}`), p);
 });
+
+test("area range: the ABR advertises one summary for the prefix at the largest cost inside it, and withdraws it with the last route", () => {
+  const net = Network.fromSpec(load("ospf-ranges"));
+  at(net, 25);
+  const sums = () => net.node("R3").ospf.database().filter(l => l.type === "summary" && l.id.startsWith("10.1.")).map(l => `${l.id} ${l.metric}`);
+  assert.deepEqual(sums(), ["10.1.0.0 15"]);
+  assert.equal(ping(net, "H3", "10.1.2.10").ok, true);
+  net.setLink("R1:eth0", false); at(net, 50);
+  assert.deepEqual(net.node("R3").ospf.describe().map(r => r.network), []);
+});
+test("the spec check catches bad ospf ranges", () => {
+  const s = load("ospf-ranges"); s.nodes[1].ospf.ranges = [{network: "nope", x: 1}, {area: 1, network: "10.1.0.0/16", notAdvertise: 3}];
+  const paths = validateSpec(s).errors.map(e => e.path);
+  for (const p of ["[0].area", "[0].network", "[0].x", "[1].notAdvertise"]) assert.ok(paths.includes(`$.nodes[1].ospf.ranges${p}`), p);
+});

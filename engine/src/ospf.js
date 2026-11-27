@@ -26,7 +26,7 @@
 //     outside that area (12.4.3: into the backbone only intra-area routes; not for a route whose way out is through
 //     the target area) and computes inter-area routes (16.2) from the backbone's summaries.
 //
-// Not modeled: external LSAs, stub areas, area ranges, virtual links, authentication, 
+// Not modeled: stub areas, virtual links, authentication, 
 // demand circuits, non-broadcast and point-to-multipoint networks, LSA aging out of the database (only the
 // 30 minute refresh of our own LSAs), checksums (LSAs carry none), multi-packet LSUs, ECMP forwarding.
 
@@ -54,6 +54,8 @@ export class Ospf {
     this.networks = (cfg.networks || []).map(x => { const m = typeof x === "object" ? x.network : x; return {m: m.includes("/") ? parseCidr(m) : m, area: typeof x === "object" && x.area !== undefined ? normArea(x.area) : AREA0}; });
     this.opts = cfg.interfaces || {};
     this.passive = new Set(cfg.passive || []);
+    // ranges: [{area, network: "10.1.0.0/16", notAdvertise?}]: an ABR summarizes the intra-area routes of `area` inside the prefix as one summary LSA (12.4.3)
+    this.ranges = (cfg.ranges || []).map(r => { const c = parseCidr(r.network); return {area: normArea(r.area), net: c.net, mask: c.mask, notAdvertise: !!r.notAdvertise}; });
     for (const [n, o] of Object.entries(this.opts)) if (o.type !== undefined && !TYPES.includes(o.type)) throw new Error(`${node.name}: ${n} type must be one of ${TYPES.join(", ")}`);
     // redistribute: [{source: "connected" | "static", metric?: 20, metricType?: 2}] makes this router an ASBR (type 5 LSAs)
     this.redist = (cfg.redistribute || []).map(r => ({source: r.source, metric: r.metric ?? 20, eType: r.metricType ?? 2}));
@@ -513,6 +515,13 @@ export class Ospf {
     if (this.isAbr()) for (const t of this.areas()) {
       for (const r of this.table || []) {
         if (r.cost >= LS_INFINITY || !ok(t, r)) continue;
+        const rng = r.kind === "intra" && this.ranges.find(g => g.area === r.area && (ipToInt(r.net) & g.mask) >>> 0 === g.net >>> 0 && ipToInt(r.mask) >>> 0 >= g.mask >>> 0);
+        if (rng) {   // covered by a range: only the range is advertised, at the largest cost of the routes inside it; notAdvertise hides them all
+          if (rng.notAdvertise) continue;
+          const k = `${t}|${intToIp(rng.net)}`, cur = want.get(k);
+          if (!cur || r.cost > cur.metric) want.set(k, {mask: intToIp(rng.mask), metric: r.cost});
+          continue;
+        }
         const k = `${t}|${r.net}`, cur = want.get(k);
         if (!cur || r.cost < cur.metric) want.set(k, {mask: r.mask, metric: r.cost});
       }
