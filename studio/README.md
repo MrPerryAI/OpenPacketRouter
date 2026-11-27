@@ -88,4 +88,5 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
 | `examples.js` | Built-in list of labs (used until `examples/index.json` exists) |
 
 Tests: `node tests/studio/smoke.mjs` (Playwright, headless Chromium) loads every lab, plays, steps, opens the
-panels, cuts a cable and drives the console. It runs in CI.
+panels, cuts a cable and drives the console. For every lab it also checks that each frame has a description without
+`undefined`/`NaN`, that each frame kind has a filter checkbox, and that every device panel opens at the last frame. It runs in CI.

@@ -45,6 +45,11 @@ try {
       wantActions: S.actions.length, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; });
     check(r.nodes === r.specNodes && r.cables === r.specLinks && r.actions === r.wantActions && r.steps > 0 && !r.errors,
       `${lab}: draws ${r.nodes} devices, ${r.cables} cables, runs ${r.actions} actions`, `${r.steps} frames${r.errors ? "; " + r.errors : ""}`);
+    const q = await page.evaluate(() => { const st = window.studio.S.sim.steps; const filt = [...document.querySelectorAll("#filters input[data-kind]")].map(x => x.dataset.kind);
+      return {badDesc: st.filter(x => /undefined|NaN|\[object|\?\?/.test(x.desc || "")).map(x => x.desc).slice(0, 2), noDesc: st.filter(x => !x.desc).length,
+        noFilter: [...new Set(st.map(x => x.kind))].filter(k => !filt.includes(k))}; });
+    await page.evaluate(() => { const st = window.studio; st.goto(st.S.sim.steps.length - 1); for (const nd of st.S.spec.nodes) st.select(nd.name); });   // every device panel at the last frame: a throw lands in "no page errors"
+    check(!q.badDesc.length && !q.noDesc && !q.noFilter.length, `${lab}: every frame is described and has a filter`, JSON.stringify(q).slice(0, 200));
     if (shots) { fs.mkdirSync(shots, {recursive: true}); await page.screenshot({path: path.join(shots, `${lab}.png`)}); }
   }
 
