@@ -46,7 +46,7 @@ The Linux settings that change which frames appear are pinned to what the engine
 
 ## Not modeled yet
 
-RSTP, per-VLAN spanning tree, dynamic routing (OSPF/BGP), delay and loss on links (netem), IPv6, NAT, and firewalls. Link capacity and queues are modeled (see below). DHCP is modeled (see below).
+Per-VLAN spanning tree (one tree per VLAN), OSPFv3, and anything that needs a kernel feature the validators cannot pin to exact frames. Modeled and validated against real Linux: spanning tree and RSTP, VLANs, LACP, link capacity, queues, delay and loss, DHCP, TCP (including the receive window), NAT, ACLs, IPv6, RIP, OSPF (areas), LLDP, port security, storm control, SPAN, server services (HTTP, syslog, NTP) and VRRP. The status table in `docs/STATUS.md` is the source of truth.
 
 ## Tests
 

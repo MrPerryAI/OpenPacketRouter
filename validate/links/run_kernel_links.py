@@ -22,12 +22,9 @@ SPECS = ["tbf-host", "tbf-switch", "tbf-stp-fit", "tbf-stp-drop"]
 class ShapedNet(l3.KernelNet):
     def __init__(self, spec):
         super().__init__(spec)
-        for n in spec["nodes"]:      # spanning-tree bridges, like validate/l2
-            if n["kind"] == "switch" and n.get("stp"):
-                ns, s = self.ns[n["name"]], n["stp"]
-                l3.sh("ip", "-n", ns, "link", "set", "br0", "type", "bridge", "stp_state", "1", "priority", str(s.get("priority", 32768)),
-                      "hello_time", str(int(s.get("hello", 2) * 100)), "max_age", str(int(s.get("maxAge", 20) * 100)), "forward_delay", str(int(s.get("forwardDelay", 15) * 100)))
-                l3.sh("ip", "-n", ns, "link", "set", "br0", "address", s["mac"])
+        self.stp_nodes = [n for n in spec["nodes"] if n["kind"] == "switch" and n.get("stp")]
+        for n in self.stp_nodes:     # spanning-tree bridges, like validate/l2; the tree itself starts in start_stp()
+            l3.sh("ip", "-n", self.ns[n["name"]], "link", "set", "br0", "address", n["stp"]["mac"])
         self.shaped = []
         for a, b, *rest in spec["links"]:
             opts = rest[1] if len(rest) > 1 else {}
@@ -38,6 +35,13 @@ class ShapedNet(l3.KernelNet):
                     l3.sh("tc", "-n", self.ns[node], "qdisc", "replace", "dev", ifn, "root", "tbf",
                           "rate", str(s["rate"]), "burst", str(s["burst"]), "limit", str(s["limit"]))
                     self.shaped.append((node, ifn))
+
+    def start_stp(self):
+        """Turn spanning tree on: the bridges' clocks (hello timer) start now, as the engine's start at time 0."""
+        for n in self.stp_nodes:
+            st = n["stp"]
+            l3.sh("ip", "-n", self.ns[n["name"]], "link", "set", "br0", "type", "bridge", "stp_state", "1", "priority", str(st.get("priority", 32768)),
+                  "hello_time", str(int(st.get("hello", 2) * 100)), "max_age", str(int(st.get("maxAge", 20) * 100)), "forward_delay", str(int(st.get("forwardDelay", 15) * 100)))
 
     def drops(self):
         out = {}
@@ -57,12 +61,27 @@ class ShapedNet(l3.KernelNet):
 
 def kernel_run(name):
     spec = json.loads((HERE / f"{name}.json").read_text()); actions = json.loads((HERE / f"{name}.actions.json").read_text())
-    k = ShapedNet(spec); out = []
+    k = ShapedNet(spec); out = []; stp = bool(k.stp_nodes); cum = 0.0
     try:
         time.sleep(1)  # let every bucket fill
+        if stp:
+            # A spanning-tree window's hello count depends on the phase of the kernel's hello timer, so start the tree at a known
+            # moment (half a second after a wall-clock second) and keep every action on the engine's schedule: the engine's tree
+            # starts at time 0 with the first action, and hellos then fall in the same windows on both sides. The first window
+            # begins before the tree starts, so it holds the start-up BPDU too, as the engine's does. The kernel re-arms its hello timer
+            # from when it fires, and the timer wheel rounds a 2 s timer up, so its hellos drift late; the windows therefore end a
+            # full second from a hello (7 s and 11 s), not half a second after one, and are still compared exactly.
+            time.sleep(1 - time.time() % 1); t_base = int(time.time()) + 0.5; time.sleep(max(t_base - time.time(), 0))
+        started = False
         for a in actions:
+            if stp: time.sleep(max(t_base + cum - time.time(), 0))
             k.flush(); before, dbefore = k.counters(), k.drops()
-            r = k.act(a); time.sleep(a.get("settle", 1)); after, dafter = k.counters(), k.drops()
+            if stp and not started: k.start_stp(); started = True
+            if stp and a["do"] == "wait":
+                time.sleep(max(t_base + cum + a["seconds"] - time.time(), 0)); r = {"waited": a["seconds"]}
+            else: r = k.act(a)
+            if stp: cum += a.get("seconds", 0) + a.get("settle", 1)
+            time.sleep(a.get("settle", 1)); after, dafter = k.counters(), k.drops()
             out.append({"action": a, "result": r,
                         "frames": {key: after[key] - before.get(key, 0) for key in after if after[key] - before.get(key, 0)},
                         "drops": {key: dafter[key] - dbefore.get(key, 0) for key in dafter if dafter[key] - dbefore.get(key, 0)}})

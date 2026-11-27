@@ -177,6 +177,22 @@
    "spec": "link-loss/spec.json",
    "actions": "link-loss/actions.json",
    "readme": "link-loss/README.md"
+  },
+  {
+   "id": "vrrp-gateway",
+   "name": "VRRP gateway",
+   "about": "Two routers share a virtual gateway address with VRRP. Cut the master's cable and the backup takes the address over, so the host's pings keep working.",
+   "spec": "vrrp-gateway/spec.json",
+   "actions": "vrrp-gateway/actions.json",
+   "readme": "vrrp-gateway/README.md"
+  },
+  {
+   "id": "services-lab",
+   "name": "Syslog and NTP services",
+   "about": "A server runs a syslog receiver and an NTP time server; a client sends a log message and asks the time.",
+   "spec": "services-lab/spec.json",
+   "actions": "services-lab/actions.json",
+   "readme": "services-lab/README.md"
   }
  ]
 }

@@ -1,0 +1,57 @@
+[
+ {
+  "do": "wait",
+  "seconds": 8
+ },
+ {
+  "do": "vrrpState",
+  "src": "R1"
+ },
+ {
+  "do": "vrrpState",
+  "src": "R2"
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.0.0.254"
+ },
+ {
+  "do": "link",
+  "end": "R1:eth0",
+  "up": false,
+  "settle": 0
+ },
+ {
+  "do": "wait",
+  "seconds": 8
+ },
+ {
+  "do": "vrrpState",
+  "src": "R2"
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.0.0.254"
+ },
+ {
+  "do": "link",
+  "end": "R1:eth0",
+  "up": true,
+  "settle": 0
+ },
+ {
+  "do": "wait",
+  "seconds": 8
+ },
+ {
+  "do": "vrrpState",
+  "src": "R1"
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.0.0.254"
+ }
+]
