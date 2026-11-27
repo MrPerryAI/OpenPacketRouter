@@ -2,7 +2,7 @@
 
 `run_kernel_bgp.py` builds each `*.net` spec from namespaces, runs zebra + bgpd in every router, and compares the engine
 (`engine/tools/run_bgp.mjs`, same steps) with what bgpd does: sessions, the BGP table, routes in the kernel, what every
-router announced to every neighbor, OPEN contents, message types, OPEN/NOTIFICATION counts and KEEPALIVE counts per cable (KEEPALIVEs over a window aligned on both sides: from the first one after the snapshot, whole intervals, ending mid-interval), and LOCAL_PREF in what iBGP peers are told. UPDATE counts are not compared: how bgpd groups them depends on its timing. `validate/docker/run.sh bgp` runs it on a Mac.
+router announced to every neighbor, OPEN contents, message types, OPEN/NOTIFICATION counts and KEEPALIVE counts per cable (KEEPALIVEs over a window aligned on both sides: from the first one after the snapshot, whole intervals, ending mid-interval), and LOCAL_PREF in what iBGP peers are told. Every UPDATE per cable direction is compared too: count and order, with NLRI, withdrawals, AS path, next hop, origin and LOCAL_PREF. `validate/docker/run.sh bgp` runs it on a Mac.
 Files carry the `.net` extension so the CLI's round-trip test (which reads every `*.json`) leaves them alone.
 
 | Spec | What it shows |

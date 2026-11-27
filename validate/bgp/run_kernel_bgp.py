@@ -17,7 +17,7 @@ Compared at every snapshot, for every router:
     origin as last sent) and not withdrawn since;
   - which message types other than KEEPALIVE crossed every cable direction since the previous snapshot;
   - ping results at the steps that ask for one.
-Not compared: exact times, how many UPDATEs carry the prefixes, KEEPALIVE counts, MED and everything else the engine does not model.
+Not compared: exact times, MED and everything else the engine does not model.
 """
 import json, os, shutil, struct, subprocess, sys, tempfile, time
 from pathlib import Path
