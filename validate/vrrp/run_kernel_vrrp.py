@@ -50,7 +50,7 @@ def read_pcap(path):
         if len(frame) >= 42 and frame[12:14] == b"\x08\x06":
             ip = lambda b: ".".join(str(x) for x in b)
             spa, tpa = ip(frame[28:32]), ip(frame[38:42])
-            if spa == tpa:  # gratuitous only: ordinary ARP for the ping depends on the host's neighbor timers (unicast replies to a gratuitous request are filtered in main(), see is_garp)
+            if spa == tpa:  # gratuitous only: ordinary ARP for the ping depends on the host's neighbor timers (see race_replies for the one Linux-only frame left out)
                 out.append({"t": sec + frac * scale, "kind": "arp", "dst": mac_s(frame[0:6]), "src": mac_s(frame[6:12]), "op": struct.unpack(">H", frame[20:22])[0],
                             "sha": mac_s(frame[22:28]), "spa": spa, "tha": mac_s(frame[32:38]), "tpa": tpa})
             continue
@@ -149,11 +149,13 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in sys.argv[2:] or SPECS}))
 
 
-def is_garp(f):
-    """keepalived announces the new master with a broadcast ARP. A unicast frame with spa == tpa is not an announcement: it is the
-    reply of a router that still holds the virtual address in the sub-millisecond gap between hearing the new master's advert and
-    removing the address, to that master's broadcast gratuitous ARP (seen on R2 in vrrp-preempt "cable back", intermittently)."""
-    return f.get("kind") == "arp" and f["dst"] == "ff:ff:ff:ff:ff:ff"
+def race_replies(win, old_masters):
+    """Linux frames to leave out of the gratuitous-ARP comparison: op 2 replies sent by a router that was master before this window
+    (and is not any more), to the MAC of a router that announced itself in this window. They answer the new master's broadcast ARP
+    in the sub-millisecond gap between that router hearing the new master's advert and removing the address (seen on R2 in
+    vrrp-preempt "cable back", intermittently); the engine has no such gap. Anything else, unicast or not, still counts."""
+    new_macs = {f["src"] for f in win if f.get("kind") == "arp" and f["dst"] == "ff:ff:ff:ff:ff:ff"}
+    return [f for f in win if f.get("kind") == "arp" and f["op"] == 2 and f["dst"] in new_macs and f["cable"].split(":")[0] in old_masters]
 
 
 ADVERT_KEYS = ("src", "dst", "vrid", "priority", "interval", "ttl")
@@ -206,11 +208,13 @@ def main():
         kr = kern[name]
         pe, pk = phases(eng), phases(kr)
         assert len(pe) == len(pk), f"{name}: engine has {len(pe)} snapshots, keepalived run {len(pk)}"
-        prev_t = 0.0
+        prev_t = 0.0; prev_masters = set()
         for (es, ewin), (ks, kwin) in zip(pe, pk):
             span = (prev_t, es["t"]); prev_t = es["t"]
             ef, kf = per_cable([f for f in ewin if f.get("kind") != "arp"]), per_cable([f for f in kwin if f.get("kind") != "arp"])
-            ea, ka = per_cable([f for f in ewin if is_garp(f)]), per_cable([f for f in kwin if is_garp(f)])
+            skipped = race_replies(kwin, prev_masters)
+            ea, ka = per_cable([f for f in ewin if f.get("kind") == "arp"]), per_cable([f for f in kwin if f.get("kind") == "arp" and f not in skipped])
+            prev_masters = {n for n, st in ks["states"].items() if st == "master"}
             checks = {"master": es["states"] == ks["states"], "ping": es.get("ping") == ks.get("ping"),
                       "advertisements": {c: sorted(set(v)) for c, v in ef.items()} == {c: sorted(set(v)) for c, v in kf.items()},
                       "advert counts": aligned_counts([f for f in ewin if f.get("kind") != "arp"], *span) == aligned_counts([f for f in kwin if f.get("kind") != "arp"], *span),
@@ -218,10 +222,10 @@ def main():
             ok = all(checks.values())
             master = ", ".join(n for n, s in es["states"].items() if s == "master") or "none"
             rows.append((name, es["snapshot"], master, f'{"✓" if es.get("ping") else "✗"}', ", ".join(f'{c} {"✓" if v else "✗"}' for c, v in checks.items()) +
-                         f' · adverts {sum(len(v) for v in ef.values())} (Linux {sum(len(v) for v in kf.values())})', "yes" if ok else "NO"))
+                         f' · adverts {sum(len(v) for v in ef.values())} (Linux {sum(len(v) for v in kf.values())})' + (f' · Linux race replies left out: {len(skipped)}' if skipped else ''), "yes" if ok else "NO"))
             if not ok:
                 detail[f'{name}: {es["snapshot"]}'] = {"engine": {"states": es["states"], "ping": es.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in ef.items()}, "arp": {c: [len(v), sorted(set(v))] for c, v in ea.items()}},
-                                                    "linux": {"states": ks["states"], "ping": ks.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in kf.items()}, "arp": {c: [len(v), sorted(set(v))] for c, v in ka.items()}}}
+                                                    "linux": {"race replies left out": len(skipped), "states": ks["states"], "ping": ks.get("ping"), "adverts": {c: [len(v), sorted(set(v))] for c, v in kf.items()}, "arp": {c: [len(v), sorted(set(v))] for c, v in ka.items()}}}
     md = ["| Network | Snapshot | Master (engine) | Host reaches virtual address | Checks | Match |", "|---|---|---|---|---|---|"]
     md += [f"| {a} | {b} | {c} | {d} | {e} | {f} |" for a, b, c, d, e, f in rows]
     (HERE / "results.md").write_text("\n".join(md) + "\n")
