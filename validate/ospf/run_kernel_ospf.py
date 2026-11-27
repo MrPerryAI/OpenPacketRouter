@@ -387,7 +387,7 @@ def compare(name, eng, kr):
                 d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}
             if not checks["packet types on every cable"]:
                 d["packet types"] = {c: {"engine": et.get(c), "linux": kt.get(c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
-                trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:12]   # what crossed, for finding the cause
+                trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:40]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
