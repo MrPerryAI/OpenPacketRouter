@@ -44,7 +44,7 @@ const AREA0 = "0.0.0.0", LS_INFINITY = 0xffffff;
 const normArea = a => { if (typeof a === "number" || /^\d+$/.test(String(a))) { const n = +a; return [n >>> 24, (n >> 16) & 255, (n >> 8) & 255, n & 255].join("."); } return String(a); };
 const ipLt = (a, b) => ipToInt(a) < ipToInt(b);
 const cmpIp = (a, b) => ipToInt(a) - ipToInt(b);
-const lsaSize = l => 20 + (l.type === 1 ? 4 + 12 * l.body.links.length : l.type === 2 ? 4 + 4 * l.body.attached.length : l.type === 3 || l.type === 4 ? 8 : 16);
+const lsaSize = l => 20 + (l.type === 1 ? 4 + 12 * l.body.links.length : l.type === 2 ? 4 + 4 * l.body.attached.length : l.type === 3 ? 8 : 12);
 
 export class Ospf {
   /** cfg: {routerId?, networks: [ifname | "a.b.c.d/len"], passive?: [ifname], interfaces?: {ifname: {type, priority, cost, hello, dead, retransmit}}} */
@@ -55,9 +55,6 @@ export class Ospf {
     this.opts = cfg.interfaces || {};
     this.passive = new Set(cfg.passive || []);
     for (const [n, o] of Object.entries(this.opts)) if (o.type !== undefined && !TYPES.includes(o.type)) throw new Error(`${node.name}: ${n} type must be one of ${TYPES.join(", ")}`);
-    // redistribute: [{source: "connected" | "static", metric?: 20, metricType?: 2}] makes this router an ASBR (type 5 LSAs)
-    this.redist = (cfg.redistribute || []).map(r => ({source: r.source, metric: r.metric ?? 20, eType: r.metricType ?? 2}));
-    this.externals = new Map(); this.asbrSummaries = new Map(); this.asbrs = new Map();
     this.cfgRouterId = cfg.routerId || null;
     this.rid = null;
     this.ifs = new Map();                    // ifname -> interface state
@@ -103,7 +100,6 @@ export class Ospf {
     this._lsas();
   }
   linkChange(ifname, up) {
-    if (this.started && this.redist.length && !this.enabled(ifname)) this._after(0, () => { this._originateExternals(); this._gcMaxAge(); });   // a redistributed connected or static route may come or go
     if (!this.started || !this.enabled(ifname)) return;
     if (up) { if (!this.ifs.has(ifname)) { this.log("ospf", `${ifname} is up: OSPF starts on it again`); this._ifUp(ifname); this._lsas(); } return; }
     const i = this.ifs.get(ifname); if (!i) return;
@@ -444,7 +440,7 @@ export class Ospf {
   // ----- the database -----
   _age(l) { return l.maxAge ? MAX_AGE : Math.min(MAX_AGE, Math.floor(l.age0 + (this.net.time - l.t0))); }
   _isMaxAge(l) { return l.maxAge || this._age(l) >= MAX_AGE; }
-  _name(l) { return l.type === 1 ? `router LSA of ${l.adv}` : l.type === 2 ? `network LSA ${l.id} (DR ${l.adv})` : l.type === 3 ? `summary LSA ${l.id} of ${l.adv}` : l.type === 4 ? `ASBR summary LSA for ${l.id} of ${l.adv}` : `external LSA ${l.id} of ${l.adv}`; }
+  _name(l) { return l.type === 1 ? `router LSA of ${l.adv}` : l.type === 2 ? `network LSA ${l.id} (DR ${l.adv})` : l.type === 3 ? `summary LSA ${l.id} of ${l.adv}` : `external LSA ${l.id} of ${l.adv}`; }
   /** Does an LSA belong in the database exchange with a neighbor on interface i? */
   _inScope(l, i) { return l.type === 5 || l.area === i.area; }
   /** >0 if a is the more recent instance (13.1). Both need seq and age. */
@@ -482,8 +478,6 @@ export class Ospf {
     if (l.type === 1) return this._routerBody(l.area);
     if (l.type === 2) return this._networkBody(l.id);
     if (l.type === 3) return this.summaries.get(`${l.area}|${l.id}`) || null;
-    if (l.type === 4) return this.asbrSummaries.get(`${l.area}|${l.id}`) || null;
-    if (l.type === 5) return this.externals.get(l.id) || null;
     return null;
   }
 
@@ -501,55 +495,25 @@ export class Ospf {
       l.maxAge = true; if (l.tRefresh) l.tRefresh = this._off(l.tRefresh); this._flood(l, null); this._spf();
     }
     this._originateSummaries();
-    if (this.redist.length || this.externals.size) this._originateExternals();
     this._gcMaxAge();
   }
-  /** As an ABR, one summary LSA (type 3) per prefix the table reaches outside the area, and one type 4 per ASBR, in every area (12.4.3). */
+  /** As an ABR, one summary LSA (type 3) per prefix the table reaches outside the area, in every area (12.4.3). */
   _originateSummaries() {
     if (this.isAbr() && !this._backboneActive()) return;    // cut off from the backbone: not an ABR any more, nothing is originated or flushed
-    const want = new Map(), wantAsbr = new Map();
-    // may route r (reached by `kind`/`area`, out of `hops`) be advertised into area t?
-    const ok = (t, r) => (r.kind === "intra" ? r.area !== t : t !== AREA0 && r.kind === "inter") && !(r.hops?.length && !r.direct && r.hops.every(h => this.ifs.get(h.iface)?.area === t));
-    if (this.isAbr()) for (const t of this.areas()) {
-      for (const r of this.table || []) {
-        if (r.cost >= LS_INFINITY || !ok(t, r)) continue;
-        const k = `${t}|${r.net}`, cur = want.get(k);
-        if (!cur || r.cost < cur.metric) want.set(k, {mask: r.mask, metric: r.cost});
-      }
-      for (const [rid, r] of this.asbrs) {
-        if (r.cost >= LS_INFINITY || !ok(t, r)) continue;
-        wantAsbr.set(`${t}|${rid}`, {mask: "0.0.0.0", metric: r.cost});
-      }
+    const want = new Map();
+    if (this.isAbr()) for (const t of this.areas()) for (const r of this.table || []) {
+      if (r.cost >= LS_INFINITY) continue;
+      if (r.kind === "intra" ? r.area === t : t === AREA0) continue;             // not into its own area; into the backbone only intra-area routes
+      if (!r.direct && r.hops.length && r.hops.every(h => this.ifs.get(h.iface)?.area === t)) continue;   // its way out is through this very area
+      const k = `${t}|${r.net}`; const cur = want.get(k);
+      if (!cur || r.cost < cur.metric) want.set(k, {mask: r.mask, metric: r.cost});
     }
-    this.summaries = want; this.asbrSummaries = wantAsbr;
+    this.summaries = want;
     // a summary LSA of ours that is flushed but still in the database is flooded again on every pass (ospfd flushes the ones no longer approved each time)
     for (const l of [...this.lsdb.values()]) if (l.type === 3 && l.adv === this.routerId() && l.maxAge && !want.has(`${l.area}|${l.id}`)) this._flood(l, null);
     for (const [k, body] of want) { const [area, id] = k.split("|"); this._originate(3, id, body, false, area); }
-    for (const [k, body] of wantAsbr) { const [area, id] = k.split("|"); this._originate(4, id, body, false, area); }
-    for (const l of [...this.lsdb.values()]) if ((l.type === 3 || l.type === 4) && l.adv === this.routerId() && !l.maxAge && !(l.type === 3 ? want : wantAsbr).has(`${l.area}|${l.id}`)) {
+    for (const l of [...this.lsdb.values()]) if (l.type === 3 && l.adv === this.routerId() && !l.maxAge && !want.has(`${l.area}|${l.id}`)) {
       this.log("ospf-lsa", `${this._name(l)}: no longer reachable outside area ${l.area}: flushing it`);
-      l.maxAge = true; if (l.tRefresh) l.tRefresh = this._off(l.tRefresh); this._flood(l, null); this._spf();
-    }
-  }
-  /** As an ASBR, one type 5 LSA per redistributed prefix: connected subnets of interfaces that do not run OSPF, and static routes
-   *  (other than the default route). The forwarding address is always 0.0.0.0: traffic comes to this router. */
-  /** Is a static route's next hop on a connected subnet whose cable is up? (A static route through a dead interface leaves the table.) */
-  _viaUp(via) { return Object.entries(this.node.ifaces).some(([n, i]) => i.ip && this._linkUp(n) && inSubnet(via, i.net, i.mask)); }
-  _originateExternals() {
-    const want = new Map();
-    for (const r of this.redist) {
-      if (r.source === "connected") {
-        for (const [name, i] of Object.entries(this.node.ifaces)) if (i.ip && this._linkUp(name) && !this.enabled(name)) {
-          const id = intToIp(i.net); if (!want.has(id)) want.set(id, {mask: intToIp(i.mask), eType: r.eType, metric: r.metric, fwd: "0.0.0.0", tag: 0});
-        }
-      } else if (r.source === "static") {
-        for (const x of this.node.routes) if (x.prefix > 0 && this._viaUp(x.via)) { const id = intToIp(x.net); if (!want.has(id)) want.set(id, {mask: intToIp(x.mask), eType: r.eType, metric: r.metric, fwd: "0.0.0.0", tag: 0}); }
-      }
-    }
-    this.externals = want;
-    for (const [id, body] of want) this._originate(5, id, body, false, null);
-    for (const l of [...this.lsdb.values()]) if (l.type === 5 && l.adv === this.routerId() && !l.maxAge && !want.has(l.id)) {
-      this.log("ospf-lsa", `${this._name(l)}: no longer redistributed: flushing it`);
       l.maxAge = true; if (l.tRefresh) l.tRefresh = this._off(l.tRefresh); this._flood(l, null); this._spf();
     }
   }
@@ -569,7 +533,7 @@ export class Ospf {
       if (transit) links.push({type: "transit", id: i.dr, data: i.ip, metric: i.cost});
       else links.push({type: "stub", id: intToIp(i.net), data: i.mask, metric: i.cost});
     }
-    return {abr: this.isAbr() && this._backboneActive(), asbr: this.redist.length > 0, links};
+    return {abr: this.isAbr() && this._backboneActive(), links};
   }
   /** Body of the network LSA we'd originate for interface address `id`, or null (not the DR, or alone). */
   _networkBody(id) {
@@ -592,7 +556,7 @@ export class Ospf {
   }
   _emit(type, id, body, seq, area) {
     const l = this._install({type, area, id, adv: this.routerId(), seq, age: 0, body}, true);
-    this.log("ospf-lsa", `originate ${this._name(l)} in area ${area}, seq ${seq.toString(16)}: ${type === 1 ? l.body.links.map(x => `${x.type} ${x.id}${x.type === "stub" ? "/" + x.data : ""} cost ${x.metric}`).join(", ") : type === 2 ? "attached " + l.body.attached.join(", ") : `${l.body.mask} metric ${l.body.metric}${l.type === 5 ? " E" + l.body.eType : ""}`}`);
+    this.log("ospf-lsa", `originate ${this._name(l)} in area ${area}, seq ${seq.toString(16)}: ${type === 1 ? l.body.links.map(x => `${x.type} ${x.id}${x.type === "stub" ? "/" + x.data : ""} cost ${x.metric}`).join(", ") : type === 2 ? "attached " + l.body.attached.join(", ") : `${l.body.mask} metric ${l.body.metric}`}`);
     this._flood(l, null);
   }
   _reoriginate(l, force, seq) {
@@ -662,54 +626,37 @@ export class Ospf {
   }
   _runSpf() {
     const me = this.routerId(), table = new Map(), perArea = new Map();
-    const RANK = {intra: 0, inter: 1, e1: 2, e2: 3};
-    const order = r => [RANK[r.kind], r.cost, r.kind === "e2" ? r.dist : 0];       // lower is better: path type, cost, (E2) distance to the ASBR
-    const cmpR = (a, b) => { const x = order(a), y = order(b); for (let k = 0; k < 3; k++) if (x[k] !== y[k]) return x[k] - y[k]; return 0; };
-    const same = (cur, r) => { for (const h of r.hops) if (!cur.hops.some(x => x.iface === h.iface && x.gw === h.gw)) cur.hops.push(h); cur.direct = cur.direct || r.direct; };
+    const better = (cur, cost, kind) => !cur || (cur.kind === "inter" && kind === "intra") || (cur.kind === kind && cost < cur.cost);
     const merge = (k, r) => {
-      const cur = table.get(k), c = cur ? cmpR(r, cur) : -1;
-      if (c < 0) table.set(k, {...r, hops: [...r.hops]}); else if (c === 0) same(cur, r);
+      const cur = table.get(k);
+      if (better(cur, r.cost, r.kind)) table.set(k, {...r, hops: [...r.hops]});
+      else if (cur.kind === r.kind && cur.cost === r.cost) { for (const h of r.hops) if (!cur.hops.some(x => x.iface === h.iface && x.gw === h.gw)) cur.hops.push(h); cur.direct = cur.direct || r.direct; }
     };
     for (const a of this.areas()) { const r = this._spfArea(a); perArea.set(a, r); for (const [k, v] of r.routes) merge(k, v); }
-    const abr = this.isAbr();
-    // paths to ASBRs (16.3): router LSAs with the E bit, then the type 4 summaries of the backbone (ABR) or of our one area
-    const asbrs = new Map(), putAsbr = (rid, r) => { const cur = asbrs.get(rid), c = cur ? cmpR(r, cur) : -1; if (c < 0) asbrs.set(rid, {...r, hops: [...r.hops]}); else if (c === 0) same(cur, r); };
-    for (const [a, pa] of perArea) for (const [rid, v] of pa.routers) { const l = this.lsdb.get(key(a, 1, rid, rid)); if (rid !== me && l && l.body.asbr && v.hops.length) putAsbr(rid, {kind: "intra", area: a, cost: v.dist, hops: v.hops, direct: false}); }
     // inter-area routes (16.2): from the summary LSAs of the backbone only, when we are an ABR
+    const abr = this.isAbr();
     for (const l of this.lsdb.values()) {
-      if ((l.type !== 3 && l.type !== 4) || this._isMaxAge(l) || l.adv === me || !perArea.has(l.area) || (abr && l.area !== AREA0)) continue;
+      if (l.type !== 3 || this._isMaxAge(l) || l.adv === me || !perArea.has(l.area) || (abr && l.area !== AREA0)) continue;
       const via = perArea.get(l.area).routers.get(l.adv); if (!via || !via.hops.length) continue;
       if (!this.lsdb.get(key(l.area, 1, l.adv, l.adv))?.body.abr) continue;    // only an ABR (B bit) may summarize
       if (l.body.metric >= LS_INFINITY) continue;
       const cost = via.dist + l.body.metric;
-      if (l.type === 4) { if (l.id !== me) putAsbr(l.id, {kind: "inter", area: l.area, cost, hops: via.hops, direct: false}); continue; }
       const net = intToIp(ipToInt(l.id) & ipToInt(l.body.mask));
       merge(`${net}/${l.body.mask}`, {net, mask: l.body.mask, cost, hops: via.hops, direct: false, kind: "inter", area: l.area});
     }
-    this.asbrs = asbrs;
-    // AS external routes (16.4): E1 costs the path to the ASBR plus the external metric, E2 only the external metric (the path to the ASBR breaks ties)
-    for (const l of this.lsdb.values()) {
-      if (l.type !== 5 || this._isMaxAge(l) || l.adv === me || l.body.metric >= LS_INFINITY) continue;
-      const a = asbrs.get(l.adv); if (!a) continue;
-      const net = intToIp(ipToInt(l.id) & ipToInt(l.body.mask)), e1 = l.body.eType === 1;
-      merge(`${net}/${l.body.mask}`, {net, mask: l.body.mask, cost: e1 ? a.cost + l.body.metric : l.body.metric, dist: a.cost, hops: a.hops, direct: false, kind: e1 ? "e1" : "e2", area: a.area});
-    }
     const all = [...table.values()];
-    // a static or connected route to the very same prefix has the better administrative distance: OSPF's route is not installed
-    const local = new Set([...this.node.routes.filter(x => this._viaUp(x.via)).map(x => `${x.net}/${x.prefix}`), ...Object.entries(this.node.ifaces).filter(([n, i]) => i.ip && this._linkUp(n)).map(([, i]) => `${i.net}/${i.prefix}`)]);
-    const maskLen = m => [...m.split(".")].reduce((n, o) => n + (+o).toString(2).replace(/0/g, "").length, 0);
-    const out = all.filter(r => !r.direct && r.hops.length && !local.has(`${ipToInt(r.net)}/${maskLen(r.mask)}`)).map(r => {
+    const out = all.filter(r => !r.direct && r.hops.length).map(r => {
       r.hops.sort((a, b) => cmpIp(a.gw || "0.0.0.0", b.gw || "0.0.0.0") || a.iface.localeCompare(b.iface));
       const len = [...r.mask.split(".")].reduce((n, o) => n + (+o).toString(2).replace(/0/g, "").length, 0);
-      return {cidr: `${r.net}/${len}`, net: ipToInt(r.net), len, mask: ipToInt(r.mask), cost: r.cost, hops: r.hops, kind: r.kind, area: r.area, dist: r.dist};
+      return {cidr: `${r.net}/${len}`, net: ipToInt(r.net), len, mask: ipToInt(r.mask), cost: r.cost, hops: r.hops, kind: r.kind, area: r.area};
     }).sort((a, b) => a.net - b.net || a.len - b.len);
-    const sig = t => JSON.stringify(t.map(r => [r.net, r.mask, r.cost, r.dist, r.kind, r.area, r.direct, r.hops]));
+    const sig = t => JSON.stringify(t.map(r => [r.net, r.mask, r.cost, r.kind, r.area, r.direct, r.hops]));
     const tableChanged = sig(this.table || []) !== sig(all);
     this.table = all;
     const before = JSON.stringify(this.routes.map(r => [r.cidr, r.cost, r.hops]));
     this.routes = out;
-    if (before !== JSON.stringify(out.map(r => [r.cidr, r.cost, r.hops]))) this.log("ospf-spf", `SPF: ${out.length} route(s): ${out.map(r => `${r.cidr} ${{inter: "IA ", e1: "E1 ", e2: "E2 "}[r.kind] || ""}via ${r.hops.map(h => h.gw).join("/")} cost ${r.cost}`).join(", ") || "none"}`);
-    if (tableChanged && (this.isAbr() || this.summaries?.size || this.asbrSummaries.size)) this._originateSummaries();
+    if (before !== JSON.stringify(out.map(r => [r.cidr, r.cost, r.hops]))) this.log("ospf-spf", `SPF: ${out.length} route(s): ${out.map(r => `${r.cidr} ${r.kind === "inter" ? "IA " : ""}via ${r.hops.map(h => h.gw).join("/")} cost ${r.cost}`).join(", ") || "none"}`);
+    if (tableChanged && (this.isAbr() || this.summaries?.size)) this._originateSummaries();
   }
 
   // ----- views -----
@@ -726,15 +673,15 @@ export class Ospf {
   interfaces() {
     return [...this.ifs.values()].sort((a, b) => a.name.localeCompare(b.name)).map(i => ({iface: i.name, area: i.area, state: i.state, type: i.type, cost: i.cost, priority: i.priority, dr: i.dr, bdr: i.bdr, passive: i.passive}));
   }
-  /** [{network, cost, via: [{gw, iface}], type: "intra" | "inter" | "e1" | "e2"}]; an E2 route's cost is its external metric */
+  /** [{network, cost, via: [{gw, iface}], type: "intra" | "inter"}] */
   describe() {
     return this.routes.map(r => ({network: r.cidr, cost: r.cost, type: r.kind, via: r.hops.map(h => ({gw: h.gw, iface: h.iface}))}));
   }
   /** The link state database: [{type, area, id, adv, seq, links | attached | mask+metric}] sorted by area, type, ID, advertising router. */
   database() {
-    const T = {1: "router", 2: "network", 3: "summary", 4: "asbr-summary", 5: "external"};
+    const T = {1: "router", 2: "network", 3: "summary", 5: "external"};
     return [...this.lsdb.values()].filter(l => !this._isMaxAge(l)).sort((a, b) => cmpIp(a.area || AREA0, b.area || AREA0) || a.type - b.type || cmpIp(a.id, b.id) || cmpIp(a.adv, b.adv))
       .map(l => ({type: T[l.type], area: l.area, id: l.id, adv: l.adv, seq: l.seq,
-        ...(l.type === 1 ? {abr: !!l.body.abr, asbr: !!l.body.asbr, links: l.body.links.map(x => ({...x}))} : l.type === 2 ? {mask: l.body.mask, attached: [...l.body.attached]} : l.type === 5 ? {mask: l.body.mask, metric: l.body.metric, eType: l.body.eType, fwd: l.body.fwd} : {mask: l.body.mask, metric: l.body.metric})}));
+        ...(l.type === 1 ? {abr: !!l.body.abr, links: l.body.links.map(x => ({...x}))} : l.type === 2 ? {mask: l.body.mask, attached: [...l.body.attached]} : {mask: l.body.mask, metric: l.body.metric})}));
   }
 }

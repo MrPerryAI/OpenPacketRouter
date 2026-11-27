@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas", "ospf-redist"]
+SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
@@ -94,8 +94,6 @@ class OspfNet(l3.KernelNet):
                      f" ip ospf priority {c['priority']}", f" ip ospf retransmit-interval {c['retransmit']}", "!"]
         conf += ["router ospf"]
         if o.get("routerId"): conf += [f" ospf router-id {o['routerId']}"]
-        for r in o.get("redistribute", []):   # routes added with `ip route` are "kernel" routes to zebra, which is what the engine calls static
-            conf += [f" redistribute {'kernel' if r['source'] == 'static' else r['source']} metric {r.get('metric', 20)} metric-type {r.get('metricType', 2)}"]
         conf += [f" passive-interface {x}" for x in o.get("passive", [])]
         for x in o["networks"]:
             area = "0.0.0.0"
@@ -128,14 +126,9 @@ class OspfNet(l3.KernelNet):
         raw = os.environ.get("OSPF_RAW")   # a file to append the raw vtysh JSON to (for developing the parsers)
         nb = json.loads(self.vty(name, "show ip ospf neighbor json") or "{}")
         ifs = json.loads(self.vty(name, "show ip ospf interface json") or "{}")
-        db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary", "asbr-summary", "external")}
+        db = {k: json.loads(self.vty(name, f"show ip ospf database {k} json") or "{}") for k in ("router", "network", "summary")}
         if raw: print(f"=== {name} neighbor", json.dumps(nb, indent=1), f"=== {name} interface", json.dumps(ifs, indent=1), f"=== {name} database", json.dumps(db, indent=1), file=open(raw, "a"))
-        dbg = {"kernel": [f'{r.get("dst")} via {r.get("gateway")} dev {r.get("dev")} proto {r.get("protocol")}' for r in json.loads(l3.nsx(self.ns[name], "ip", "-j", "route", "show"))],
-               "zebra": {pfx: [f'{r.get("protocol")}{" selected" if r.get("selected") else ""} {[(n.get("ip"), n.get("interfaceName"), "active" if n.get("active") else "inactive") for n in r.get("nexthops", [])]}' for r in rs]
-                         for pfx, rs in json.loads(self.vty(name, "show ip route json") or "{}").items()}}   # not compared: what zebra and the kernel hold, for reading a mismatch
-        ext = db["external"].get("asExternalLinkStates", []); ext = ext.get("lsas", []) if isinstance(ext, dict) else ext
-        dbg["external"] = [[x.get("linkStateId"), x.get("advertisingRouter"), x.get("lsaAge"), x.get("lsaSeqNumber"), x.get("metric")] for x in ext]   # age and sequence number: is it a leftover?
-        return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db), "debug": dbg}
+        return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db)}
 
     def routes(self, name):
         """The routes ospfd got into the kernel (`ip route`: next hops) with their OSPF cost (zebra's table: the kernel metric is not the cost)."""
@@ -217,20 +210,11 @@ def parse_database(js):
         for l in lsas or []:
             if l["lsaAge"] >= 3600: continue
             out.append({"type": "summary", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric", l.get("tos0Metric"))})
-    for area, lsas in (js["asbr-summary"].get("asbrSummaryLinkStates", {}).get("areas", {}) or {}).items():
-        for l in lsas or []:
-            if l["lsaAge"] >= 3600: continue
-            out.append({"type": "asbr-summary", "area": area, "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric", l.get("tos0Metric"))})
-    ext = js["external"].get("asExternalLinkStates", [])
-    for l in (ext.get("lsas", []) if isinstance(ext, dict) else ext):
-        if l["lsaAge"] >= 3600: continue
-        mt = str(l.get("metricType", "")); et = 1 if mt.startswith("E1") else 2
-        out.append({"type": "external", "area": "-", "id": l["linkStateId"], "adv": l["advertisingRouter"], "maskLen": ml(l["networkMask"]), "metric": l.get("metric"), "eType": et, "fwd": l.get("forwardAddress", "0.0.0.0")})
     return sorted(out, key=db_key)
 
 
-TYPE_ORDER = {"router": 0, "network": 1, "summary": 2, "asbr-summary": 3, "external": 4}
-def db_key(l): return (ip2int(l["area"]) if "." in l["area"] else -1, TYPE_ORDER[l["type"]], ip2int(l["id"]), ip2int(l["adv"]))
+TYPE_ORDER = {"router": 0, "network": 1, "summary": 2, "external": 3}
+def db_key(l): return (ip2int(l["area"]), TYPE_ORDER[l["type"]], ip2int(l["id"]), ip2int(l["adv"]))
 def ml(v): return v if isinstance(v, int) else mask_len(v)
 def mask_len(m): return sum(bin(int(o)).count("1") for o in m.split("."))
 
@@ -241,7 +225,6 @@ def engine_database(db):
         e = {"type": l["type"], "area": l["area"], "id": l["id"], "adv": l["adv"]}
         if l["type"] == "router": e["links"] = l["links"]
         elif l["type"] == "network": e.update(maskLen=mask_len(l["mask"]), attached=sorted(l["attached"], key=ip2int))
-        elif l["type"] == "external": e.update(area="-", maskLen=mask_len(l["mask"]), metric=l["metric"], eType=l["eType"], fwd=l["fwd"])
         else: e.update(maskLen=mask_len(l["mask"]), metric=l["metric"])
         out.append(e)
     return sorted(out, key=db_key)
@@ -379,9 +362,7 @@ def compare(name, eng, kr):
                 if part == "database":   # only the LSAs that differ (the annotation GitHub keeps is short)
                     jd = lambda l: json.dumps(l, sort_keys=True)
                     d[part] = {r: {"engine only": sorted(set(map(jd, ec[r][part])) - set(map(jd, kc[r][part]))), "linux only": sorted(set(map(jd, kc[r][part])) - set(map(jd, ec[r][part])))} for r in ec if ec[r][part] != kc[r][part]}
-                else:
-                    jd = lambda l: json.dumps(l, sort_keys=True)   # only the entries that differ
-                    d[part] = {r: {"engine only": [x for x in ec[r][part] if jd(x) not in set(map(jd, kc[r][part]))], "linux only": [x for x in kc[r][part] if jd(x) not in set(map(jd, ec[r][part]))]} for r in ec if ec[r][part] != kc[r][part]}
+                else: d[part] = {r: {"engine": ec[r][part], "linux": kc[r][part]} for r in ec if ec[r][part] != kc[r][part]}
             if not checks.get("last hello on every cable", True):
                 el, kl = last_hellos(eupto), last_hellos(kupto)
                 d["last hello"] = {c: {"engine": el.get(c), "linux": kl.get(c)} for c in sorted(set(el) | set(kl)) if el.get(c) != kl.get(c)}
@@ -390,10 +371,6 @@ def compare(name, eng, kr):
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:40]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
-            if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
-                pf = lambda r: {x["network"] for x in ec[r]["routes"] + kc[r]["routes"]} | {f'{x["id"]}/{x["maskLen"]}' for x in ec[r]["database"] + kc[r]["database"] if "maskLen" in x}
-                d["linux debug (zebra RIB and kernel routes)"] = dict(sorted({r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": [x for x in v["debug"].get("external", []) if x[0] + "/24" in pf(r)]}
-                                                                   for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}.items(), key=lambda kv: ec[kv[0]]["routes"] == kc[kv[0]]["routes"])[:2])   # the routers whose routes differ first
             detail[f'{name}: {es["snapshot"]}'] = d
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
@@ -452,7 +429,7 @@ def main():
             if chunk: part += 1; l3.gh_note("notice", f"OSPF results {part}", "\n".join(chunk))
             chunk = []
         if row is not None: chunk.append(row)
-    if detail: print(json.dumps(detail, indent=1)[:60000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
+    if detail: print(json.dumps(detail, indent=1)[:8000]); l3.gh_note("error", "OSPF engine vs ospfd mismatch", json.dumps(detail))
     return 0 if not detail else 1
 
 
