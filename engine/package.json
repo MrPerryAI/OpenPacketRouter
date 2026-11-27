@@ -17,5 +17,10 @@
     "src",
     "spec.schema.json",
     "README.md"
-  ]
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  }
 }
