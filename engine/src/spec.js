@@ -24,7 +24,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor", "dhcpSnooping"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "ripng", "acl", "nat", "lldp", "vrrp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
+  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "bgp", "ripng", "acl", "nat", "lldp", "vrrp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],
 };
@@ -112,6 +112,30 @@ function checkOspf(n, p, err) {
       if (c.hello !== undefined && c.dead !== undefined && c.dead <= c.hello) err(`${p}.ospf.interfaces.${ifn}.dead`, `node "${n.name}": ${ifn}: dead (${c.dead}) must be longer than hello (${c.hello})`);
     }
   }
+}
+
+const posInt = v => Number.isInteger(v) && v >= 1;
+function checkBgp(n, p, err) {
+  const b = n.bgp;
+  if (!isObj(b)) return err(`${p}.bgp`, `node "${n.name}": bgp must be an object like {"asn": 65001, "neighbors": [{"ip": "10.0.0.2", "remoteAs": 65002}]}`);
+  for (const k of Object.keys(b)) if (!["asn", "routerId", "networks", "timers", "neighbors"].includes(k)) err(`${p}.bgp.${k}`, `node "${n.name}": unknown bgp key "${k}" (asn, routerId, networks, timers, neighbors)`);
+  if (!Number.isInteger(b.asn) || b.asn < 1 || b.asn > 65535) err(`${p}.bgp.asn`, `node "${n.name}": bgp.asn must be a 16-bit AS number (1-65535)`);
+  if (b.routerId !== undefined && !isIp(b.routerId)) err(`${p}.bgp.routerId`, `node "${n.name}": routerId "${b.routerId}" is not like 1.1.1.1`);
+  if (b.networks !== undefined && (!Array.isArray(b.networks) || !b.networks.every(isCidr))) err(`${p}.bgp.networks`, `node "${n.name}": bgp.networks lists prefixes like 10.1.0.0/24`);
+  const timers = (t, q) => { if (!isObj(t)) return err(q, `node "${n.name}": timers is an object {keepalive, hold, connect}`);
+    for (const [k, v] of Object.entries(t)) if (!["keepalive", "hold", "connect"].includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown timer "${k}" (keepalive, hold, connect)`); else if (!posInt(v)) err(`${q}.${k}`, `node "${n.name}": timer ${k} must be a whole number of seconds`);
+    if (t.hold !== undefined && t.hold < 3) err(`${q}.hold`, `node "${n.name}": hold must be 0 or at least 3 seconds`); };
+  if (b.timers !== undefined) timers(b.timers, `${p}.bgp.timers`);
+  if (!Array.isArray(b.neighbors) || !b.neighbors.length) return err(`${p}.bgp.neighbors`, `node "${n.name}": bgp needs neighbors: [{"ip": "10.0.0.2", "remoteAs": 65002}]`);
+  b.neighbors.forEach((x, j) => {
+    const q = `${p}.bgp.neighbors[${j}]`;
+    if (!isObj(x)) return err(q, `node "${n.name}": a neighbor is an object {ip, remoteAs}`);
+    for (const k of Object.keys(x)) if (!["ip", "remoteAs", "localPref", "nextHopSelf", "timers"].includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown neighbor key "${k}" (ip, remoteAs, localPref, nextHopSelf, timers)`);
+    if (!isIp(x.ip)) err(`${q}.ip`, `node "${n.name}": neighbor ip "${x.ip}" is not like 10.0.0.2`);
+    if (!Number.isInteger(x.remoteAs) || x.remoteAs < 1 || x.remoteAs > 65535) err(`${q}.remoteAs`, `node "${n.name}": remoteAs must be a 16-bit AS number`);
+    if (x.localPref !== undefined && !Number.isInteger(x.localPref)) err(`${q}.localPref`, `node "${n.name}": localPref must be a whole number`);
+    if (x.timers !== undefined) timers(x.timers, `${q}.timers`);
+  });
 }
 
 const ACL_RULE_KEYS = ["action", "proto", "src", "dst", "sport", "dport", "icmpType", "established"];
@@ -400,6 +424,7 @@ export function validateSpec(spec) {
     }
     checkIpv6(n, p, err);
     if (n.ospf !== undefined) checkOspf(n, p, err);
+    if (n.bgp !== undefined) checkBgp(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
     if (n.ripng !== undefined) checkRipng(n, p, err);
     if (n.lldp !== undefined) checkLldp(n, p, err);

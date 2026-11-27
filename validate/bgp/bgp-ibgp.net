@@ -1,0 +1,126 @@
+{
+ "version": 1,
+ "name": "iBGP behind an eBGP edge",
+ "about": "AS 65001 has R1 and R2 (an iBGP session); R3 is AS 65002 behind R2. R2 sets next-hop-self towards R1 (R1 has no route to the 10.23.0.0/24 cable). The iBGP cable R1-R2 is cut and restored: an iBGP session only ends when its hold timer runs out.",
+ "nodes": [
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.1/24",
+    "eth1": "10.1.0.1/24"
+   },
+   "bgp": {
+    "asn": 65001,
+    "routerId": "1.1.1.1",
+    "networks": [
+     "10.1.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.2",
+      "remoteAs": 65001
+     }
+    ]
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.2/24",
+    "eth1": "10.23.0.2/24"
+   },
+   "bgp": {
+    "asn": 65001,
+    "routerId": "2.2.2.2",
+    "networks": [],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.1",
+      "remoteAs": 65001,
+      "nextHopSelf": true
+     },
+     {
+      "ip": "10.23.0.3",
+      "remoteAs": 65002
+     }
+    ]
+   }
+  },
+  {
+   "name": "R3",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.23.0.3/24",
+    "eth1": "10.3.0.1/24"
+   },
+   "bgp": {
+    "asn": 65002,
+    "routerId": "3.3.3.3",
+    "networks": [
+     "10.3.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.23.0.2",
+      "remoteAs": 65001
+     }
+    ]
+   }
+  },
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.1.0.10/24"
+   },
+   "gw": "10.1.0.1"
+  },
+  {
+   "name": "H3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.3.0.10/24"
+   },
+   "gw": "10.3.0.1"
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "R2:eth0",
+   1
+  ],
+  [
+   "R2:eth1",
+   "R3:eth0",
+   1
+  ],
+  [
+   "H1:eth0",
+   "R1:eth1",
+   1
+  ],
+  [
+   "H3:eth0",
+   "R3:eth1",
+   1
+  ]
+ ]
+}
