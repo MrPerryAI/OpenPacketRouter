@@ -34,6 +34,6 @@ CASES = [("ring", "tcn.steps")]
 
 if __name__ == "__main__":
     A.WATCH = []
-    A.ALIGN = 0.5; os.environ["OPR_JIFFY_HOLDS"] = "0.5"   # kernel steps on the engine's schedule, half a second after wall-clock seconds (round_jiffies; see run_kernel_aging.py)
+    A.ALIGN = 0.5; os.environ["OPR_JIFFY_HOLDS"] = "0.5"   # kernel steps on the engine's schedule, half a second after a jiffies-second boundary (round_jiffies; see jiffy_boundary in run_kernel_aging.py)
     if sys.argv[1:] == ["--inner"]: A.inner(HERE, CASES)
     else: sys.exit(A.main(HERE, CASES, __file__))
