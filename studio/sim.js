@@ -24,6 +24,7 @@ export function frameKind(f) {
   if (f.type === "lldp") return "lldp";
   const p = f.ip;
   if (p.proto === "ospf") return "ospf";
+  if (p.proto === "vrrp" || p.vrrp) return "vrrp";
   if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; if (ports.includes(520)) return "rip"; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : "udp"; }
   return p.proto;
 }
@@ -43,6 +44,7 @@ export function describeFrame(f) {
   }
   const p = f.ip;
   if (p.proto === "ospf") return `OSPF ${p.ospf.type} from ${p.ospf.routerId}: ${p.src} → ${p.dst}${p.ospf.neighbors ? `, ${p.ospf.neighbors.length} neighbor(s) listed` : ""}${tag}`;
+  if (frameKind(f) === "vrrp") return `VRRP advert vrid ${p.vrrp ? p.vrrp.vrid : "?"} priority ${p.vrrp ? p.vrrp.priority : "?"}: ${p.src} → ${p.dst}${tag}`;
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
   const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${p.tcp.win !== undefined ? `, window ${p.tcp.win} B${p.tcp.win === 0 ? " (full: the sender must wait)" : ""}` : ""}${http}`
@@ -93,6 +95,7 @@ export function snapshotDevices(net) {
       if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
       const sv = n.services || {};
       if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
+      if (n.vrrp) out[n.name].vrrp = n.vrrp.describe();
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }

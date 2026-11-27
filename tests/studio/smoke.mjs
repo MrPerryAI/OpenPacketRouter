@@ -319,6 +319,19 @@ try {
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
 
+  const rv = await page.evaluate(([sp, ac]) => { const ok = window.studio.load(sp, ac, "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; },
+    [vfile("vrrp/vrrp-preempt.net"), [{do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}, {do: "link", end: "R1:eth0", up: false}, {do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}]]);
+  check(rv.ok && !/spec /.test(rv.errors), "VRRP spec loads", rv.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("R1"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /VRRP advert vrid/.test(st.desc))), "VRRP adverts are named in playback");
+  check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "vrrp")), "VRRP frames get a filter checkbox");
+  check(await page.$eval("#legend", l => /VRRP/.test(l.textContent)), "the legend lists VRRP");
+  const badWait = await page.$$eval("#actions li", l => l.filter(x => /wait|cable|link/i.test(x.textContent) && x.querySelector(".bad")).length);
+  check(badWait === 0, "wait and cable actions are not marked as failures", String(badWait));
+  await page.evaluate(() => { window.studio.select("R2"); });
+  const vp = await page.textContent("#device");
+  check(/VRRP/.test(vp) && /MASTER/.test(vp), "after the master is cut, the backup router shows MASTER; a VRRP router's panel shows its group state", vp.slice(0, 100));
+
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
   await page.evaluate(() => window.studio.select("R2"));
