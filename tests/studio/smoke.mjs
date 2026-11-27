@@ -358,6 +358,14 @@ try {
   check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "ripng")), "RIPng frames get a filter checkbox");
   check(/RIPng routes/.test(await page.textContent("#device")), "RIPng routes panel on a RIPng router");
 
+  const rbg = await page.evaluate(sp => { const ok = window.studio.load(sp, [{do: "wait", seconds: 20}], "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; }, vfile("bgp/bgp-chain.net"));
+  check(rbg.ok && !/spec /.test(rbg.errors), "BGP spec loads", rbg.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("R2"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /BGP UPDATE announces/.test(st.desc))), "BGP UPDATEs are named in playback");
+  check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "bgp")), "BGP messages get a filter checkbox");
+  const bp = await page.textContent("#device");
+  check(/BGP neighbors/.test(bp) && /Established/i.test(bp) && /BGP table/.test(bp), "BGP panel shows established neighbors and the table", bp.slice(0, 80));
+
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
   await page.evaluate(() => window.studio.select("R2"));
