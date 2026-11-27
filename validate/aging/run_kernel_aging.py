@@ -11,7 +11,7 @@ entries from a garbage-collection timer, not at the exact instant. The whole run
 a Linux host re-probes an ARP entry 5 s after first using it (a unicast ARP pair the engine does not model), so the
 harness pins delay_first_probe_time high on every interface, like the other pinned settings.
 """
-import json, os, shutil, subprocess, sys, tempfile, time
+import json, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -46,6 +46,32 @@ def table(k, sw, owner, fresh=False):
     return out
 
 
+JIFFY = {}   # how the start was aligned: method, HZ, phase (seconds after a jiffies-second boundary on CLOCK_MONOTONIC at the start), cpu skew
+
+
+def jiffy_boundary():
+    """Fraction of a CLOCK_MONOTONIC second at which jiffies cross a multiple of HZ (where round_jiffies() lands), and how it was found.
+    round_jiffies() rounds the absolute jiffies counter to a multiple of HZ. That counter is not wall-clock seconds: it starts at
+    INITIAL_JIFFIES = 2^32 - 300*HZ at boot, so its second boundaries sit (2^32 mod HZ)/HZ before a monotonic second boundary (and
+    each CPU's timer is skewed by 3 jiffies per CPU, small against the half second kept as margin). Measured from /proc/timer_list
+    (jiffies and 'now at' read together) when it can be read; otherwise from that formula with CONFIG_HZ."""
+    try:
+        t = open("/proc/timer_list").read()
+        jif = int(re.search(r"^jiffies: (\d+)", t, re.M).group(1)); now = int(re.search(r"^now at (\d+) nsecs", t, re.M).group(1))
+        j2 = jif
+        time.sleep(0.2); j3 = int(re.search(r"^jiffies: (\d+)", open("/proc/timer_list").read(), re.M).group(1))
+        hz = min((100, 250, 300, 1000), key=lambda h: abs((j3 - j2) / 0.2 - h))
+        since = (jif % hz) / hz   # seconds since the last boundary at 'now'
+        return ((now / 1e9 - since) % 1.0), {"method": "timer_list", "hz": hz}
+    except (OSError, AttributeError, ValueError): pass
+    hz = None
+    for f in (f"/boot/config-{os.uname().release}", "/proc/config"):
+        try: hz = int(re.search(r"^CONFIG_HZ=(\d+)", open(f).read(), re.M).group(1)); break
+        except (OSError, AttributeError, ValueError): pass
+    if hz: return ((-(2 ** 32 % hz) / hz) % 1.0), {"method": "formula", "hz": hz}
+    return 0.0, {"method": "wall clock (jiffies phase unknown)", "hz": None}
+
+
 TIMELINES = {}   # case name -> {cable: [[seconds, kind]]}, printed with a mismatch
 
 
@@ -65,8 +91,11 @@ def kernel(name, steps_name, here=HERE):
             # The kernel arms the spanning-tree hold timer with round_jiffies(), which rounds to whole wall-clock seconds, so
             # a pending BPDU leaves on a second boundary. Start the bridges ALIGN seconds after one and keep every step on
             # the engine's schedule from there (engine/src/stp.js _holdTime models the same rounding with jiffyHolds = ALIGN).
-            time.sleep(1 - time.time() % 1)
-            t_base = int(time.time()) + ALIGN
+            frac, info = jiffy_boundary(); off = time.time() - time.monotonic()
+            m = time.monotonic(); m_base = int(m) + frac + ALIGN
+            while m_base < m + 1: m_base += 1
+            t_base = m_base + off
+            JIFFY.update(info, phase_s=round(ALIGN, 3), boundary_at=round(frac, 3))
             time.sleep(max(t_base - time.time(), 0))
         t_zero = time.time()
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
@@ -137,7 +166,7 @@ def kernel(name, steps_name, here=HERE):
 def inner(here=HERE, cases=CASES):
     sh("mount", "-t", "tmpfs", "none", "/run")
     res = {n: kernel(n, st, here) for n, st in cases}
-    print(json.dumps({**res, "timelines": TIMELINES}))
+    print(json.dumps({**res, "timelines": TIMELINES, "jiffy": JIFFY}))
 
 
 def main(here=HERE, cases=CASES, script=__file__):
@@ -146,7 +175,8 @@ def main(here=HERE, cases=CASES, script=__file__):
     proc = subprocess.run(["unshare", "-n", "-m", sys.executable, script, "--inner"], capture_output=True, text=True, timeout=900)
     if proc.returncode:
         print("kernel side failed:\n" + proc.stderr[-3000:]); l3.gh_note("error", "Aging kernel side failed", proc.stderr[-6000:]); return 1
-    kern = json.loads(proc.stdout); timelines = kern.pop("timelines", {})
+    kern = json.loads(proc.stdout); timelines = kern.pop("timelines", {}); jiffy = kern.pop("jiffy", {})
+    if jiffy: print("jiffies alignment:", json.dumps(jiffy)); l3.gh_note("notice", "Kernel jiffies alignment", json.dumps(jiffy))
     md = ["| Network | Step | Result | Match |", "|---|---|---|---|"]; ok_all = True; detail = {}
     for name, steps_name in cases:
         tlf = tempfile.mktemp(suffix=".json"); os.environ["OPR_TIMELINE_FILE"] = tlf
