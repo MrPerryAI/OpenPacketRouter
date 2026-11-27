@@ -5,6 +5,7 @@ import {autoLayout} from "./layout.js";
 import * as ed from "./editor.js";
 import {parseData, dumpYaml} from "../engine/src/yaml.js";
 import {EXAMPLES} from "./examples.js";
+import {renderGuide} from "./guide.js";
 import {createSession} from "../cli/src/index.js";
 import {engineBackend} from "../cli/src/backends/engine.js";
 
@@ -42,6 +43,25 @@ async function loadExample(ex) {
   const spec = await fetchJson(ex.spec);
   const actions = ex.actions ? await fetchJson(ex.actions).catch(() => []) : [];
   load(spec, actions, ex.id);
+  showGuide(ex, spec);
+}
+
+/** The lab's student guide (README.md next to spec.json) in the side panel; hidden when there is none. */
+async function showGuide(ex, spec) {
+  const box = $("#guideBox"); box.hidden = true; $("#guideBody").innerHTML = "";
+  try {
+    const r = await fetch(new URL("README.md", new URL(ex.spec, location.href))); if (!r.ok) return;
+    const names = spec.nodes.map(n => n.name), first = (spec.nodes.find(n => n.kind === "router") || spec.nodes.find(n => n.kind !== "switch") || {}).name || null;
+    $("#guideBody").innerHTML = renderGuide(await r.text(), names, first); box.hidden = false;
+    for (const b of $("#guideBody").querySelectorAll(".run-cmd")) b.addEventListener("click", () => runInConsole(b.dataset.device, b.dataset.cmd));
+  } catch { /* no guide: nothing to show */ }
+}
+
+/** Type a guide command into a device's console tab and press Enter. */
+export function runInConsole(device, cmd) {
+  if (!S.spec.nodes.some(n => n.name === device)) return false;
+  openConsole(device); const inp = $("#consoleInput"); inp.value = cmd;
+  consoleKey({key: "Enter", target: inp, preventDefault() {}}); return true;
 }
 
 /** Show a spec. Problems with the spec or the actions are listed instead of thrown. */
@@ -693,5 +713,5 @@ function consoleKey(e) {
   }
 }
 
-window.studio = {S, dumpYaml, edit, addDevice, setTool, restoreAutosave, specJson, closeTab, load, rerun, goto, play, stop, select, toggleCut, openConsole};
+window.studio = {S, dumpYaml, edit, addDevice, setTool, restoreAutosave, specJson, closeTab, load, rerun, goto, play, stop, select, toggleCut, openConsole, runInConsole};
 init().catch(e => { showErrors([String(e.stack || e)]); document.body.dataset.ready = "error"; });

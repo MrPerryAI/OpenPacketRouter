@@ -42,6 +42,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
   remover timer as in ospfd, which fixed an intermittent mismatch when a router returns (#213).
 - VRRP v2 first-hop redundancy on routers against keepalived: master election, preemption on and off, takeover when the master fails, ping to the virtual address, advertisements counted exactly on every cable; CLI `vrrp` commands and `show vrrp` (#180).
 - IPv6 basics against Linux: global addresses, neighbor discovery, ICMPv6 echo, static routes (#155).
+- RIPng (IPv6 RIP) on routers against FRRouting ripngd: routing tables, the last update and newly poisoned routes on every cable, requests, split horizon and timers; CLI `ipv6 ripng` commands (#198).
 
 ### Spec format
 
@@ -72,5 +73,6 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 ### Labs and docs
 
 - Example lab networks in `examples/`, each with actions, `commands.txt` and a student guide, plus a test that runs every guide's console commands (#31, #34, #101).
+- New labs with student guides: a VRRP gateway pair and a services lab (syslog, NTP) (#203).
 - README quick start (#142); validation on a Mac via Docker (#2); mismatches reported as GitHub annotations (#40).
 - Licensed under Apache-2.0 (#42).
