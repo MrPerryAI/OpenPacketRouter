@@ -105,6 +105,8 @@ jobs:
           f=$(grep -lE '^ *profile +ripngd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f"; fi
           validate/docker/run.sh ripng
+          # same comparison, but ripngd's config comes only from the device CLI's FRR rendering
+          RIPNG_RENDER=cli validate/docker/run.sh ripng
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
       - name: Device CLI's OpenWrt rendering applied by real OpenWrt uci (official rootfs container), read back
