@@ -2,7 +2,8 @@
 // Each type: {hint, help, test(word, ctx) -> boolean, normalize?(word, ctx) -> value, complete?(ctx) -> [words]}.
 // `hint` is what `?` shows in place of the argument; `help` is the default help line for it.
 
-import {isIp6, isCidr6} from "../../engine/src/addr6.js";
+import {addr6} from "./engine-modules.js";
+const {isIp6, isCidr6} = addr6;
 const IP_RE = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 export const isIp = s => IP_RE.test(s) && s.split(".").every(o => +o <= 255);
 export const ipToInt = s => s.split(".").reduce((a, o) => a * 256 + +o, 0) >>> 0;

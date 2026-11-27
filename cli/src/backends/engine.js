@@ -11,9 +11,10 @@
 // vlans, spanning tree <-> stp, shutdown on a switch port <-> blocked, shaping <-> the cable's shape/shapeBack,
 // helper addresses <-> services.dhcpRelay, DNS / DHCP pools / TCP echo <-> services.*.
 
-import {validateSpec, loadSpec, ACTIONS} from "../../../engine/src/spec.js";
-import {intToIp, inSubnet} from "../../../engine/src/addr.js";
-import {parseCidr6, intToIp6, ip6ToInt} from "../../../engine/src/addr6.js";
+import {addr, addr6, spec as specMod} from "../engine-modules.js";
+const {validateSpec, loadSpec, ACTIONS} = specMod;
+const {intToIp, inSubnet} = addr;
+const {parseCidr6, intToIp6, ip6ToInt} = addr6;
 import * as M from "../model.js";
 import {maskToPrefix, prefixToMask} from "../types.js";
 
