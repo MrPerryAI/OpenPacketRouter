@@ -34,6 +34,8 @@ jobs:
           node tests/web/smoke.mjs
       - name: Studio smoke test
         run: node tests/studio/smoke.mjs
+      - name: Release check (README quick start commands run; npm pack contents)
+        run: node tests/quickstart/run.mjs
       - name: Engine unit tests
         working-directory: engine
         run: npm test
@@ -97,6 +99,12 @@ jobs:
           validate/docker/run.sh rip
           # same comparison, but ripd's config comes only from the device CLI's FRR rendering
           RIP_RENDER=cli validate/docker/run.sh rip
+      - name: RIPng vs FRRouting ripngd (tables and packets on every cable)
+        run: |
+          # Same AppArmor handling as for ripd above.
+          f=$(grep -lE '^ *profile +ripngd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
+          if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f"; fi
+          validate/docker/run.sh ripng
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
       - name: Device CLI's OpenWrt rendering applied by real OpenWrt uci (official rootfs container), read back

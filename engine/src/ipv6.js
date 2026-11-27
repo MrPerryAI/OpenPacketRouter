@@ -11,6 +11,7 @@
 //     host that answers does not learn the router's global address and solicits it itself when it replies (Linux ndisc_solicit).
 // Not modelled (the validators pin Linux to match): duplicate address detection (nodad), router solicitations,
 // MLD reports, router advertisements, redirects, link-local addresses as routing targets (only as solicitation sources).
+import {RIPNG_GROUP, RIPNG_MAC, RIPNG_PORT} from "./ripng.js";
 import {ip6ToInt, intToIp6, parseCidr6, inSubnet6, solicitedNode, multicastMac} from "./addr6.js";
 
 export const ICMP6 = {unreach: 1, timeExceeded: 3, echoRequest: 128, echoReply: 129, ns: 135, na: 136};
@@ -37,7 +38,10 @@ export class Ip6 {
   }
   ownsOn(iface, ip) { return ip === this.linkLocal(iface) || this.addrs.some(a => a.iface === iface && a.ip === ip); }
   /** Does the NIC on `iface` accept frames to this multicast MAC (a solicited-node group we have joined)? */
-  joined(iface, mac) { return [...this.addrs.filter(a => a.iface === iface).map(a => a.ip), this.linkLocal(iface)].some(ip => multicastMac(solicitedNode(ip)) === mac); }
+  joined(iface, mac) {
+    if (mac === RIPNG_MAC && this.node.ripng && this.node.ripng.joined(iface)) return true;
+    return [...this.addrs.filter(a => a.iface === iface).map(a => a.ip), this.linkLocal(iface)].some(ip => multicastMac(solicitedNode(ip)) === mac);
+  }
   flush() { this.cache.clear(); this.pending.clear(); }
 
   /** Longest-prefix match over connected prefixes and static routes. */
@@ -50,6 +54,8 @@ export class Ip6 {
       const out = this.addrs.find(a => inSubnet6(r.via, a.net, a.mask));
       if (out) best = {prefix: r.prefix, iface: out.iface, nextHop: r.via, why: `route ${r.cidr} via ${r.via}`};
     }
+    if (this.node.ripng) for (const r of this.node.ripng.fib()) if ((v & r.mask) === r.net && (!best || r.len > best.prefix))   // static beats RIPng on a tie
+      best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `RIPng route ${r.cidr} via ${r.gw} (metric ${r.metric})`};
     return best;
   }
 
@@ -101,7 +107,8 @@ export class Ip6 {
   receive(iface, p) {
     if (p.proto === "icmp6" && p.icmp.type === ICMP6.ns) return this.onNs(iface, p);
     if (p.proto === "icmp6" && p.icmp.type === ICMP6.na) return this.onNa(iface, p);
-    if (this.owns(p.dst)) return this.deliver(iface, p);
+    if (this.owns(p.dst) || this.ownsOn(iface, p.dst)) return this.deliver(iface, p);
+    if (p.dst === RIPNG_GROUP) { if (this.node.ripng && this.node.ripng.joined(iface)) this.deliver(iface, p); return; }   // link-local multicast: never routed
     if (p.dst.startsWith("ff")) return;   // multicast we did not ask for
     if (!this.node.forwarding) { this.node.log("drop", `${p.src} → ${p.dst}: not for me and I don't route`); return; }
     if (p.hl <= 1) { this.node.log("ttl-expired", `${p.src} → ${p.dst}: hop limit ran out here`); return this.icmpError(p, ICMP6.timeExceeded, 0); }
@@ -126,6 +133,7 @@ export class Ip6 {
   }
   deliver(iface, p) {
     this.node.net._local(this.node, p);
+    if (p.proto === "udp") { if (p.udp.dport === RIPNG_PORT && this.node.ripng) this.node.ripng.receive(iface, p); return; }
     if (p.proto === "icmp6" && p.icmp.type === ICMP6.echoRequest) {
       this.node.log("echo-reply", `answering ping from ${p.src}`);
       this.sendIp({src: p.dst, dst: p.src, hl: 64, proto: "icmp6", icmp: {type: ICMP6.echoReply, code: 0, id: p.icmp.id, seq: p.icmp.seq}});

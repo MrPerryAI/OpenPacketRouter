@@ -24,7 +24,7 @@ const KINDS = ["switch", "router", "host", "server"];
 const NODE_KEYS = {
   common: ["name", "kind", "about"],
   switch: ["blocked", "stp", "vlans", "vlanNames", "ifaces", "routes", "gw", "agingTime", "channels", "forwardLldp", "portSecurity", "stormControl", "monitor", "dhcpSnooping"],   // forwardLldp: true lets LLDP frames through (bridge group_fwd_mask 0x4000);   // vlanNames: {"10": "sales"} (labels only); stp/vlans: engine/src/stp.js; ifaces = SVIs (Layer 3 switch)
-  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "acl", "nat", "lldp", "vrrp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
+  router: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "ospf", "rip", "ripng", "acl", "nat", "lldp", "vrrp"],      // ospf: engine/src/ospf.js, rip: engine/src/rip.js, acl: engine/src/acl.js, nat: engine/src/nat.js
   host: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],         // lldp: engine/src/lldp.js
   server: ["ifaces", "ifaces6", "routes6", "gw6", "routes", "gw", "services", "lldp"],
 };
@@ -203,6 +203,24 @@ function checkVrrp(n, p, err) {
     for (const k of ["preempt", "virtualMac"]) if (g[k] !== undefined && typeof g[k] !== "boolean") err(`${q}.${k}`, `node "${n.name}": ${k} is true or false`);
   });
 }
+function checkRipng(n, p, err) {
+  const r = n.ripng, names = Object.keys(isObj(n.ifaces6) ? n.ifaces6 : {});
+  if (!isObj(r)) return err(`${p}.ripng`, `node "${n.name}": ripng must be an object like {"networks": ["eth0"]}`);
+  if (!Array.isArray(r.networks) || !r.networks.length) err(`${p}.ripng.networks`, `node "${n.name}": ripng needs networks: interface names or prefixes like 2001:db8::/32`);
+  else r.networks.forEach((x, j) => { if (!(isCidr6(x) || names.includes(x))) err(`${p}.ripng.networks[${j}]`, `node "${n.name}": "${x}" is neither one of its IPv6 interfaces nor a prefix like 2001:db8::/32`); });
+  if (r.passive !== undefined && !(Array.isArray(r.passive) && r.passive.every(x => names.includes(x))))
+    err(`${p}.ripng.passive`, `node "${n.name}": passive must list some of its IPv6 interfaces (${names.join(", ")})`);
+  if (r.splitHorizon !== undefined && !["simple", "poisoned", "off"].includes(r.splitHorizon))
+    err(`${p}.ripng.splitHorizon`, `node "${n.name}": splitHorizon is "simple", "poisoned" or "off"`);
+  if (r.timers !== undefined) {
+    if (!isObj(r.timers)) err(`${p}.ripng.timers`, `node "${n.name}": timers is {update, timeout, garbage, holdoff} in seconds`);
+    else for (const [k, v] of Object.entries(r.timers)) {
+      if (!["update", "timeout", "garbage", "holdoff"].includes(k)) err(`${p}.ripng.timers.${k}`, `node "${n.name}": unknown RIPng timer "${k}" (update, timeout, garbage, holdoff)`);
+      else if (!(typeof v === "number" && (k === "holdoff" ? v >= 0 : v > 0))) err(`${p}.ripng.timers.${k}`, `node "${n.name}": ${k} must be a number of seconds`);
+    }
+  }
+  if (r.triggered !== undefined && typeof r.triggered !== "boolean") err(`${p}.ripng.triggered`, `node "${n.name}": triggered is true or false`);
+}
 function checkRip(n, p, err) {
   const r = n.rip, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
   if (!isObj(r)) return err(`${p}.rip`, `node "${n.name}": rip must be an object like {"networks": ["10.0.0.0/8"]}`);
@@ -372,6 +390,7 @@ export function validateSpec(spec) {
     checkIpv6(n, p, err);
     if (n.ospf !== undefined) checkOspf(n, p, err);
     if (n.rip !== undefined) checkRip(n, p, err);
+    if (n.ripng !== undefined) checkRipng(n, p, err);
     if (n.lldp !== undefined) checkLldp(n, p, err);
     if (n.vrrp !== undefined) checkVrrp(n, p, err);
     if (n.acl !== undefined) checkAcl(n, p, err);
