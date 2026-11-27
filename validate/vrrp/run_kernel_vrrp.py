@@ -50,7 +50,7 @@ def read_pcap(path):
         if len(frame) >= 42 and frame[12:14] == b"\x08\x06":
             ip = lambda b: ".".join(str(x) for x in b)
             spa, tpa = ip(frame[28:32]), ip(frame[38:42])
-            if spa == tpa:  # gratuitous only: ordinary ARP for the ping depends on the host's neighbor timers
+            if spa == tpa:  # gratuitous only: ordinary ARP for the ping depends on the host's neighbor timers (unicast replies to a gratuitous request are filtered in main(), see is_garp)
                 out.append({"t": sec + frac * scale, "kind": "arp", "dst": mac_s(frame[0:6]), "src": mac_s(frame[6:12]), "op": struct.unpack(">H", frame[20:22])[0],
                             "sha": mac_s(frame[22:28]), "spa": spa, "tha": mac_s(frame[32:38]), "tpa": tpa})
             continue
@@ -149,6 +149,13 @@ def inner():
     print(json.dumps({name: kernel_run(name) for name in sys.argv[2:] or SPECS}))
 
 
+def is_garp(f):
+    """keepalived announces the new master with a broadcast ARP. A unicast frame with spa == tpa is not an announcement: it is the
+    reply of a router that still holds the virtual address in the sub-millisecond gap between hearing the new master's advert and
+    removing the address, to that master's broadcast gratuitous ARP (seen on R2 in vrrp-preempt "cable back", intermittently)."""
+    return f.get("kind") == "arp" and f["dst"] == "ff:ff:ff:ff:ff:ff"
+
+
 ADVERT_KEYS = ("src", "dst", "vrid", "priority", "interval", "ttl")
 ARP_KEYS = ("src", "dst", "op", "sha", "spa", "tha", "tpa")
 def canon(f):
@@ -203,7 +210,7 @@ def main():
         for (es, ewin), (ks, kwin) in zip(pe, pk):
             span = (prev_t, es["t"]); prev_t = es["t"]
             ef, kf = per_cable([f for f in ewin if f.get("kind") != "arp"]), per_cable([f for f in kwin if f.get("kind") != "arp"])
-            ea, ka = per_cable([f for f in ewin if f.get("kind") == "arp"]), per_cable([f for f in kwin if f.get("kind") == "arp"])
+            ea, ka = per_cable([f for f in ewin if is_garp(f)]), per_cable([f for f in kwin if is_garp(f)])
             checks = {"master": es["states"] == ks["states"], "ping": es.get("ping") == ks.get("ping"),
                       "advertisements": {c: sorted(set(v)) for c, v in ef.items()} == {c: sorted(set(v)) for c, v in kf.items()},
                       "advert counts": aligned_counts([f for f in ewin if f.get("kind") != "arp"], *span) == aligned_counts([f for f in kwin if f.get("kind") != "arp"], *span),
