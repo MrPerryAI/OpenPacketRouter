@@ -77,7 +77,18 @@ const OSPF_IF_KEYS = {type: v => ["broadcast", "point-to-point"].includes(v), pr
 function checkOspf(n, p, err) {
   const o = n.ospf, names = Object.keys(isObj(n.ifaces) ? n.ifaces : {});
   if (!isObj(o)) return err(`${p}.ospf`, `node "${n.name}": ospf must be an object like {"networks": ["10.0.0.0/8"]}`);
-  for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces", "redistribute"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces, redistribute)`);
+  for (const k of Object.keys(o)) if (!["routerId", "networks", "passive", "interfaces", "redistribute", "ranges"].includes(k)) err(`${p}.ospf.${k}`, `node "${n.name}": unknown ospf key "${k}" (routerId, networks, passive, interfaces, redistribute, ranges)`);
+  if (o.ranges !== undefined) {
+    if (!Array.isArray(o.ranges)) err(`${p}.ospf.ranges`, `node "${n.name}": ospf.ranges is a list like [{"area": 1, "network": "10.1.0.0/16"}]`);
+    else o.ranges.forEach((x, j) => {
+      const q = `${p}.ospf.ranges[${j}]`;
+      if (!isObj(x)) return err(q, `node "${n.name}": expected an object like {"area": 1, "network": "10.1.0.0/16"}`);
+      for (const k of Object.keys(x)) if (!["area", "network", "notAdvertise"].includes(k)) err(`${q}.${k}`, `node "${n.name}": unknown key "${k}" (area, network, notAdvertise)`);
+      if (x.area === undefined) err(`${q}.area`, `node "${n.name}": a range needs the area it summarizes`);
+      if (typeof x.network !== "string" || !/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(x.network)) err(`${q}.network`, `node "${n.name}": network must be a prefix like "10.1.0.0/16"`);
+      if (x.notAdvertise !== undefined && typeof x.notAdvertise !== "boolean") err(`${q}.notAdvertise`, `node "${n.name}": notAdvertise is true or false`);
+    });
+  }
   if (o.redistribute !== undefined) {
     if (!Array.isArray(o.redistribute)) err(`${p}.ospf.redistribute`, `node "${n.name}": ospf.redistribute is a list like [{"source": "connected", "metric": 20, "metricType": 2}]`);
     else o.redistribute.forEach((x, j) => {
