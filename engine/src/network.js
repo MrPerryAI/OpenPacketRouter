@@ -269,7 +269,27 @@ export class IpNode extends Device {
     this.ripng = ripng && this.v6 ? new RipNg(this, ripng) : null;   // RIPng (ripng.js)
   }
   start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.ripng) this.ripng.start(); if (this.lldp) this.lldp.start(); if (this.vrrp) this.vrrp.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.ripng) this.ripng.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); if (this.vrrp) this.vrrp.linkChange(ifname, up); }
+  linkChange(ifname, up) {
+    // The Linux kernel deletes the static routes whose next hop is on an interface that loses carrier, and does not bring them back with it.
+    // Only routers running OSPF model this so far: it is what the ospf-redist validation against ospfd covers, and hosts, RIP and static-only
+    // scenarios keep their routes across a flap until they are validated the same way.
+    // zebra (ospf-redist: R3's LAN restored) keeps one of them: a static route whose prefix also had an OSPF route when the carrier went
+    // is only deactivated (the SPF table, which still holds the route OSPF did not install), and it comes back, and again beats OSPF, when the carrier does (so ospfd re-advertises it). Without an OSPF
+    // route to the same prefix it is gone for good.
+    if (this.ospf) {
+      const i = this.ifaces[ifname];
+      if (!up && i && i.ip) {
+        const dead = this.routes.filter(r => r.via && inSubnet(r.via, i.net, i.mask));
+        this.routes = this.routes.filter(r => !dead.includes(r));
+        this.parkedStatic = [...(this.parkedStatic || []), ...dead.filter(r => (this.ospf.table || []).some(o => ipToInt(o.net) === r.net && ipToInt(o.mask) === r.mask))];
+      } else if (up && i && i.ip && this.parkedStatic) {
+        const back = this.parkedStatic.filter(r => inSubnet(r.via, i.net, i.mask));
+        this.parkedStatic = this.parkedStatic.filter(r => !back.includes(r));
+        for (const r of back) if (!this.routes.some(x => x.net === r.net && x.mask === r.mask && x.via === r.via)) this.routes.push(r);
+      }
+    }
+    if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.ripng) this.ripng.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); if (this.vrrp) this.vrrp.linkChange(ifname, up);
+  }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
