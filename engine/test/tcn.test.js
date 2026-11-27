@@ -67,3 +67,12 @@ test("TCN: a TCN arriving on a port that is not designated is ignored", () => {
   sw3.stp.receive("p1", {bpdu: {tcn: true}}); // SW3's p1 is its root port: ignored
   assert.equal(tc(net, "SW3"), false);
 });
+
+test("jiffy holds: with net.jiffyHolds the hold timer ends on a whole wall-clock second, like round_jiffies", () => {
+  const net = line(), stp = net.node("SW1").stp, h = t => { net.time = t; return stp._holdTime(); };
+  assert.equal(h(10), 1);                                    // off: exactly one second
+  net.jiffyHolds = 0.5;                                      // the engine clock is half a second past a wall-clock second
+  assert.ok(Math.abs(h(10.0) - 1.5) < 1e-9);                 // wall 10.5 + 1 = 11.5: fraction .5, rounds up to 12
+  assert.ok(Math.abs(h(9.8) - 1.7) < 1e-9);                  // wall 10.3 + 1 = 11.3: rounds up to 12
+  assert.ok(Math.abs(h(9.7) - 0.8) < 1e-9);                  // wall 10.2 + 1 = 11.2: fraction under .25 rounds down to 11
+});
