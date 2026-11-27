@@ -363,6 +363,14 @@ try {
   await page.evaluate(() => window.studio.select("R2"));
   const osp = await page.textContent("#device");
   check(/Area border router/.test(osp) && /inter-area/.test(osp) && /0\.0\.0\.1/.test(osp), "OSPF panel marks the ABR, shows areas and inter-area routes");
+  const rr = await page.evaluate(sp => { const ok = window.studio.load(sp, [{do: "wait", seconds: 60}], "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; }, vfile("ospf/ospf-redist.net"));
+  check(rr.ok && !/spec /.test(rr.errors), "OSPF redistribution spec loads", rr.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.goto(window.studio.S.sim.steps.length - 1); window.studio.select("R1"); });
+  const o1 = await page.textContent("#device");
+  check(/OSPF database, area 0\.0\.0\.1/.test(o1) && /OSPF database, AS external/.test(o1), "an OSPF router's panel groups its database by area and lists external LSAs", o1.slice(0, 80));
+  check(/asbr-summary/.test(o1) && /summary/.test(o1) && /external E[12]/.test(o1), "the database has summary and ASBR-summary LSAs and routes show their external type");
+  await page.evaluate(() => window.studio.select("R3"));
+  check(/ASBR/.test(await page.textContent("#device")), "a redistributing router is marked ASBR");
 
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
