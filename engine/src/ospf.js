@@ -36,7 +36,7 @@ export const OSPF_ALL_SPF = "224.0.0.5", OSPF_ALL_SPF_MAC = "01:00:5e:00:00:05";
 export const OSPF_ALL_DR = "224.0.0.6", OSPF_ALL_DR_MAC = "01:00:5e:00:00:06";
 export const OSPF_DEFAULTS = {hello: 10, dead: 40, retransmit: 5, priority: 1, cost: 10};
 const TYPES = ["broadcast", "point-to-point"];
-const MAX_AGE = 3600, MAX_AGE_DIFF = 900, MIN_LS_INTERVAL = 5, MIN_LS_ARRIVAL = 1, MAXAGE_KEEP = 60, REFRESH = 1800, INITIAL_SEQ = 0x80000001;
+const MAX_AGE = 3600, MAX_AGE_DIFF = 900, MIN_LS_INTERVAL = 5, MIN_LS_ARRIVAL = 1, MAXAGE_KEEP = 30, REFRESH = 1800, INITIAL_SEQ = 0x80000001;
 const ST = {Down: 0, Init: 1, "2-Way": 2, ExStart: 3, Exchange: 4, Loading: 5, Full: 6};
 const MAX_DD_HEADERS = 72;                   // (1500 MTU - 20 IP - 24 OSPF header - 8 DD fields) / 20 bytes per LSA header
 const key = (area, type, id, adv) => `${type === 5 ? "-" : area}|${type}|${id}|${adv}`;       // type 5 (AS external) is flooded in every area; the rest belong to one
