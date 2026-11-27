@@ -208,6 +208,26 @@ try {
   check(await page.evaluate(() => window.studio.S.spec.nodes[1].ifaces.eth0) === "10.0.0.1/24", "a YAML spec opens like a JSON one");
 
   // panels for newer engine features
+  // student guides: every lab with a README shows it, commands get run buttons that reach the console
+  const {renderGuide} = await import(path.join(root, "studio", "guide.js"));
+  const safe = renderGuide("<script>x</script> [a](javascript:alert(1)) [b](https://x.test) [ok](other.md) `show ip route`", ["R"], "R");
+  check(!/<script|href="javascript|href="https/.test(safe) && /href="other.md"/.test(safe) && /data-device="R"/.test(safe), "the guide renderer escapes HTML and keeps only relative links");
+  const labsWithGuide = fs.readdirSync(path.join(root, "examples")).filter(d => fs.existsSync(path.join(root, "examples", d, "README.md")) && fs.existsSync(path.join(root, "examples", d, "spec.json")));
+  let guideButtons = 0, guideBad = [];
+  for (const lab of labsWithGuide) {
+    await page.goto(BASE + "?lab=" + lab); await page.waitForFunction(() => document.body.dataset.ready === "1");
+    await page.waitForFunction(() => !document.querySelector("#guideBox").hidden, null, {timeout: 5000}).catch(() => guideBad.push(lab + ": no guide"));
+    const n = await page.$$eval(".run-cmd", b => b.length);
+    for (let i = 0; i < n; i++) {
+      await page.evaluate(k => document.querySelectorAll(".run-cmd")[k].click(), i);
+      const out = await page.textContent("#consoleOut");
+      if (/undefined|\[object|TypeError/.test(out)) guideBad.push(lab + ": " + out.slice(-80));
+      guideButtons++;
+    }
+  }
+  check(labsWithGuide.length > 0 && guideBad.length === 0, `every lab guide opens and its command buttons reach the console (${labsWithGuide.length} labs, ${guideButtons} buttons)`, guideBad.join("; ").slice(0, 200));
+  check(guideButtons > 0, "at least one guide has a run-in-console button");
+
   const panel = async (lab, dev) => { await page.goto(BASE + "?lab=" + lab); await page.waitForFunction(() => document.body.dataset.ready === "1");
     await page.evaluate(d => window.studio.select(d), dev); return page.textContent("#device"); };
   check(/RIP routes/.test(await panel("rip-chain", "R2")) && /192\.168|10\./.test(await page.textContent("#device")), "RIP table panel on a RIP router");

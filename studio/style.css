@@ -144,3 +144,12 @@ main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap:
   table { display: block; overflow-x: auto; }
   .console { left: 6px; right: 6px; bottom: 6px; width: auto; height: 55vh; }
 }
+
+/* student guide */
+#guide summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.guide { font-size: 13px; line-height: 1.45; max-height: 40vh; overflow: auto; margin-top: 6px; }
+.guide h2, .guide h3, .guide h4 { text-transform: none; letter-spacing: 0; color: inherit; font-size: 14px; margin: 10px 0 4px; }
+.guide pre { background: #0b0f14; color: #d7e3f4; padding: 6px 8px; border-radius: 6px; overflow: auto; white-space: pre-wrap; }
+.guide code { background: rgba(127,127,127,.18); padding: 0 3px; border-radius: 3px; }
+.guide table { border-collapse: collapse; width: 100%; } .guide th, .guide td { border: 1px solid var(--line); padding: 3px 5px; text-align: left; vertical-align: top; }
+.run-cmd { font-size: 11px; padding: 0 6px; margin-left: 4px; cursor: pointer; }
