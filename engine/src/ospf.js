@@ -508,6 +508,7 @@ export class Ospf {
   }
   /** As an ABR, one summary LSA (type 3) per prefix the table reaches outside the area, and one type 4 per ASBR, in every area (12.4.3). */
   _originateSummaries() {
+    this.discards = [];
     if (this.isAbr() && !this._backboneActive()) return;    // cut off from the backbone: not an ABR any more, nothing is originated or flushed
     const want = new Map(), wantAsbr = new Map();
     // may route r (reached by `kind`/`area`, out of `hops`) be advertised into area t?
@@ -517,6 +518,7 @@ export class Ospf {
         if (r.cost >= LS_INFINITY || !ok(t, r)) continue;
         const rng = r.kind === "intra" && this.ranges.find(g => g.area === r.area && (ipToInt(r.net) & g.mask) >>> 0 === g.net >>> 0 && ipToInt(r.mask) >>> 0 >= g.mask >>> 0);
         if (rng) {   // covered by a range: only the range is advertised, at the largest cost of the routes inside it; notAdvertise hides them all
+          if (!this.discards.includes(rng)) this.discards.push(rng);   // an active range also gets a discard (blackhole) route on the ABR, so traffic for unused addresses inside it is not sent back out
           if (rng.notAdvertise) continue;
           const k = `${t}|${intToIp(rng.net)}`, cur = want.get(k);
           if (!cur || r.cost > cur.metric) want.set(k, {mask: intToIp(rng.mask), metric: r.cost});
@@ -723,6 +725,8 @@ export class Ospf {
 
   // ----- views -----
   /** Routes for the forwarding table (IpNode.route): the lowest next hop of every OSPF route. */
+  /** The active area ranges, as discard routes: [{cidr, net, len, mask}] */
+  discardRoutes() { return (this.discards || []).map(g => { const len = [...intToIp(g.mask).split(".")].reduce((n, o) => n + (+o).toString(2).replace(/0/g, "").length, 0); return {cidr: `${intToIp(g.net)}/${len}`, net: g.net, len, mask: g.mask}; }); }
   fib() { return this.routes.map(r => ({cidr: r.cidr, net: r.net, len: r.len, mask: r.mask, metric: r.cost, iface: r.hops[0].iface, gw: r.hops[0].gw})); }
   /** The neighbors as `show ip ospf neighbor` lists them: [{routerId, address, iface, state, role}] */
   neighbors() {
@@ -737,7 +741,9 @@ export class Ospf {
   }
   /** [{network, cost, via: [{gw, iface}], type: "intra" | "inter" | "e1" | "e2"}]; an E2 route's cost is its external metric */
   describe() {
-    return this.routes.map(r => ({network: r.cidr, cost: r.cost, type: r.kind, via: r.hops.map(h => ({gw: h.gw, iface: h.iface}))}));
+    const out = this.routes.map(r => ({network: r.cidr, cost: r.cost, type: r.kind, via: r.hops.map(h => ({gw: h.gw, iface: h.iface}))}));
+    for (const d of this.discardRoutes()) out.push({network: d.cidr, cost: 0, type: "discard", via: [{gw: null, iface: null}]});
+    return out.sort((a, b) => cmpIp(a.network.split("/")[0], b.network.split("/")[0]) || a.network.localeCompare(b.network));
   }
   /** The link state database: [{type, area, id, adv, seq, links | attached | mask+metric}] sorted by area, type, ID, advertising router. */
   database() {

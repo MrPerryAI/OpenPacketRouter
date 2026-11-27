@@ -322,6 +322,7 @@ export class IpNode extends Device {
       best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `OSPF route ${r.cidr} via ${r.gw} (cost ${r.metric})`};
     if (this.rip) for (const r of this.rip.fib()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix))   // static beats RIP on a tie
       best = {prefix: r.len, iface: r.iface, nextHop: r.gw, why: `RIP route ${r.cidr} via ${r.gw} (metric ${r.metric})`};
+    if (this.ospf) for (const r of this.ospf.discardRoutes()) if (inSubnet(dst, r.net, r.mask) && (!best || r.len > best.prefix)) return null;   // an area range's discard route is the longest match: no route
     return best;
   }
 
