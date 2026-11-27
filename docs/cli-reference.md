@@ -432,6 +432,16 @@ OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), pe
 | `no router ospf` | config | routers | Turn OSPF off and forget its settings |
 | `router-id ADDRESS` | OSPF routing | routers | Router ID, written like an IPv4 address |
 | `no router-id` | OSPF routing | routers | Go back to the default router ID |
+| `redistribute connected` | OSPF routing | routers | Announce networks directly attached to this router |
+| `redistribute connected metric N` | OSPF routing | routers | Number |
+| `redistribute connected metric-type T` | OSPF routing | routers | 1 or 2 |
+| `redistribute connected metric N metric-type T` | OSPF routing | routers | 1 or 2 |
+| `no redistribute connected` | OSPF routing | routers | Stop announcing networks directly attached to this router |
+| `redistribute static` | OSPF routing | routers | Announce the static routes configured on this router |
+| `redistribute static metric N` | OSPF routing | routers | Number |
+| `redistribute static metric-type T` | OSPF routing | routers | 1 or 2 |
+| `redistribute static metric N metric-type T` | OSPF routing | routers | 1 or 2 |
+| `no redistribute static` | OSPF routing | routers | Stop announcing the static routes configured on this router |
 | `network PREFIX` | OSPF routing | routers | Network, like 10.0.0.0/8 |
 | `passive-interface IFNAME` | OSPF routing | routers | Interface name |
 | `no passive-interface IFNAME` | OSPF routing | routers | Interface name |
