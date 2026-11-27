@@ -1,7 +1,7 @@
 {
  "version": 1,
  "name": "OSPF area range (route summarization at an ABR)",
- "about": "R2 is the ABR between area 1 (R1 with two LANs, 10.1.1.0/24 and 10.1.2.0/24) and the backbone (R3, H3). R2 summarizes area 1 with the range 10.1.0.0/16: R3 sees one summary LSA for the range, not the two LANs, at the largest cost of the routes inside it. R1's LAN 10.1.2.0/24 is then cut (the range stays while one route is inside) and R1-R2 is cut and restored (the range goes with its last route).",
+ "about": "R2 is the ABR between area 1 (R1 with two LANs, 10.1.1.0/24 and 10.1.2.0/24) and the backbone (R3, H3). R2 summarizes area 1 with the range 10.1.0.0/16: R3 sees one summary LSA for the range, not the two LANs, at the largest cost of the routes inside it. R1's LAN 10.1.2.0/24 is then cut (the range stays while one route is inside) and R1-R2 is cut and restored (the range goes with its last route). A second range, 10.2.0.0/16 (R1's LAN 10.2.1.0/24), is not-advertise: R3 sees nothing of it.",
  "nodes": [
   {
    "name": "R1",
@@ -9,7 +9,8 @@
    "ifaces": {
     "eth0": "10.12.0.1/24",
     "eth1": "10.1.1.1/24",
-    "eth2": "10.1.2.1/24"
+    "eth2": "10.1.2.1/24",
+    "eth3": "10.2.1.1/24"
    },
    "ospf": {
     "routerId": "1.1.1.1",
@@ -33,11 +34,16 @@
      "eth2": {
       "hello": 1,
       "dead": 4
+     },
+     "eth3": {
+      "hello": 1,
+      "dead": 4
      }
     },
     "passive": [
      "eth1",
-     "eth2"
+     "eth2",
+     "eth3"
     ]
    }
   },
@@ -78,6 +84,11 @@
      {
       "area": 1,
       "network": "10.1.0.0/16"
+     },
+     {
+      "area": 1,
+      "network": "10.2.0.0/16",
+      "notAdvertise": true
      }
     ]
    }
@@ -131,6 +142,14 @@
    "gw": "10.1.2.1"
   },
   {
+   "name": "H4",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.2.1.10/24"
+   },
+   "gw": "10.2.1.1"
+  },
+  {
    "name": "H3",
    "kind": "host",
    "ifaces": {
@@ -158,6 +177,11 @@
   [
    "H2:eth0",
    "R1:eth2",
+   1
+  ],
+  [
+   "H4:eth0",
+   "R1:eth3",
    1
   ],
   [
