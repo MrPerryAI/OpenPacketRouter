@@ -168,6 +168,19 @@ export class Stp {
   }
 
   // ----- BPDUs -----
+  /** How long the hold timer runs. Exactly 1 s, unless the network models the kernel's jiffy rounding (`net.jiffyHolds`,
+   *  a number: the engine clock's offset in seconds from the wall clock's whole seconds). Linux arms the timer with
+   *  `round_jiffies(jiffies + 1 s)` (br_transmit_config), and round_jiffies rounds an absolute time to a whole second of
+   *  the wall clock: down when the fraction is under a quarter second, up otherwise. So a pending config BPDU leaves at a
+   *  whole wall-clock second, 0.75-1.75 s after the previous one, not exactly 1 s after it. The validator (validate/tcn)
+   *  starts the kernel's bridges half a second after a wall-clock second and keeps every step on that schedule, which is
+   *  `jiffyHolds = 0.5` here; half a second keeps every event 0.25 s clear of the rounding threshold. */
+  _holdTime() {
+    if (this.net.jiffyHolds === undefined || this.net.jiffyHolds === false) return 1;
+    const now = this.net.time + this.net.jiffyHolds, t = now + 1, frac = t - Math.floor(t + 1e-9);
+    const end = frac < 0.25 ? t - frac : t - frac + 1;
+    return Math.max(end - now, 0.001);
+  }
   /** Send a config BPDU out p. At most one per second per port (the kernel's 1 s hold timer): an earlier request is
    *  remembered and sent when the timer runs out. */
   _transmit(p) {
@@ -181,7 +194,7 @@ export class Stp {
       bpdu: {root: this.rootId, cost: this.rootCost, bridge: this.bid, port: p.id, age, maxAge: this.curMaxAge, hello: this.curHello, fwd: this.curFwd,
         tc: this.tc, tca: !!p.tcAck}});
     p.tcAck = false; p.configPending = false; p.hold = true;
-    this._timer("hold:" + p.name, 1, () => { p.hold = false; if (p.state !== DISABLED && p.configPending) this._transmit(p); });
+    this._timer("hold:" + p.name, this._holdTime(), () => { p.hold = false; if (p.state !== DISABLED && p.configPending) this._transmit(p); });
   }
   _configGeneration() {
     for (const p of this.ports.values()) if (this._isDesignated(p) && p.state !== DISABLED) this._transmit(p);

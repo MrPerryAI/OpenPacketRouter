@@ -45,6 +45,11 @@ try {
       wantActions: S.actions.length, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; });
     check(r.nodes === r.specNodes && r.cables === r.specLinks && r.actions === r.wantActions && r.steps > 0 && !r.errors,
       `${lab}: draws ${r.nodes} devices, ${r.cables} cables, runs ${r.actions} actions`, `${r.steps} frames${r.errors ? "; " + r.errors : ""}`);
+    const q = await page.evaluate(() => { const st = window.studio.S.sim.steps; const filt = [...document.querySelectorAll("#filters input[data-kind]")].map(x => x.dataset.kind);
+      return {badDesc: st.filter(x => /undefined|NaN|\[object|\?\?/.test(x.desc || "")).map(x => x.desc).slice(0, 2), noDesc: st.filter(x => !x.desc).length,
+        noFilter: [...new Set(st.map(x => x.kind))].filter(k => !filt.includes(k))}; });
+    await page.evaluate(() => { const st = window.studio; st.goto(st.S.sim.steps.length - 1); for (const nd of st.S.spec.nodes) st.select(nd.name); });   // every device panel at the last frame: a throw lands in "no page errors"
+    check(!q.badDesc.length && !q.noDesc && !q.noFilter.length, `${lab}: every frame is described and has a filter`, JSON.stringify(q).slice(0, 200));
     if (shots) { fs.mkdirSync(shots, {recursive: true}); await page.screenshot({path: path.join(shots, `${lab}.png`)}); }
   }
 
@@ -295,6 +300,37 @@ try {
   const rh = await vload("tcp/tcp-http.json", "tcp/tcp-http.actions.json");
   check(rh.ok && !/spec /.test(rh.errors), "HTTP spec loads", rh.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /\(GET \//.test(st.desc))), "an HTTP GET request is named in the frame description");
+
+  const rs = await vload("services/syslog-lan.json", "services/syslog-lan.actions.json");
+  check(rs.ok && !/spec /.test(rs.errors), "syslog lab loads", rs.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); });
+  const svcPanel = await page.textContent("#device");
+  check(/Services/.test(svcPanel) && /Syslog receiver/.test(svcPanel), "a server's panel lists its syslog receiver", svcPanel.slice(0, 80));
+
+  const rn = await vload("services/ntp-lan.json", "services/ntp-lan.actions.json");
+  check(rn.ok && !/spec /.test(rn.errors), "NTP lab loads", rn.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("LOG"); window.studio.goto && window.studio.goto(window.studio.S.sim.steps.length); });
+  const ntpPanel = await page.textContent("#device");
+  const nm = /NTP server \(UDP 123\) at stratum (\d+): (\d+) client quer/.exec(ntpPanel);
+  check(nm && +nm[2] > 0, "the NTP server's panel shows its stratum and a query count above 0", ntpPanel.slice(0, 120));
+
+  const rw = await vload("tcp/tcp-window.json", "tcp/tcp-window.actions.json");
+  check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+
+  const rv = await page.evaluate(([sp, ac]) => { const ok = window.studio.load(sp, ac, "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; },
+    [vfile("vrrp/vrrp-preempt.net"), [{do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}, {do: "link", end: "R1:eth0", up: false}, {do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}]]);
+  check(rv.ok && !/spec /.test(rv.errors), "VRRP spec loads", rv.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("R1"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /VRRP advert vrid/.test(st.desc))), "VRRP adverts are named in playback");
+  check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "vrrp")), "VRRP frames get a filter checkbox");
+  check(await page.$eval("#legend", l => /VRRP/.test(l.textContent)), "the legend lists VRRP");
+  const badWait = await page.$$eval("#actions li", l => l.filter(x => /wait|cable|link/i.test(x.textContent) && x.querySelector(".bad")).length);
+  check(badWait === 0, "wait and cable actions are not marked as failures", String(badWait));
+  await page.evaluate(() => { window.studio.select("R2"); });
+  const vp = await page.textContent("#device");
+  check(/VRRP/.test(vp) && /MASTER/.test(vp), "after the master is cut, the backup router shows MASTER; a VRRP router's panel shows its group state", vp.slice(0, 100));
 
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));

@@ -13,7 +13,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp", "icmp6", "ndp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
 const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
@@ -249,8 +249,9 @@ function drawActions() {
   S.sim.actions.forEach((a, k) => {
     const li = document.createElement("li"); li.dataset.action = k;
     const ok = a.result && (a.result.ok || a.result.reached || a.action.do === "udpBurst");
+    const neutral = !["ping", "traceroute", "dns", "dhcp", "tcp"].includes(a.action.do);   // wait, link, reads: nothing that can fail
     const n = a.last - a.first + 1;
-    li.innerHTML = `<span class="${ok ? "ok" : "bad"}">${ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}${a.lost ? `, ${a.lost} lost on a lossy cable` : ""}</small>`;
+    li.innerHTML = `<span class="${neutral ? "ok" : ok ? "ok" : "bad"}">${neutral ? "•" : ok ? "✔" : "✘"}</span> ${esc(a.summary)}<small>${n > 0 ? `${n} frame${n === 1 ? "" : "s"}` : "no frames"}${a.lost ? `, ${a.lost} lost on a lossy cable` : ""}</small>`;
     li.addEventListener("click", () => { stop(); goto(a.last >= a.first ? a.first : -1); });
     ol.appendChild(li);
   });
@@ -387,6 +388,7 @@ const ruleText = r => `${r.action} ${r.proto || "ip"} ${r.src || "any"}${r.sport
 /** Tables for the routing, NAT, ACL and LLDP features a device has, from the snapshot at the current frame. */
 function featurePanels(n, d) {
   let h = "";
+  if (d.vrrp && d.vrrp.length) h += `<h4>VRRP</h4>` + table(["iface", "vrid", "virtual IP", "priority", "state", "master"], d.vrrp.map(g => [g.iface, g.vrid, g.ip, g.priority + (g.preempt ? "" : " (no preempt)"), g.state.toUpperCase(), g.masterIp || ""]));
   if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.ospf) {
     h += `<div class="when">${d.ospf.areas.length > 1 ? `Area border router (ABR) between areas ${esc(d.ospf.areas.join(", "))}.` : `Area ${esc(d.ospf.areas.join(", ") || "none")}.`}</div>`;
@@ -407,6 +409,12 @@ function featurePanels(n, d) {
     h += `<h4>IPv6 addresses</h4>` + table(["iface", "address"], d.v6.addrs.map(a => [a.iface, a.ip]));
     if (d.v6.routes.length) h += `<h4>IPv6 routes</h4>` + table(["destination", "via"], d.v6.routes.map(r => [r.dst, r.via]));
     h += `<h4>IPv6 neighbors</h4>` + table(["address", "MAC", "iface"], d.v6.neighbors.map(x => [x.ip, x.mac, x.iface]));
+  }
+  if (d.services) {
+    h += `<h4>Services</h4>`;
+    if (d.services.ntp) h += `<div class="when">NTP server (UDP 123) at stratum ${d.services.ntp.stratum}: ${d.services.ntp.queries} client ${d.services.ntp.queries === 1 ? "query" : "queries"} answered so far.</div>`;
+    if (d.services.syslog) h += `<div class="when">Syslog receiver (UDP 514): ${d.services.syslog.length} message${d.services.syslog.length === 1 ? "" : "s"} stored.</div>` +
+      table(["message"], d.services.syslog.map(m => [m]));
   }
   if (d.lldp) h += `<h4>LLDP neighbors</h4>` + table(["iface", "system", "port", "description"], d.lldp.map(x => [x.iface, x.sysName, x.portId, x.portDescr]));
   return h;
