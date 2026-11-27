@@ -20,7 +20,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 
 **B. Routing**
 - [x] OSPF multi-area (ABR, summary LSAs) vs ospfd [checker] (PR #90)
-- [ ] OSPF redistribution (ASBR, external LSAs) vs ospfd [checker]
+- [x] OSPF redistribution (ASBR, external LSAs) vs ospfd [checker] (PR #230)
 - [ ] BGP basics (eBGP, iBGP, prefixes, basic path selection) vs bgpd [checker]
 - [x] VRRP first-hop redundancy vs keepalived [stp-vlan] (v2 on routers, preempt, priority, CLI in our own words)
 
