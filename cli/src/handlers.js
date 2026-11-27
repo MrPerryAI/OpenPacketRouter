@@ -149,6 +149,8 @@ export const HANDLERS = {
   "stp.mode.unset": ctx => { if (M.stpEnabled(ctx.model)) M.stpGlobal(ctx.model)["enabled-protocol"] = ["STP"]; },
   "stp.portfast": ctx => { need(M.stpEnabled(ctx.model), "Turn spanning tree on first (spanning-tree)"); M.stpPort(ctx.model, curIface(ctx).config.name)["edge-port"] = "EDGE_ENABLE"; },
   "stp.portfast.unset": ctx => { const c = M.stpPort(ctx.model, curIface(ctx).config.name, false); if (c) delete c["edge-port"]; },
+  "stp.guard": (ctx, args, leaf) => { need(M.stpEnabled(ctx.model), "Turn spanning tree on first (spanning-tree)"); need(M.stpGlobal(ctx.model)["enabled-protocol"][0] === "STP", `${leaf} is for classic spanning tree (not modeled with rapid spanning tree)`); M.stpPort(ctx.model, curIface(ctx).config.name)["openpacketrouter:" + leaf] = true; },
+  "stp.guard.unset": (ctx, args, leaf) => { const c = M.stpPort(ctx.model, curIface(ctx).config.name, false); if (c) delete c["openpacketrouter:" + leaf]; },
   "stp.disable": ctx => { ctx.model.stp = M.emptyModel("").stp; },
   "stp.set": (ctx, [v], leaf) => { need(STP_LEAVES[leaf], `unknown setting ${leaf}`); M.stpGlobal(ctx.model)[leaf] = v; },
   "stp.unset": (ctx, args, leaf) => { delete M.stpGlobal(ctx.model)[leaf]; },

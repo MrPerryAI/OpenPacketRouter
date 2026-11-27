@@ -24,7 +24,7 @@ from run_kernel_l3 import sh, nsx, sysctl, no_ipv6, comparable  # noqa: E402
 import run_kernel_l3 as l3  # noqa: E402
 
 VLAN = ["vlan-trunk", "vlan-native"]
-STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps")]
+STP = [("stp-ring", "stp-ring.steps"), ("stp-tiebreak", "stp-tiebreak.steps"), ("stp-bpduguard", "stp-bpduguard.steps"), ("stp-rootguard", "stp-rootguard.steps")]
 
 
 class Net:
@@ -69,7 +69,10 @@ class Net:
                 elif self.kind[node] == "switch":
                     sh("ip", "-n", ns, "link", "set", ifn, "master", "br0")
                     cost = ((self.node[node].get("stp") or {}).get("cost") or {}).get(ifn, 19)
-                    if self.node[node].get("stp"): sh("ip", "-n", ns, "link", "set", ifn, "type", "bridge_slave", "cost", str(cost))
+                    if self.node[node].get("stp"):
+                        st = self.node[node]["stp"]   # bpduGuard / rootGuard: the bridge port flags `guard` (BR_BPDU_GUARD) and `root_block` (BR_ROOT_BLOCK)
+                        sh("ip", "-n", ns, "link", "set", ifn, "type", "bridge_slave", "cost", str(cost),
+                           "guard", "on" if (st.get("bpduGuard") or {}).get(ifn) else "off", "root_block", "on" if (st.get("rootGuard") or {}).get(ifn) else "off")
                     self.vlan(ns, node, ifn)
                 sh("ip", "-n", ns, "link", "set", ifn, "up")
                 sysctl(ns, f"net.ipv4.conf.{ifn}.send_redirects", 0); sysctl(ns, f"net.ipv4.conf.{ifn}.rp_filter", 0)

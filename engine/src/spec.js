@@ -299,6 +299,14 @@ export function validateSpec(spec) {
         err(`${p}.blocked`, `node "${n.name}": blocked must be a list of port names`);
       if (n.agingTime !== undefined && !(typeof n.agingTime === "number" && Number.isFinite(n.agingTime) && n.agingTime > 0))
         err(`${p}.agingTime`, `node "${n.name}": agingTime must be a number of seconds above 0 (default 300; Linux bridges treat 0 as "expire at once", which is not modeled)`);
+      for (const k of ["bpduGuard", "rootGuard"]) if (isObj(n.stp) && n.stp[k] !== undefined) {   // stp.bpduGuard / stp.rootGuard: {"p1": true}; the bridge port flags guard and root_block (stp.js)
+        const q = `${p}.stp.${k}`;
+        if (!isObj(n.stp[k]) || !Object.values(n.stp[k]).every(v => typeof v === "boolean")) err(q, `node "${n.name}": stp.${k} must be an object like {"p1": true}`);
+        else {
+          if (n.stp.mode === "rstp") err(q, `node "${n.name}": stp.${k} is for classic spanning tree (the kernel flag only acts on kernel STP); not modeled with rapid spanning tree`);
+          for (const pn of Object.keys(n.stp[k])) if (!(Array.isArray(spec.links) ? spec.links : []).some(l => Array.isArray(l) && l.slice(0, 2).includes(`${n.name}:${pn}`))) err(q, `node "${n.name}": stp.${k} names port "${pn}", which has no cable in the spec`);
+        }
+      }
       if (n.portSecurity !== undefined) {   // {"p1": {"max": 2, "violation": "restrict"}}; see Switch in network.js
         if (!isObj(n.portSecurity)) err(`${p}.portSecurity`, `node "${n.name}": portSecurity must be an object like {"p1": {"max": 2, "violation": "protect"}}`);
         else for (const [pn, c] of Object.entries(n.portSecurity)) {

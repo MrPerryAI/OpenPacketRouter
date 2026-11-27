@@ -76,3 +76,43 @@ test("STP off: a plain switch floods BPDUs like Linux does (hub behaviour)", () 
   net.link("S1:p1", "HUB:a"); net.link("HUB:b", "S2:p1"); net.run(20);
   assert.equal(net.node("S2").stp.describe().rootPort, "p1");
 });
+
+// ----- BPDU guard and root guard (the kernel's bridge port flags `guard` and `root_block`) -----
+const line = stp => {
+  const net = new Network();
+  net.addSwitch("SW1", {stp: {mac: "02:aa:00:00:00:01", priority: 4096, ...T, ...(stp.SW1 || {})}});
+  net.addSwitch("SW2", {stp: {mac: "02:aa:00:00:00:02", priority: 8192, ...T, ...(stp.SW2 || {})}});
+  net.addSwitch("SW3", {stp: {mac: "02:aa:00:00:00:03", ...T}});
+  net.link("SW1:p1", "SW2:p1"); net.link("SW2:p2", "SW3:p1");
+  return net;
+};
+
+test("BPDU guard: the first BPDU shuts the port; a link flap brings it back and the next BPDU shuts it again", () => {
+  const net = line({SW1: {bpduGuard: {p1: true}}}); net.run(20);
+  const r = roles(net);
+  assert.equal(r.SW1.p1, "disabled/disabled");
+  net.setLink("SW1:p1", false); net.run(net.time + 2); net.setLink("SW1:p1", true); net.run(net.time + 20);
+  assert.equal(roles(net).SW1.p1, "disabled/disabled");
+  assert.equal(roles(net).SW2.p1, "designated/forwarding", "the other side is a designated port that nobody answers");
+});
+
+test("BPDU guard: without the flag the same port forwards", () => {
+  const net = line({}); net.run(30);
+  assert.equal(roles(net).SW1.p1, "designated/forwarding");
+});
+
+test("root guard: the port never becomes the root port, the bridge elects itself root and the port stays in listening", () => {
+  const net = line({SW2: {rootGuard: {p1: true}}}); net.run(30);
+  const d = net.node("SW2").stp.describe();
+  assert.equal(net.node("SW2").stp.isRoot(), true);
+  assert.equal(d.ports.p1.state, "listening");
+  assert.equal(d.ports.p1.role, "designated");
+  assert.equal(net.node("SW3").stp.describe().root, d.bridgeId, "SW3 follows SW2");
+  net.run(net.time + 60);
+  assert.equal(net.node("SW2").stp.describe().ports.p1.state, "listening", "still listening: every BPDU from the better root restarts the timer");
+});
+
+test("root guard: without the flag SW2 uses p1 as root port", () => {
+  const net = line({}); net.run(30);
+  assert.equal(net.node("SW2").stp.describe().rootPort, "p1");
+});

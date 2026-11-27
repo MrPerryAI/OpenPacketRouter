@@ -273,7 +273,7 @@ export const SHOWS = {
       if (svi && ctx.kind === "switch") row.vlan = +svi[1];
       if (sv && sv["interface-mode"]) Object.assign(row, {vlanMode: sv["interface-mode"].toLowerCase(),
         ...(sv["interface-mode"] === "TRUNK" ? {trunkVlans: sv["trunk-vlans"], nativeVlan: sv["native-vlan"] ?? 1} : {accessVlan: sv["access-vlan"] ?? 1})});
-      if (sp) row.stp = {cost: sp.cost ?? null, portPriority: sp["port-priority"] ?? null};
+      if (sp) row.stp = {cost: sp.cost ?? null, portPriority: sp["port-priority"] ?? null, bpduGuard: !!sp["openpacketrouter:bpdu-guard"], rootGuard: !!sp["openpacketrouter:root-guard"]};
       const shaper = ifc && ifc["openpacketrouter:shaper"];
       if (shaper) row.shaper = {rate: shaper.rate, burst: shaper.burst, limit: shaper.limit};
       if (ifc?.["openpacketrouter:delay"] !== undefined) row.delay = ifc["openpacketrouter:delay"];
@@ -289,7 +289,7 @@ export const SHOWS = {
       ...r.addresses.map(a => `  IPv4 address ${a}`),
       ...(r.dhcpClient && !r.addresses.length ? ["  IPv4 address from DHCP (none yet)"] : []),
       ...(r.vlanMode === "trunk" ? [`  Trunk, allowed VLANs ${formatVlanList(r.trunkVlans)}, native VLAN ${r.nativeVlan}`] : r.vlanMode ? [`  Access port in VLAN ${r.accessVlan}`] : []),
-      ...(r.stp ? [`  Spanning tree cost ${r.stp.cost ?? "default"}, port priority ${r.stp.portPriority ?? "default"}`] : []),
+      ...(r.stp ? [`  Spanning tree cost ${r.stp.cost ?? "default"}, port priority ${r.stp.portPriority ?? "default"}${r.stp.bpduGuard ? ", BPDU guard" : ""}${r.stp.rootGuard ? ", root guard" : ""}`] : []),
       ...(r.delay !== undefined ? [`  Cable delay ${r.delay} ms`] : []),
       ...(r.loss ? [`  Loss pattern: to-bad ${r.loss.toBad}, to-good ${r.loss.toGood}, in-bad ${r.loss.inBad}, in-good ${r.loss.inGood}`] : []),
       ...(r.shaper ? [`  Shaper: rate ${r.shaper.rate}, burst ${r.shaper.burst}, queue limit ${r.shaper.limit}`] : []),

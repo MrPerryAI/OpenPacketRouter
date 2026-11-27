@@ -61,7 +61,7 @@ export function linuxCommands(model, {kind, ports = Object.keys(M.interfaces(mod
       // The kernel's port priority is 6 bits shifted by 10 in the port ID, the model's 8 bits shifted by 8: 128 -> 32.
       if (rstp) out.push(`mstpctl setportpathcost br0 ${p} ${sp?.cost ?? 20000}`, ...(sp?.["port-priority"] !== undefined ? [`mstpctl settreeportprio br0 ${p} 0 ${sp["port-priority"] >> 4}`] : []),
         ...(sp?.["edge-port"] === "EDGE_ENABLE" ? [`mstpctl setportadminedge br0 ${p} yes`] : []));
-      else if (stp) out.push(`ip link set ${p} type bridge_slave cost ${sp?.cost ?? 19}${sp?.["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}`);
+      else if (stp) out.push(`ip link set ${p} type bridge_slave cost ${sp?.cost ?? 19}${sp?.["port-priority"] !== undefined ? ` priority ${sp["port-priority"] >> 2}` : ""}${sp?.["openpacketrouter:bpdu-guard"] ? " guard on" : ""}${sp?.["openpacketrouter:root-guard"] ? " root_block on" : ""}`);
       const sv = ifc && M.switchedVlan(ifc, false);
       if (vlanAware) {
         const mode = sv?.["interface-mode"] || "ACCESS";
