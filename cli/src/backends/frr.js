@@ -42,6 +42,7 @@ export function frrConfig(model, {ports = Object.keys(M.interfaces(model))} = {}
       for (const a of ifc ? M.addressesOf(ifc) : []) out.push(` network ${netOf(a.ip, a.prefixLength)}/${a.prefixLength} area ${area}`);
     }
     for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) out.push(` passive-interface ${p}`);
+    for (const r of og["openpacketrouter:redistribute"] || []) out.push(` redistribute ${r.source} metric ${r.metric ?? 20} metric-type ${r.metricType ?? 2}`);   // ospfd's own defaults, written out
     out.push("exit");
   }
   if (rip) {   // `triggered: false` is a teaching switch of the engine; ripd has no such setting, so it is not rendered
