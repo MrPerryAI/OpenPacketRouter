@@ -408,6 +408,7 @@ const ruleText = r => `${r.action} ${r.proto || "ip"} ${r.src || "any"}${r.sport
 /** Tables for the routing, NAT, ACL and LLDP features a device has, from the snapshot at the current frame. */
 function featurePanels(n, d) {
   let h = "";
+  if (d.tcp && d.tcp.length) h += `<h4>TCP connections</h4>` + table(["local", "remote", "state", "unacked segs", "bytes waiting", "peer window", "retransmits"], d.tcp.map(c => [c.local, c.remote, c.state, c.unacked, c.pending, c.peerWindow, c.retransmits]));
   if (d.vrrp && d.vrrp.length) h += `<h4>VRRP</h4>` + table(["iface", "vrid", "virtual IP", "priority", "state", "master"], d.vrrp.map(g => [g.iface, g.vrid, g.ip, g.priority + (g.preempt ? "" : " (no preempt)"), g.state.toUpperCase(), g.masterIp || ""]));
   if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.ospf) {

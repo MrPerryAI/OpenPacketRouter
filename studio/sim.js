@@ -96,6 +96,7 @@ export function snapshotDevices(net) {
       const sv = n.services || {};
       if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
       if (n.vrrp) out[n.name].vrrp = n.vrrp.describe();
+      if (n.tcpConns && n.tcpConns.size) out[n.name].tcp = [...n.tcpConns.values()].map(c => ({local: `${c.laddr}:${c.lport}`, remote: `${c.raddr}:${c.rport}`, state: c.state, unacked: (c.unacked || []).length, pending: c.pend || 0, peerWindow: c.pwnd === undefined ? "" : c.pwnd, retransmits: c.retransmits || 0}));
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }

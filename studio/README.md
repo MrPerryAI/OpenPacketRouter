@@ -65,6 +65,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
 - **Services**: a router, host or server that runs the syslog receiver or the NTP server gets a
   *Services* section in its device panel: the stored syslog messages, and the NTP stratum with how many queries it has
   answered, at the current playback frame.
+- **TCP**: a host with TCP connections gets a *TCP connections* table (endpoints, state, unacknowledged segments, bytes waiting, the peer's advertised window, retransmit count) at the current playback frame.
 - **VRRP**: a router in a VRRP group gets a *VRRP* table in its device panel (interface, vrid, virtual IP, priority, MASTER/BACKUP/FAULT, and the current master's address) at the current playback frame.
 - **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
