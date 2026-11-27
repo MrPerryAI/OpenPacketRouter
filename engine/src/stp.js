@@ -169,11 +169,11 @@ export class Stp {
 
   // ----- BPDUs -----
   /** How long the hold timer runs. Exactly 1 s, unless the network models the kernel's jiffy rounding (`net.jiffyHolds`,
-   *  a number: the engine clock's offset in seconds from the wall clock's whole seconds). Linux arms the timer with
-   *  `round_jiffies(jiffies + 1 s)` (br_transmit_config), and round_jiffies rounds an absolute time to a whole second of
-   *  the wall clock: down when the fraction is under a quarter second, up otherwise. So a pending config BPDU leaves at a
-   *  whole wall-clock second, 0.75-1.75 s after the previous one, not exactly 1 s after it. The validator (validate/tcn)
-   *  starts the kernel's bridges half a second after a wall-clock second and keeps every step on that schedule, which is
+   *  a number: the engine clock's offset in seconds from a jiffies-second boundary). Linux arms the timer with
+   *  `round_jiffies(jiffies + 1 s)` (br_transmit_config), and round_jiffies rounds the absolute jiffies counter to a whole
+   *  multiple of HZ (a jiffies second, not a wall-clock second: the counter starts at 2^32 - 300 HZ at boot): down when the fraction is under a quarter second, up otherwise. So a pending config BPDU leaves at a
+   *  whole jiffies second, 0.75-1.75 s after the previous one, not exactly 1 s after it. The validator (validate/tcn)
+   *  starts the kernel's bridges half a second after a jiffies-second boundary (measured, see jiffy_boundary) and keeps every step on that schedule, which is
    *  `jiffyHolds = 0.5` here; half a second keeps every event 0.25 s clear of the rounding threshold. */
   _holdTime() {
     if (this.net.jiffyHolds === undefined || this.net.jiffyHolds === false) return 1;
