@@ -135,6 +135,13 @@ class OspfNet(l3.KernelNet):
                          for pfx, rs in json.loads(self.vty(name, "show ip route json") or "{}").items()}}   # not compared: what zebra and the kernel hold, for reading a mismatch
         ext = db["external"].get("asExternalLinkStates", []); ext = ext.get("lsas", []) if isinstance(ext, dict) else ext
         dbg["external"] = [[x.get("linkStateId"), x.get("advertisingRouter"), x.get("lsaAge"), x.get("lsaSeqNumber"), x.get("metric")] for x in ext]   # age and sequence number: is it a leftover?
+        def aged(x, kind=""):   # every flushed (MaxAge) LSA ospfd still holds: not compared, for reading a mismatch
+            if isinstance(x, dict):
+                if x.get("lsaAge", 0) >= 3600: yield f'{kind}:{x.get("linkStateId")}/{x.get("advertisingRouter")}#{x.get("lsaSeqNumber")}'
+                for k, v in x.items(): yield from aged(v, k if k in db else kind)
+            elif isinstance(x, list):
+                for v in x: yield from aged(v, kind)
+        dbg["maxage"] = sorted(set(aged(db)))
         return {"neighbors": parse_neighbors(nb), "interfaces": parse_interfaces(ifs), "routes": self.routes(name), "database": parse_database(db), "debug": dbg}
 
     def routes(self, name):
@@ -362,6 +369,7 @@ def compare(name, eng, kr):
     steps_spec = json.loads((HERE / f"{name}.steps.json").read_text())
     switches = [n["name"] for n in json.loads(netfile(name).read_text())["nodes"] if n.get("kind") == "switch"]
     wants = [s.get("lastHello", True) for s in steps_spec if "snapshot" in s]
+    prev_ks = None
     for (es, ewin, eupto), (ks, kwin, kupto), want in zip(phases(eng, steps_spec), phases(kr, steps_spec), wants):
         ec = {r: canon_router(v, False) for r, v in es["routers"].items()}; kc = {r: canon_router(v, True) for r, v in ks["routers"].items()}
         checks = {}
@@ -389,12 +397,14 @@ def compare(name, eng, kr):
                 d["packet types"] = {c: {"engine": et.get(c), "linux": kt.get(c)} for c in sorted(set(et) | set(kt)) if et.get(c) != kt.get(c)}
                 trace = lambda win, c: [[round(p["t"] - win[0]["t"], 1), p.get("dst"), p["type"], p.get("lsas")] for p in win if p["cable"] == c and p["type"] != "hello"][:40]   # what crossed, for finding the cause
                 for c in d["packet types"]: d["packet types"][c].update({"engine trace": trace(ewin, c), "linux trace": trace(kwin, c)})
+                d["linux MaxAge LSAs still held (this snapshot, previous snapshot)"] = {r: [v["debug"].get("maxage"), prev_ks["routers"][r]["debug"].get("maxage") if prev_ks else None] for r, v in ks["routers"].items() if v["debug"].get("maxage") or (prev_ks and prev_ks["routers"][r]["debug"].get("maxage"))}
                 d["all cables (non-Hello, both sides)"] = {c: {"engine": trace(ewin, c), "linux": trace(kwin, c)} for c in sorted({p["cable"] for p in ewin + kwin}) if trace(ewin, c) or trace(kwin, c)}
             if not (checks["routes"] and checks["database"]):   # only the routers and prefixes that differ (the annotation GitHub keeps is short)
                 pf = lambda r: {x["network"] for x in ec[r]["routes"] + kc[r]["routes"]} | {f'{x["id"]}/{x["maskLen"]}' for x in ec[r]["database"] + kc[r]["database"] if "maskLen" in x}
                 d["linux debug (zebra RIB and kernel routes)"] = dict(sorted({r: {"zebra": {k: z for k, z in v["debug"]["zebra"].items() if k in pf(r)}, "kernel": [x for x in v["debug"]["kernel"] if x.split(" ")[0] in pf(r)], "external LSAs": [x for x in v["debug"].get("external", []) if x[0] + "/24" in pf(r)]}
                                                                    for r, v in ks["routers"].items() if ec[r]["routes"] != kc[r]["routes"] or ec[r]["database"] != kc[r]["database"]}.items(), key=lambda kv: ec[kv[0]]["routes"] == kc[kv[0]]["routes"])[:2])   # the routers whose routes differ first
             detail[f'{name}: {es["snapshot"]}'] = d
+        prev_ks = ks
     for ep_, kp_ in zip([s for s in eng["steps"] if "ping" in s], [s for s in kr["steps"] if "ping" in s]):
         e, k = l3.comparable(ep_["result"]), l3.comparable(kp_["result"]); ok = e == k
         what = f'ping {ep_["ping"][0]} → {ep_["ping"][1]} at {ep_["t"]:.0f} s'
