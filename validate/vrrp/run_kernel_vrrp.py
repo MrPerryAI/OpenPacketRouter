@@ -20,7 +20,7 @@ fraction of a second between a real kernel under load and the engine.
 
 Needs root, unshare, iproute2, tcpdump and keepalived; on a Mac run validate/docker/run.sh vrrp.
 """
-import json, os, shutil, struct, subprocess, sys, tempfile, time
+import json, os, shlex, shutil, struct, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -76,7 +76,8 @@ class VrrpNet(l3.KernelNet):
         self.t0 = time.time()
         for n in self.talkers:
             g = n["vrrp"][0]; conf = f"{self.tmp}/{n['name']}.conf"
-            Path(conf).write_text(f"""global_defs {{
+            if os.environ.get("VRRP_RENDER") == "cli": Path(conf).write_text(self.cli_conf(n))
+            else: Path(conf).write_text(f"""global_defs {{
   router_id {n['name']}
 }}
 vrrp_instance VI_1 {{
@@ -96,6 +97,20 @@ vrrp_instance VI_1 {{
             self.procs.append(subprocess.Popen(["ip", "netns", "exec", self.ns[n["name"]], "keepalived", "-f", conf, "-n", "-l", "-P",
                                                 "-p", f"{self.tmp}/{n['name']}.pid", "-r", f"{self.tmp}/{n['name']}.vrrp.pid"],
                                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+    def cli_conf(self, n):
+        """VRRP_RENDER=cli: the keepalived config comes only from the device CLI's Linux backend (opr-cli --render linux), not from this
+        file. Only the harness pins are added: a router id, and the one-ARP-per-takeover settings described in the module docstring."""
+        sf = f"{self.tmp}/spec.json"; Path(sf).write_text(json.dumps(self.spec))
+        out = subprocess.run(["node", str(ROOT / "cli" / "bin" / "opr-cli.mjs"), sf, n["name"], "--render", "linux"], capture_output=True, text=True, check=True).stdout
+        line = next(l for l in out.splitlines() if l.startswith("printf") and "/etc/keepalived/keepalived.conf" in l)
+        conf = shlex.split(line)[2:-2]   # printf '%s\n' <lines...> > <file>
+        pins = ["  garp_master_repeat 1", "  garp_master_delay 0", "  garp_master_refresh 0"]
+        out_lines = [f"global_defs {{", f"  router_id {n['name']}", "}"]
+        for l in conf:
+            out_lines.append(l)
+            if l.strip().startswith("interface "): out_lines += pins
+        return "\n".join(out_lines) + "\n"
 
     def ifaces(self, n): return [ifn for (node, ifn) in self.ifmap if node == n["name"]]
 
