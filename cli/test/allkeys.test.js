@@ -43,7 +43,7 @@ test("show interfaces says the delay and loss pattern, and gives them with | jso
 
 // The guard: a new spec key must come with a CLI command, or this fails. Add the key to test/fixtures/all-keys.json
 // (so the round-trip test above has to print it and read it back), or list it here with the reason it has no command.
-const NO_COMMAND = {};
+const NO_COMMAND = {"router.bgp": "the BGP commands are the next pull request (cli/bgp2); it removes this line"};
 test("every node key of the spec format is used by the fixture, so it has a CLI command", () => {
   for (const kind of ["switch", "router", "host", "server"]) {
     const used = new Set(spec.nodes.filter(n => n.kind === kind).flatMap(n => Object.keys(n)));
@@ -54,5 +54,5 @@ test("every node key of the spec format is used by the fixture, so it has a CLI 
 test("every key of a stp/vlan/etc. block that the CLI keeps is covered by the other round-trip specs", () => {
   const seen = new Set();
   for (const {spec: s} of allSpecs()) for (const n of s.nodes) for (const k of Object.keys(n)) seen.add(`${n.kind}.${k}`);
-  for (const kind of ["switch", "router"]) for (const k of nodeKeys(kind)) assert.ok(seen.has(`${kind}.${k}`) || spec.nodes.some(n => n.kind === kind && k in n), `${kind}.${k} is in no spec`);
+  for (const kind of ["switch", "router"]) for (const k of nodeKeys(kind)) assert.ok(seen.has(`${kind}.${k}`) || NO_COMMAND[`${kind}.${k}`] || spec.nodes.some(n => n.kind === kind && k in n), `${kind}.${k} is in no spec`);
 });
