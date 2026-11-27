@@ -161,7 +161,8 @@ def parse_table(js):
             best = p.get("bestpath"); best = best.get("overall", False) if isinstance(best, dict) else bool(best)
             nh = (p.get("nexthops") or [{}])[0].get("ip", "0.0.0.0")
             path = p.get("path", ""); path = " ".join(str(x) for x in path) if isinstance(path, list) else str(path)
-            out.append({"prefix": prefix, "from": p.get("peerId") or "local", "best": best, "valid": bool(p.get("valid", False)), "nextHop": nh,
+            out.append({"prefix": prefix, "from": (lambda q: "local" if q in (None, "", "(unspec)") else q)(p.get("peerId")),   # bgpd names a locally originated path "(unspec)"
+                         "best": best, "valid": bool(p.get("valid", False)), "nextHop": nh,
                         "asPath": path, "origin": str(p.get("origin", "IGP")).lower().replace("incomplete", "incomplete"), "localPref": p.get("locPrf", 100)})
     return sorted(out, key=lambda r: (ip2int(r["prefix"].split("/")[0]), r["prefix"], r["from"]))
 
