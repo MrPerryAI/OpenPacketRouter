@@ -48,7 +48,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   storage (a failure to save is ignored); *Restore autosave* appears in the header when one exists. *Save YAML* downloads the spec as YAML;
   *Open spec…* and *Open actions…* read `.yaml`/`.yml` as well as JSON.
 
-- **Feature panels** (in the device panel, at the current frame): RIP routes; OSPF neighbors, interfaces and routes;
+- **Feature panels** (in the device panel, at the current frame): RIP and RIPng routes (RIPng frames get their own filter); OSPF neighbors, interfaces and routes;
   NAT translations with time left; ACL rules with **hit counts** (Studio counts them: it wraps each router's ACL check
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
