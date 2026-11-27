@@ -394,14 +394,11 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 | `show ntp` | user, privileged | routers, hosts, servers | The NTP service's stratum and how many queries it has answered |
 | `show syslog` | user, privileged | routers, hosts, servers | Log messages this device has collected (needs service syslog) |
 | `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
-<<<<<<< HEAD
 | `show ipv6 route` | user, privileged | routers, hosts, servers | IPv6 routes: connected, static and learned by RIPng |
 | `show ipv6 neighbors` | user, privileged | routers, hosts, servers | IPv6 address to MAC address table (neighbor discovery cache) |
 | `show ipv6 ripng` | user, privileged | routers | The RIPng table: connected and learned prefixes with metric and next hop |
-=======
 | `show ip bgp` | user, privileged | routers | The BGP table: every path with next hop, local preference and AS path (* valid, > best) |
 | `show ip bgp summary` | user, privileged | routers | One line per neighbor: AS, session state, router ID, prefixes received |
->>>>>>> 69e46fa (cli: BGP commands (router bgp, bgp router-id, neighbor remote-as/next-hop-self/local-preference, network, timers), show ip bgp and summary, B routes in show ip route, FRR rendering; CLI reference regenerated)
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | One list |
