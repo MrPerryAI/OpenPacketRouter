@@ -10,7 +10,8 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 ### Engine: switching (validated vs Linux bridges and tools)
 
 - Spanning tree with real BPDUs, VLANs and trunks (#11); tie-breaks on parallel cables and equal-cost paths (#15).
-- Topology change notices: TCN BPDUs, the TC flag and fast MAC aging (#69, validator plateaus #86).
+- Topology change notices: TCN BPDUs, the TC flag and fast MAC aging (#69, validator plateaus #86). The 1 s hold timer is
+  rounded to wall-clock seconds as the kernel's `round_jiffies` does, and the validator runs on that schedule (#188).
 - RSTP (802.1w), checked against mstpd in CI (#122).
 - MAC address aging against the bridge `ageing_time` (#58).
 - LACP link aggregation (802.3ad port-channels) against kernel bonds (#78).
@@ -37,7 +38,8 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - NTP: a UDP 123 server (`service ntp STRATUM`, `show ntp`) and an `ntp` query action, against the real `ntpdate` client; NTP timestamps (wall clock vs simulated time) are not compared (#185).
 - IPv4 access lists against nftables (#74). NAT (overload, static 1:1, port forwarding) against nftables, with the translation table compared to conntrack (#79, #83).
 - RIPv2 against FRRouting ripd (#70).
-- OSPFv2 against FRRouting ospfd: point-to-point and broadcast, DR election, passive interfaces, timers (#59, #71, #75, #77); several areas with ABRs, type 3 summary LSAs and inter-area routes (#90).
+- OSPFv2 against FRRouting ospfd: point-to-point and broadcast, DR election, passive interfaces, timers (#59, #71, #75, #77); several areas with ABRs, type 3 summary LSAs and inter-area routes (#90). Flushed (MaxAge) LSAs leave on one shared
+  remover timer as in ospfd, which fixed an intermittent mismatch when a router returns (#213).
 - VRRP v2 first-hop redundancy on routers against keepalived: master election, preemption on and off, takeover when the master fails, ping to the virtual address, advertisements counted exactly on every cable; CLI `vrrp` commands and `show vrrp` (#180).
 - IPv6 basics against Linux: global addresses, neighbor discovery, ICMPv6 echo, static routes (#155).
 
@@ -64,6 +66,8 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - Keyboard access, labels, reduced motion and a phone-width layout (#139).
 - IPv6 panels and filters, DHCP snooping ports and drops, lossy cables, HTTP request lines and OSPF areas (#177).
 - A Services section in the device panel: stored syslog messages and the NTP server's stratum and answered queries (#189).
+- A VRRP table in the device panel and VRRP frames in playback and filters (#205).
+- The Studio smoke test plays every example lab and checks that every frame is described, has a filter, and that every device panel opens (#210).
 
 ### Labs and docs
 

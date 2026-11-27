@@ -1,0 +1,14 @@
+[
+ {
+  "do": "syslog",
+  "src": "A",
+  "dst": "10.0.0.10",
+  "message": "link up on eth0",
+  "tag": "netmon"
+ },
+ {
+  "do": "ntp",
+  "src": "A",
+  "dst": "10.0.0.10"
+ }
+]
