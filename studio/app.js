@@ -74,6 +74,7 @@ export function load(spec, actions = [], name = "") {
   if (!v.ok) return false;
   S.spec = spec; S.actions = errs.length ? [] : actions; S.name = name; S.cut = new Set(); S.selected = null;
   S.sessions = new Map(); closeConsole();
+  { const g = $("#guideBox"); if (g) g.hidden = true; }   // a guide belongs to the example it came with; loadExample shows it again
   S.loading = true;
   S.pos = savedLayout(spec) || autoLayout(spec);
   $("#title").innerHTML = `${esc(spec.name || name || "Untitled network")}${spec.about ? `<small>${esc(spec.about)}</small>` : ""}`;

@@ -96,3 +96,5 @@ panels, cuts a cable and drives the console. For every lab it also checks that e
   the lab has none). It is rendered by `guide.js`, a small Markdown subset: raw HTML never reaches the page and only relative links
   stay links. A command in backticks or a code block that starts with `show`, `ping` or `traceroute` gets a "▶ run on R" button that
   opens that device's console tab and runs it. The device is the last one the text names ("On R: ...", `R`, **R**), else the first router.
+
+A walk-through with pictures for teachers and students is in [docs/studio-guide.md](../docs/studio-guide.md).
