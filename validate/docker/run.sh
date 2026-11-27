@@ -86,5 +86,5 @@ esac
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
 # --rm: nothing persists; every run starts clean. PYTHONDONTWRITEBYTECODE keeps root-owned
 # __pycache__ files out of the bind-mounted checkout.
-exec docker run --rm --privileged -e PYTHONDONTWRITEBYTECODE=1 -e GITHUB_ACTIONS -e OSPF_RENDER -e RIP_RENDER -e RIPNG_RENDER \
+exec docker run --rm --privileged -e PYTHONDONTWRITEBYTECODE=1 -e GITHUB_ACTIONS -e OSPF_RENDER -e RIP_RENDER -e RIPNG_RENDER -e BGP_RENDER \
   -v "$ROOT":/repo -w /repo "$IMAGE" bash -c "$cmd"

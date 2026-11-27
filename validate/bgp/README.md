@@ -13,3 +13,5 @@ Files carry the `.net` extension so the CLI's round-trip test (which reads every
 | bgp-localpref | a higher local preference beats a shorter AS path |
 
 Not modelled: the IGP metric to the next hop (a best-path step after eBGP-over-iBGP), MED, weight, communities, route maps, multipath, route reflectors, confederations, IPv6, graceful restart.
+
+With `BGP_RENDER=cli` (also a CI step) bgpd's config comes only from the device CLI's FRR rendering (`opr-cli --render frr`), not from the validator's own writer; every comparison is unchanged.

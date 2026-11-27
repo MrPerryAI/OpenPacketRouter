@@ -133,6 +133,8 @@ jobs:
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f"; fi
           sudo aa-status 2>/dev/null | grep -iE 'bgpd' && { echo "bgpd profile still loaded"; exit 1; } || true
           validate/docker/run.sh bgp
+          # same comparison, but bgpd's config comes only from the device CLI's FRR rendering
+          BGP_RENDER=cli validate/docker/run.sh bgp
       - name: LLDP vs lldpd (neighbor tables, LLDPDU contents and counts on every cable)
         # Runs in the project's privileged container (validate/docker/Dockerfile has lldpd), like `run.sh lldp` locally.
         run: |
