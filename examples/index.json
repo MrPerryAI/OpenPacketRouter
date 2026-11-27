@@ -193,6 +193,22 @@
    "spec": "services-lab/spec.json",
    "actions": "services-lab/actions.json",
    "readme": "services-lab/README.md"
+  },
+  {
+   "id": "ipv6-basics",
+   "name": "IPv6 basics: addresses, neighbor discovery, static routes",
+   "about": "Addresses, neighbor discovery, echo and a static route across a router, all in IPv6.",
+   "spec": "ipv6-basics/spec.json",
+   "actions": "ipv6-basics/actions.json",
+   "readme": "ipv6-basics/README.md"
+  },
+  {
+   "id": "ospf-areas",
+   "name": "OSPF with three areas",
+   "about": "Two ABRs join areas 1 and 2 to the backbone and pass summaries between them.",
+   "spec": "ospf-areas/spec.json",
+   "actions": "ospf-areas/actions.json",
+   "readme": "ospf-areas/README.md"
   }
  ]
 }

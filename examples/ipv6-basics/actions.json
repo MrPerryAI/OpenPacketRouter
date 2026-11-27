@@ -1,0 +1,50 @@
+[
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:1::b"
+ },
+ {
+  "do": "ping",
+  "src": "B",
+  "dst": "2001:db8:1::a"
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:2::c"
+ },
+ {
+  "do": "ping",
+  "src": "C",
+  "dst": "2001:db8:1::a"
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:2::c",
+  "ttl": 1
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:1::99",
+  "settle": 3
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:2::99",
+  "settle": 3
+ },
+ {
+  "do": "ping",
+  "src": "C",
+  "dst": "2001:db8:3::1"
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "2001:db8:3::1"
+ }
+]

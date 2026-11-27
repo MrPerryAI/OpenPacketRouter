@@ -37,7 +37,7 @@ export function configLines(model, {kind, ports}) {
   const acls = M.services(model).acl;
   if (acls) for (const [name, rules] of Object.entries(acls.lists)) out.push(`ip access-list ${name}`, ...rules.map(r => ` ${ruleText(r)}`), "!");
   const og = M.ospf(model);
-  // Networks and passive interfaces that name an interface come after the interface blocks: replaying the text, the
+  // Networks that name an interface, and every passive interface, come after the interface blocks: replaying the text, the
   // interface must have its address before the router process can refer to it.
   const ospfNets = og ? og["openpacketrouter:networks"].map(e => typeof e === "object" ? e : {network: e}) : [];
   const ospfLate = [], lateNets = ospfNets.some(e => !/^\d/.test(e.network));   // all networks stay together, so their order survives
@@ -48,7 +48,7 @@ export function configLines(model, {kind, ports}) {
       const text = ` network ${/^\d/.test(e.network) ? "" : "interface "}${e.network}${e.area !== undefined ? ` area ${e.area}` : ""}`;
       (lateNets ? ospfLate : out).push(text);
     }
-    for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) (lateNets ? ospfLate : out).push(` passive-interface ${p}`);
+    for (const [p, e] of Object.entries(og.areas.area["0"].interfaces.interface)) if (e.config.passive) ospfLate.push(` passive-interface ${p}`);
     out.push("!");
   }
 
