@@ -194,6 +194,9 @@ test("redistribution: ASBRs originate type 5 LSAs; E1 adds the path to the ASBR,
   assert.equal(ping(net, "H1", "10.40.0.2").ok, true);
   net.setLink("R3:eth1", false); at(net, 50);
   assert.deepEqual(routes(net, "R1"), ["10.23.0.0/24 cost 15 via 10.12.0.2", "10.24.0.0/24 cost 20 via 10.12.0.2", "10.40.0.0/24 cost 20 via 10.12.0.2", "10.99.0.0/24 cost 10 via 10.12.0.2"]);
+  net.setLink("R3:eth1", true); at(net, 75);   // zebra keeps the static route that OSPF also had a route for (10.99.0.0/24), not the other one
+  const ext = net.node("R1").ospf.database().filter(l => l.type === "external" && l.adv === "3.3.3.3").map(l => l.id);
+  assert.deepEqual(ext, ["10.30.0.0", "10.99.0.0"]);
 });
 
 test("the spec check catches bad redistribute settings", () => {
