@@ -11,5 +11,11 @@
   },
   "bin": {
     "openpacketrouter": "bin/openpacketrouter.mjs"
-  }
+  },
+  "files": [
+    "bin",
+    "src",
+    "spec.schema.json",
+    "README.md"
+  ]
 }
