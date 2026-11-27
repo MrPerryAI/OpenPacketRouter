@@ -1,0 +1,51 @@
+{
+ "name": "STP root guard",
+ "about": "SW1 has the best bridge id, but SW2 runs root guard on p1, the cable to SW1: p1 may not become its root port, so it stays blocked and SW2 and SW3 elect SW2 as their own root. A link flap on that cable changes nothing.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:01",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "priority": 4096
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:02",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "priority": 8192,
+    "rootGuard": {
+     "p1": true
+    }
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:p1",
+   "SW2:p1"
+  ],
+  [
+   "SW2:p2",
+   "SW3:p1"
+  ]
+ ]
+}

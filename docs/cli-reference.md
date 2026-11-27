@@ -204,6 +204,10 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | `spanning-tree port-priority PRIORITY` | interface | switches | Priority (default 128) |
 | `spanning-tree portfast` | interface | switches | An edge port: a host hangs here, no switch, so rapid spanning tree forwards on it at once |
 | `no spanning-tree portfast` | interface | switches | Not an edge port (the switch still detects one by itself when no BPDU arrives) |
+| `spanning-tree bpdu-guard` | interface | switches | Shut this port down if a spanning-tree BPDU ever arrives on it (a switch where only hosts belong); a link flap brings it back |
+| `no spanning-tree bpdu-guard` | interface | switches | BPDUs on this port are processed as usual |
+| `spanning-tree root-guard` | interface | switches | This port may never become the root port: a better root heard here leaves it listening and the switch keeps its own root |
+| `no spanning-tree root-guard` | interface | switches | This port may become the root port again |
 | `no spanning-tree cost` | interface | switches | Default cost |
 | `no spanning-tree port-priority` | interface | switches | Default port priority |
 | `monitor session N destination interface IF` | config | switches | Port name |
