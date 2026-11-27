@@ -22,7 +22,7 @@ import run_kernel_l3 as l3  # noqa: E402
 from run_kernel_l2 import Net  # noqa: E402
 
 CASES = [("aging", "aging.steps")]
-ALIGN = None   # seconds after a wall-clock second at which the bridges start and every step runs (validate/tcn sets 0.5); see below
+ALIGN = None   # seconds after a jiffies-second boundary at which the bridges start and every step runs (validate/tcn sets 0.5); see below
 WATCH = [("SW1", "p3")]   # (set to [] by validators that do not need the sniffer)
 
 
@@ -88,7 +88,7 @@ def kernel(name, steps_name, here=HERE):
                 if l["ifname"] != "lo": nsx(k.ns[n["name"]], "sh", "-c", f"echo 100000 > /proc/sys/net/ipv4/neigh/{l['ifname']}/delay_first_probe_time")
         time.sleep(1.0); cum = 0.0
         if ALIGN is not None:
-            # The kernel arms the spanning-tree hold timer with round_jiffies(), which rounds to whole wall-clock seconds, so
+            # The kernel arms the spanning-tree hold timer with round_jiffies(), which rounds to whole jiffies seconds, so
             # a pending BPDU leaves on a second boundary. Start the bridges ALIGN seconds after one and keep every step on
             # the engine's schedule from there (engine/src/stp.js _holdTime models the same rounding with jiffyHolds = ALIGN).
             frac, info = jiffy_boundary(); off = time.time() - time.monotonic()
@@ -96,6 +96,7 @@ def kernel(name, steps_name, here=HERE):
             while m_base < m + 1: m_base += 1
             t_base = m_base + off
             JIFFY.update(info, phase_s=round(ALIGN, 3), boundary_at=round(frac, 3))
+            if info["hz"] is None and os.environ.get("GITHUB_ACTIONS"): raise RuntimeError("the kernel's jiffies phase is unknown (no /proc/timer_list, no CONFIG_HZ): refusing to align to the wall clock in CI")
             time.sleep(max(t_base - time.time(), 0))
         t_zero = time.time()
         for n in spec["nodes"]:   # the bridges' clocks (spanning tree, MAC collector) start now, as the engine's start at step 0
