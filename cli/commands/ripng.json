@@ -1,0 +1,243 @@
+{
+ "feature": "ripng",
+ "about": "RIPng, RIP for IPv6: router ripng, then network, passive-interface and timers basic. Split horizon and triggered updates are per router here.",
+ "commands": [
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "router ripng",
+   "handler": "ripng.enter",
+   "enter": "config-ripng",
+   "help": {
+    "router": "Routing protocols",
+    "ripng": "RIP for IPv6"
+   }
+  },
+  {
+   "modes": [
+    "config"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no router ripng",
+   "handler": "ripng.remove",
+   "help": {
+    "no": "Undo a setting",
+    "router": "Routing protocols",
+    "ripng": "Turn RIPng off"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network PREFIX",
+   "args": {
+    "PREFIX": "ipv6-prefix"
+   },
+   "handler": "ripng.network",
+   "help": {
+    "network": "Run RIPng on interfaces inside this network",
+    "PREFIX": "Network and prefix length"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "network IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ripng.network",
+   "help": {
+    "IFNAME": "Run RIPng on this interface"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no network PREFIX",
+   "args": {
+    "PREFIX": "ipv6-prefix"
+   },
+   "handler": "ripng.no-network",
+   "help": {
+    "no": "Undo a setting",
+    "network": "Stop RIPng on this network",
+    "PREFIX": "Network and prefix length"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no network IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ripng.no-network",
+   "help": {
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ripng.passive",
+   "help": {
+    "passive-interface": "Hear RIP on this interface but do not send updates",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no passive-interface IFNAME",
+   "args": {
+    "IFNAME": "word"
+   },
+   "handler": "ripng.no-passive",
+   "help": {
+    "no": "Undo a setting",
+    "passive-interface": "Send updates on this interface again",
+    "IFNAME": "Interface name"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "timers basic UPDATE TIMEOUT GARBAGE",
+   "args": {
+    "UPDATE": "seconds",
+    "TIMEOUT": "seconds",
+    "GARBAGE": "seconds"
+   },
+   "handler": "ripng.timers",
+   "help": {
+    "timers": "RIPng timers",
+    "basic": "Update, timeout and garbage-collection timers",
+    "UPDATE": "Seconds between updates (default 30)",
+    "TIMEOUT": "Seconds before a silent route is invalid (default 180)",
+    "GARBAGE": "Seconds an invalid route is kept (default 120)"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no timers basic",
+   "handler": "ripng.no-timers",
+   "help": {
+    "no": "Undo a setting",
+    "timers": "RIPng timers",
+    "basic": "Back to the default timers"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "split-horizon simple",
+   "handler": "ripng.split:simple",
+   "help": {
+    "split-horizon": "How routes learned on an interface are advertised back out of it",
+    "simple": "Leave them out (the default)"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "split-horizon poisoned-reverse",
+   "handler": "ripng.split:poisoned",
+   "help": {
+    "poisoned-reverse": "Advertise them with metric 16"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no split-horizon",
+   "handler": "ripng.split:off",
+   "help": {
+    "no": "Undo a setting",
+    "split-horizon": "Advertise everything everywhere"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "triggered-updates",
+   "handler": "ripng.triggered:true",
+   "help": {
+    "triggered-updates": "Send changes at once (the default)"
+   }
+  },
+  {
+   "modes": [
+    "config-ripng"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no triggered-updates",
+   "handler": "ripng.triggered:false",
+   "help": {
+    "no": "Undo a setting",
+    "triggered-updates": "Wait for the update timer (a teaching setting, not in FRR)"
+   }
+  }
+ ]
+}

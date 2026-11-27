@@ -33,6 +33,7 @@ import {Ospf, OSPF_ALL_SPF, OSPF_ALL_SPF_MAC, OSPF_ALL_DR, OSPF_ALL_DR_MAC} from
 import {Acl, ACL_REJECT} from "./acl.js";
 import {Nat} from "./nat.js";
 import {ntpServer} from "./apps.js";
+import {RipNg} from "./ripng.js";
 import {Rip, RIP_GROUP, RIP_MAC, RIP_PORT} from "./rip.js";
 import {Vrrp, VRRP_GROUP} from "./vrrp.js";
 import {Lldp, LLDP_MAC} from "./lldp.js";
@@ -246,7 +247,7 @@ export class Switch extends Device {
 }
 
 export class IpNode extends Device {
-  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, acl = null, nat = null, lldp = null, vrrp = null, ifaces6 = null, routes6 = [], gw6 = null} = {}) {
+  constructor(net, name, kind, {ifaces = {}, gw = null, routes = [], services = {}, ospf = null, rip = null, ripng = null, acl = null, nat = null, lldp = null, vrrp = null, ifaces6 = null, routes6 = [], gw6 = null} = {}) {
     super(net, name, kind);
     this.forwarding = kind === "router";
     for (const [n, cidr] of Object.entries(ifaces)) this.addAddr(n, cidr);
@@ -265,9 +266,10 @@ export class IpNode extends Device {
     this.v6 = ifaces6 ? new Ip6(this, {ifaces6, routes6, gw6}) : null;   // IPv6 (ipv6.js)
     if (this.v6) for (const a of this.v6.addrs) if (!this.ifaces[a.iface]) this.addIface(a.iface);
     this.vrrp = vrrp ? new Vrrp(this, vrrp) : null;   // VRRP (vrrp.js)
+    this.ripng = ripng && this.v6 ? new RipNg(this, ripng) : null;   // RIPng (ripng.js)
   }
-  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.lldp) this.lldp.start(); if (this.vrrp) this.vrrp.start(); }
-  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); if (this.vrrp) this.vrrp.linkChange(ifname, up); }
+  start() { if (this.ospf) this.ospf.start(); if (this.rip) this.rip.start(); if (this.ripng) this.ripng.start(); if (this.lldp) this.lldp.start(); if (this.vrrp) this.vrrp.start(); }
+  linkChange(ifname, up) { if (this.ospf) this.ospf.linkChange(ifname, up); if (this.rip) this.rip.linkChange(ifname, up); if (this.ripng) this.ripng.linkChange(ifname, up); if (this.lldp) this.lldp.linkChange(ifname, up); if (this.vrrp) this.vrrp.linkChange(ifname, up); }
   /** Add interface n with address cidr ("dhcp": the address comes from DHCP, dhcp.js). "eth0.10" is an
    *  802.1Q subinterface: it shares eth0's MAC and cable, and sends and receives VLAN 10 tagged frames. */
   addAddr(n, cidr, extra = {}) {
@@ -519,7 +521,7 @@ export class Network {
   static fromSpec(spec) {
     const net = new Network();
     for (const n of spec.nodes) {
-      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, acl: n.acl, nat: n.nat, vrrp: n.vrrp, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl, dhcpSnooping: n.dhcpSnooping};
+      const opts = {ifaces: n.ifaces, channels: n.channels, gw: n.gw, routes: n.routes || [], services: n.services || {}, ospf: n.ospf, rip: n.rip, ripng: n.ripng, acl: n.acl, nat: n.nat, vrrp: n.vrrp, ifaces6: n.ifaces6, routes6: n.routes6 || [], gw6: n.gw6, lldp: n.lldp, forwardLldp: n.forwardLldp, monitor: n.monitor, blocked: n.blocked, stp: n.stp, vlans: n.vlans, agingTime: n.agingTime, portSecurity: n.portSecurity, stormControl: n.stormControl, dhcpSnooping: n.dhcpSnooping};
       ({switch: () => net.addSwitch(n.name, opts), router: () => net.addRouter(n.name, opts), host: () => net.addHost(n.name, opts), server: () => net.addServer(n.name, opts)})[n.kind]();
     }
     for (const [a, b, ms, opts] of spec.links) {
