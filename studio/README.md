@@ -60,6 +60,12 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   says how many in the action list (a lost frame never reaches the wire, so it has no playback step). A TCP segment that
   carries an HTTP request or response names its first line. The OSPF panel shows the router's areas (and says when it is
   an area border router), each interface's area, and marks routes as intra-area or inter-area.
+- **TCP window**: a segment from a limited-buffer receiver names the window it advertises ("window 0 B (full: the sender
+  must wait)" for a zero window), so a stall and its window update can be followed frame by frame.
+- **Services**: a router, host or server that runs the syslog receiver or the NTP server gets a
+  *Services* section in its device panel: the stored syslog messages, and the NTP stratum with how many queries it has
+  answered, at the current playback frame.
+- **VRRP**: a router in a VRRP group gets a *VRRP* table in its device panel (interface, vrid, virtual IP, priority, MASTER/BACKUP/FAULT, and the current master's address) at the current playback frame.
 - **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
   play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per
@@ -83,4 +89,5 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
 | `examples.js` | Built-in list of labs (used until `examples/index.json` exists) |
 
 Tests: `node tests/studio/smoke.mjs` (Playwright, headless Chromium) loads every lab, plays, steps, opens the
-panels, cuts a cable and drives the console. It runs in CI.
+panels, cuts a cable and drives the console. For every lab it also checks that each frame has a description without
+`undefined`/`NaN`, that each frame kind has a filter checkbox, and that every device panel opens at the last frame. It runs in CI.
