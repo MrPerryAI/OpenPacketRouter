@@ -34,6 +34,8 @@ jobs:
           node tests/web/smoke.mjs
       - name: Studio smoke test
         run: node tests/studio/smoke.mjs
+      - name: Release check (README quick start commands run; npm pack contents)
+        run: node tests/quickstart/run.mjs
       - name: Engine unit tests
         working-directory: engine
         run: npm test
