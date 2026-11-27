@@ -31,7 +31,9 @@ try {
   await shot("2-playback");
   await page.evaluate(() => { window.studio.select("R"); window.studio.goto(window.studio.S.sim.steps.length - 1); });   // 3: a device panel
   await page.waitForTimeout(300);
-  await shot("3-device-panel");
+  await page.locator("#device").scrollIntoViewIfNeeded();   // below the fold at 1200x800
+  await page.locator("#device").screenshot({path: path.join(out, "3-device-panel.png")}); console.log("saved 3-device-panel");
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.evaluate(() => window.studio.runInConsole("R", "show ip route"));   // 4: the console
   await page.waitForTimeout(300);
   await shot("4-console");
