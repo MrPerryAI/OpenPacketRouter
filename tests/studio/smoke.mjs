@@ -338,6 +338,13 @@ try {
   check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+  const tcpDev = await page.evaluate(() => { const st = window.studio.S.sim.steps.find(x => Object.values(x.state).some(d => d.tcp && d.tcp.length)); return st ? Object.keys(st.state).find(n => st.state[n].tcp) : null; });
+  check(!!tcpDev, "a host with a TCP connection has it in its snapshot", String(tcpDev));
+  if (tcpDev) {
+    await page.evaluate(n => { const S = window.studio.S; S.step = S.sim.steps.findIndex(x => x.state[n] && x.state[n].tcp); window.studio.select(n); }, tcpDev);
+    const tp = await page.textContent("#device");
+    check(/TCP connections/.test(tp) && /ESTABLISHED|SYN|FIN/.test(tp), "the device panel shows a TCP connections table", tp.slice(0, 120));
+  }
 
   const rv = await page.evaluate(([sp, ac]) => { const ok = window.studio.load(sp, ac, "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; },
     [vfile("vrrp/vrrp-preempt.net"), [{do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}, {do: "link", end: "R1:eth0", up: false}, {do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}]]);
