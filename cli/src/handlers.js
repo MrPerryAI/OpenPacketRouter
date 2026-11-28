@@ -221,6 +221,12 @@ export const HANDLERS = {
   "ospf.remove": ctx => { M.ospfDelete(ctx.model); },
   "ospf.router-id": (ctx, [id]) => { ospfG(ctx).global.config["router-id"] = id; },
   "ospf.no-router-id": ctx => { delete ospfG(ctx).global.config["router-id"]; },
+  "ospf.redist": (ctx, args, param) => {   // param: source, then :m (metric), :t (metric type) or :mt (both)
+    const [source, kind = ""] = param.split(":"), l = ospfG(ctx)["openpacketrouter:redistribute"], e = {source};
+    if (kind === "m") e.metric = args[0]; else if (kind === "t") e.metricType = args[0]; else if (kind === "mt") { e.metric = args[0]; e.metricType = args[1]; }
+    const at = l.findIndex(x => x.source === source); if (at < 0) l.push(e); else l[at] = e;
+  },
+  "ospf.no-redist": (ctx, args, source) => { const l = ospfG(ctx)["openpacketrouter:redistribute"], at = l.findIndex(x => x.source === source); need(at >= 0, `${source} routes are not redistributed`); l.splice(at, 1); },
   "ospf.passive": (ctx, [i]) => { need(M.iface(ctx.model, i, false), `No interface named ${i}`); M.ospfIf(ctx.model, i).config.passive = true; },
   "ospf.no-passive": (ctx, [i]) => { const e = M.ospfIf(ctx.model, i, false); if (e) delete e.config.passive; },
   // a network entry is the bare name for area 0, {network, area} for any other area
