@@ -17,6 +17,7 @@ const icmpName = i => ({0: "echo reply", 8: "echo request", 11: "time exceeded",
 
 /** Short kind used for colors and filters: arp, icmp, tcp, udp, dhcp, dns, bpdu, lacp, rip, ospf, lldp. */
 export function frameKind(f) {
+  if (f.type === "ipv6" && f.ip6.proto === "udp" && [f.ip6.udp.sport, f.ip6.udp.dport].includes(521)) return "ripng";
   if (f.type === "ipv6") return f.ip6.icmp && (f.ip6.icmp.type === 135 || f.ip6.icmp.type === 136) ? "ndp" : f.ip6.proto === "icmp6" ? "icmp6" : f.ip6.proto;
   if (f.type === "bpdu") return "bpdu";
   if (f.type === "lacpdu") return "lacp";
@@ -25,7 +26,8 @@ export function frameKind(f) {
   const p = f.ip;
   if (p.proto === "ospf") return "ospf";
   if (p.proto === "vrrp" || p.vrrp) return "vrrp";
-  if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; if (ports.includes(520)) return "rip"; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : "udp"; }
+  if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; if (ports.includes(520)) return "rip"; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : ports.includes(123) ? "ntp" : ports.includes(514) ? "syslog" : "udp"; }
+  if (p.proto === "tcp" && [p.tcp.sport, p.tcp.dport].includes(80)) return "http";
   return p.proto;
 }
 
@@ -38,6 +40,8 @@ export function describeFrame(f) {
   if (f.type === "arp") return (f.arp.op === "request" ? `ARP: who has ${f.arp.tpa}? tell ${f.arp.spa}` : `ARP: ${f.arp.spa} is at ${f.arp.sha}`) + tag;
   if (f.type === "ipv6") {
     const p = f.ip6, i = p.icmp || {};
+    if (frameKind(f) === "ripng") { const r = (p.udp.payload || {}).ripng || {}; return `RIPng ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}, hop limit ${p.hl}${tag}`; }
+    if (p.proto === "udp") return `IPv6 ${p.src} → ${p.dst} UDP ${p.udp.sport}→${p.udp.dport}, hop limit ${p.hl}${tag}`;
     const what = i.type === 135 ? `neighbor solicitation: who has ${i.target || "?"}?` : i.type === 136 ? `neighbor advertisement: ${i.target || "?"} is at ${i.tlla || "its MAC"}`
       : i.type === 128 ? "echo request" : i.type === 129 ? "echo reply" : i.type === 1 ? "destination unreachable" : i.type === 3 ? "time exceeded" : `type ${i.type}`;
     return `IPv6 ${p.src} → ${p.dst} ICMPv6 ${what}, hop limit ${p.hl}${tag}`;
@@ -48,7 +52,7 @@ export function describeFrame(f) {
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
   const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${p.tcp.win !== undefined ? `, window ${p.tcp.win} B${p.tcp.win === 0 ? " (full: the sender must wait)" : ""}` : ""}${http}`
-    : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : ""}`;
+    : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : frameKind(f) === "ntp" ? " (NTP)" : frameKind(f) === "syslog" ? " (syslog)" : ""}`;
   return `IPv4 ${p.src} → ${p.dst} ${l4}, TTL ${p.ttl}${tag}`;
 }
 
@@ -57,7 +61,7 @@ export function convergeTime(spec) {
   let t = 0;
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.stp) t = Math.max(t, 2 * (n.stp.forwardDelay ?? 15) + (n.stp.maxAge ?? 20) + 1);
   for (const n of spec.nodes || []) if (n.kind === "switch" && n.channels) t = Math.max(t, 6);   // LACP bundles the cables about 3 s after the switches start
-  for (const n of spec.nodes || []) { if (n.ospf) t = Math.max(t, 50); if (n.rip) t = Math.max(t, 40); if (n.lldp) t = Math.max(t, 3); }   // adjacencies, first RIP updates, first LLDPDUs
+  for (const n of spec.nodes || []) { if (n.ospf) t = Math.max(t, 50); if (n.rip || n.ripng) t = Math.max(t, 40); if (n.lldp) t = Math.max(t, 3); }   // adjacencies, first RIP updates, first LLDPDUs
   return t;
 }
 
@@ -91,11 +95,13 @@ export function snapshotDevices(net) {
       };
       if (n.v6) out[n.name].v6 = {addrs: n.v6.addrs.map(a => ({iface: a.iface, ip: `${a.ip}/${a.prefix}`})), routes: n.v6.routes.map(r => ({dst: r.cidr, via: r.via})),
         neighbors: [...n.v6.cache].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface}))};
+      if (n.ripng && n.ripng.started) out[n.name].ripng = n.ripng.describe();
       if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
-      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
+      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr(), asbr: n.ospf.redist ? n.ospf.redist.length > 0 : false, lsdb: n.ospf.database()};
       const sv = n.services || {};
       if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
       if (n.vrrp) out[n.name].vrrp = n.vrrp.describe();
+      if (n.tcpConns && n.tcpConns.size) out[n.name].tcp = [...n.tcpConns.values()].map(c => ({local: `${c.laddr}:${c.lport}`, remote: `${c.raddr}:${c.rport}`, state: c.state, unacked: (c.unacked || []).length, pending: c.pend || 0, peerWindow: c.pwnd === undefined ? "" : c.pwnd, retransmits: c.retransmits || 0}));
       if (n.nat) out[n.name].nat = n.nat.translations();
       if (n.aclHits) out[n.name].aclHits = {...n.aclHits};
     }
