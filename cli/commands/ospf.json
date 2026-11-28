@@ -649,6 +649,68 @@
     "ospf": "OSPF",
     "route": "Networks OSPF has computed"
    }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "area AREA range PREFIX",
+   "args": {
+    "AREA": "ospf-area",
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "ospf.range",
+   "help": {
+    "area": "Settings for one OSPF area",
+    "AREA": "Area, like 1 or 0.0.0.1",
+    "range": "Summarize this area's routes inside a prefix into one route (this router is the ABR)",
+    "PREFIX": "Prefix, like 10.1.0.0/16"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "area AREA range PREFIX not-advertise",
+   "args": {
+    "AREA": "ospf-area",
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "ospf.range:na",
+   "help": {
+    "area": "Settings for one OSPF area",
+    "AREA": "Area, like 1 or 0.0.0.1",
+    "range": "Summarize this area's routes inside a prefix into one route (this router is the ABR)",
+    "PREFIX": "Prefix, like 10.1.0.0/16",
+    "not-advertise": "Do not announce anything for this prefix"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no area AREA range PREFIX",
+   "args": {
+    "AREA": "ospf-area",
+    "PREFIX": "ipv4-prefix"
+   },
+   "handler": "ospf.no-range",
+   "help": {
+    "area": "Settings for one OSPF area",
+    "AREA": "Area, like 1 or 0.0.0.1",
+    "range": "Summarize this area's routes inside a prefix into one route (this router is the ABR)",
+    "PREFIX": "Prefix, like 10.1.0.0/16",
+    "no": "Remove it"
+   }
   }
  ]
 }

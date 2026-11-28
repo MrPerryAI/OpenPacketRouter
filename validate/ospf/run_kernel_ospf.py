@@ -31,7 +31,7 @@ ROOT = HERE.parent.parent
 sys.path.insert(0, str(ROOT / "validate" / "l3"))
 import run_kernel_l3 as l3  # noqa: E402
 
-SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas", "ospf-redist"]
+SPECS = ["ospf-p2p", "ospf-timers", "ospf-lan", "ospf-priority", "ospf-mixed", "ospf-areas", "ospf-redist", "ospf-ranges"]
 FRR = "/usr/lib/frr"
 DEFAULTS = {"type": "broadcast", "priority": 1, "cost": 10, "hello": 10, "retransmit": 5}
 PTYPES = {1: "hello", 2: "dd", 3: "lsr", 4: "lsu", 5: "ack"}
@@ -104,6 +104,8 @@ class OspfNet(l3.KernelNet):
             if isinstance(x, dict): area = area_id(x.get("area", 0)); x = x["network"]
             if "/" not in x: x = str(__import__("ipaddress").ip_interface(n["ifaces"][x]).network)
             conf += [f" network {x} area {area}"]
+        for x in o.get("ranges", []):
+            conf += [f" area {area_id(x['area'])} range {x['network']}" + (" not-advertise" if x.get("notAdvertise") else "")]
         conf += ["!"]
         Path(f"{d}/ospfd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")

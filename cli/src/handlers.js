@@ -44,6 +44,7 @@ function natUnstatic(ctx, e) {
 const pool = ctx => { need(ctx.s.pool, "No DHCP pool selected"); return M.services(ctx.model)["dhcp-server"].pools[ctx.s.pool]; };
 const STP_LEAVES = {"bridge-priority": 1, "hello-time": 1, "max-age": 1, "forwarding-delay": 1, "openpacketrouter:bridge-address": 1};
 
+const areaKey = a => /^\d+$/.test(String(a)) ? [24, 16, 8, 0].map(b => (+a >>> b) & 255).join(".") : String(a);
 const netName = x => typeof x === "object" ? x.network : x;
 function ospfNet(ctx, p, area) {
   const l = ospfG(ctx)["openpacketrouter:networks"], e = area && area !== "0.0.0.0" ? {network: p, area} : p;
@@ -227,6 +228,11 @@ export const HANDLERS = {
     const at = l.findIndex(x => x.source === source); if (at < 0) l.push(e); else l[at] = e;
   },
   "ospf.no-redist": (ctx, args, source) => { const l = ospfG(ctx)["openpacketrouter:redistribute"], at = l.findIndex(x => x.source === source); need(at >= 0, `${source} routes are not redistributed`); l.splice(at, 1); },
+  "ospf.range": (ctx, [area, prefix], flag) => {   // area ranges (12.4.3): `area A range PREFIX [not-advertise]`; naming one again replaces it
+    const l = ospfG(ctx)["openpacketrouter:ranges"], at = l.findIndex(x => areaKey(x.area) === areaKey(area) && x.network === prefix), e = {area, network: prefix, ...(flag === "na" ? {notAdvertise: true} : {})};
+    if (at < 0) l.push(e); else l[at] = e;
+  },
+  "ospf.no-range": (ctx, [area, prefix]) => { const l = ospfG(ctx)["openpacketrouter:ranges"], at = l.findIndex(x => areaKey(x.area) === areaKey(area) && x.network === prefix); need(at >= 0, `No range ${prefix} in area ${area}`); l.splice(at, 1); },
   "ospf.passive": (ctx, [i]) => { need(M.iface(ctx.model, i, false), `No interface named ${i}`); M.ospfIf(ctx.model, i).config.passive = true; },
   "ospf.no-passive": (ctx, [i]) => { const e = M.ospfIf(ctx.model, i, false); if (e) delete e.config.passive; },
   // a network entry is the bare name for area 0, {network, area} for any other area
