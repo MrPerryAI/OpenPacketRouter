@@ -125,6 +125,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       const o = M.ospf(m, true);
       if (n.ospf.routerId) o.global.config["router-id"] = n.ospf.routerId;
       o["openpacketrouter:networks"].push(...n.ospf.networks);
+      for (const r of n.ospf.redistribute || []) o["openpacketrouter:redistribute"].push({...r});
       for (const p of n.ospf.passive || []) M.ospfIf(m, p).config.passive = true;
       for (const [p, c] of Object.entries(n.ospf.interfaces || {})) {
         const e = M.ospfIf(m, p), t = e.timers.config;
@@ -311,6 +312,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
         if (Object.keys(r).length) ifc[p] = r;
       }
       if (pas.length) sp.passive = pas;
+      if (o["openpacketrouter:redistribute"]?.length) sp.redistribute = o["openpacketrouter:redistribute"].map(r => ({...r}));
       if (Object.keys(ifc).length) sp.interfaces = ifc;
       n.ospf = sp;
     }
