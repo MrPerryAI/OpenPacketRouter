@@ -14,7 +14,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ripng", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "ntp", "syslog", "http", "bpdu", "lacp", "rip", "ripng", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
 const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];

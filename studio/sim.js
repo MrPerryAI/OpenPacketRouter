@@ -26,7 +26,8 @@ export function frameKind(f) {
   const p = f.ip;
   if (p.proto === "ospf") return "ospf";
   if (p.proto === "vrrp" || p.vrrp) return "vrrp";
-  if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; if (ports.includes(520)) return "rip"; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : "udp"; }
+  if (p.proto === "udp") { const ports = [p.udp.sport, p.udp.dport]; if (ports.includes(520)) return "rip"; return ports.includes(67) || ports.includes(68) ? "dhcp" : ports.includes(53) ? "dns" : ports.includes(123) ? "ntp" : ports.includes(514) ? "syslog" : "udp"; }
+  if (p.proto === "tcp" && [p.tcp.sport, p.tcp.dport].includes(80)) return "http";
   return p.proto;
 }
 
@@ -51,7 +52,7 @@ export function describeFrame(f) {
   if (frameKind(f) === "rip") { const r = p.udp.rip || p.udp.payload || {}; return `RIP ${r.command || "message"}${r.entries ? `, ${r.entries.length} route(s)` : ""}: ${p.src} → ${p.dst}${tag}`; }
   const http = p.proto === "tcp" && typeof p.tcp.data === "string" && /^(GET |HTTP\/1\.)/.test(p.tcp.data) ? ` (${p.tcp.data.split("\r\n")[0]})` : "";
   const l4 = p.proto === "icmp" ? `ICMP ${icmpName(p.icmp)}` : p.proto === "tcp" ? `TCP ${p.tcp.sport}→${p.tcp.dport} ${tcpName(p.tcp)}${p.tcp.len ? ` ${p.tcp.len} B` : ""}${p.tcp.win !== undefined ? `, window ${p.tcp.win} B${p.tcp.win === 0 ? " (full: the sender must wait)" : ""}` : ""}${http}`
-    : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : ""}`;
+    : `UDP ${p.udp.sport}→${p.udp.dport}${frameKind(f) === "dhcp" ? " (DHCP)" : frameKind(f) === "dns" ? " (DNS)" : frameKind(f) === "ntp" ? " (NTP)" : frameKind(f) === "syslog" ? " (syslog)" : ""}`;
   return `IPv4 ${p.src} → ${p.dst} ${l4}, TTL ${p.ttl}${tag}`;
 }
 
