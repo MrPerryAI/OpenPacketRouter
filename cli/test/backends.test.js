@@ -89,5 +89,5 @@ test("openwrt renders switch VLANs as a bridge with bridge-vlan sections", () =>
   const s = spec("examples/vlans/spec.json"), b = engineBackend(s), name = s.nodes.find(n => n.kind === "switch").name;
   const u = uciCommands(b.getConfig(name), {ports: b.ports(name)}).join("\n");
   assert.match(u, /set network\.br0\.type='bridge'/);
-  assert.match(u, /set network\.vlan10=bridge-vlan[\s\S]*add_list network\.vlan10\.ports='p1:u\*'[\s\S]*add_list network\.vlan10\.ports='trunk:t'/);
+  assert.match(u, /set network\.bvlan10=bridge-vlan[\s\S]*add_list network\.bvlan10\.ports='p1:u\*'[\s\S]*add_list network\.bvlan10\.ports='trunk:t'/);
 });

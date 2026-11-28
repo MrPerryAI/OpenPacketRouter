@@ -39,7 +39,7 @@ export function uciCommands(model, {ports = Object.keys(M.interfaces(model))} = 
         if (c["native-vlan"] !== undefined) (byVlan[c["native-vlan"]] ||= []).push(`${p}:u*`);
       }
     }
-    for (const [v, members] of Object.entries(byVlan)) out.push(`set network.vlan${v}=bridge-vlan`, `set network.vlan${v}.device='br0'`, `set network.vlan${v}.vlan='${v}'`, ...members.map(m => `add_list network.vlan${v}.ports='${m}'`));
+    for (const [v, members] of Object.entries(byVlan)) out.push(`set network.bvlan${v}=bridge-vlan`, `set network.bvlan${v}.device='br0'`, `set network.bvlan${v}.vlan='${v}'`, ...members.map(m => `add_list network.bvlan${v}.ports='${m}'`));
   }
   out.push("commit network");
   return out;
