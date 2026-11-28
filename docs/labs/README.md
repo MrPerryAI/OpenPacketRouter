@@ -28,3 +28,4 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [NAT on a router](nat-lab.md) | Private addresses sharing one public address (overload), a fixed 1:1 mapping, and a port forward. |
 | [VRRP gateway](vrrp-gateway.md) | Two routers sharing a virtual gateway address: cut the master's cable and the backup takes over. |
 | [Syslog and NTP services](services-lab.md) | A server with a log receiver and a time server, and a client using both. |
+| [RIPng on a chain of routers](ripng-chain.md) | RIP for IPv6: routers learn prefixes, a cut cable makes a route unreachable, and restoring it brings it back. |

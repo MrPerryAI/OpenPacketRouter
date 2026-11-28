@@ -193,6 +193,14 @@
    "spec": "services-lab/spec.json",
    "actions": "services-lab/actions.json",
    "readme": "services-lab/README.md"
+  },
+  {
+   "id": "ripng-chain",
+   "name": "RIPng on a chain of routers",
+   "about": "RIP for IPv6 on three routers: they learn each other's prefixes, a cut cable makes the route unreachable (metric 16), and restoring it brings the route back.",
+   "spec": "ripng-chain/spec.json",
+   "actions": "ripng-chain/actions.json",
+   "readme": "ripng-chain/README.md"
   }
  ]
 }

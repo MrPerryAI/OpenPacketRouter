@@ -1,0 +1,45 @@
+[
+ {
+  "do": "wait",
+  "seconds": 14
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "2001:db8:3::10"
+ },
+ {
+  "do": "link",
+  "end": "R2:eth1",
+  "up": false,
+  "settle": 0
+ },
+ {
+  "do": "wait",
+  "seconds": 4
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "2001:db8:3::10"
+ },
+ {
+  "do": "wait",
+  "seconds": 30
+ },
+ {
+  "do": "link",
+  "end": "R2:eth1",
+  "up": true,
+  "settle": 0
+ },
+ {
+  "do": "wait",
+  "seconds": 14
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "2001:db8:3::10"
+ }
+]
