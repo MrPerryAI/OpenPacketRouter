@@ -37,8 +37,7 @@ const esc = t => (t ?? "").replace(/\|/g, "\\|");
 const keywords = c => c.syntax.split(" ").filter(w => !(c.args && w in c.args) && !/^[<\[]/.test(w));
 /**
  * What the command does. A command that extends a shorter command (same words, one or more extra keywords and
- * arguments) is described as the shorter command plus what each extra keyword adds; otherwise by its last keyword,
- * never by an argument placeholder such as N.
+ * arguments) is described as the shorter command plus what each extra keyword adds; otherwise by its first keyword with help text plus what each later keyword adds; never by an argument placeholder such as N.
  */
 function describe(c) {
   const words = c.syntax.split(" "), h = c.help || {};
@@ -49,14 +48,15 @@ function describe(c) {
     if (!p.modes.some(m => c.modes.includes(m))) continue;
     if (!base || pw.length > base.syntax.split(" ").length) base = p;
   }
-  if (base) {
-    const n = base.syntax.split(" ").length;
-    const extra = words.slice(n).filter(w => !(c.args && w in c.args) && h[w]);
-    const d = describe(base).replace(/[.\s]+$/, "");
-    return d + (extra.length ? ". With " + extra.map(w => `\`${w}\`: ${h[w]}`).join("; ") + "." : "");
-  }
-  const kw = keywords(c), last = kw[kw.length - 1];
-  return h[last] ?? Object.values(h).pop() ?? "";
+  const withExtra = (start) => {
+    const extra = words.slice(start).filter(w => !(c.args && w in c.args) && h[w]);
+    return extra.length ? ". With " + extra.map(w => `\`${w}\`: ${h[w]}`).join("; ") + "." : "";
+  };
+  if (base) return describe(base).replace(/[.\s]+$/, "") + withExtra(base.syntax.split(" ").length);
+  // No shorter command to build on: the first keyword says what the command is about, the rest are options.
+  const first = words.find(w => !(c.args && w in c.args) && h[w]), i = words.indexOf(first);
+  const lead = h[first] ?? Object.values(h).pop() ?? "";
+  return lead.replace(/[.\s]+$/, "") + withExtra(i + 1);
 }
 const description = c => esc(describe(c));
 const modeList = c => c.modes.map(m => MODE[m] || m).join(", ");

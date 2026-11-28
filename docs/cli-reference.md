@@ -100,7 +100,7 @@ Moving between modes, the device name, saving.
 |---|---|---|---|
 | `enable` | user | all devices | Go to privileged mode (configuration and every show command) |
 | `disable` | privileged | all devices | Go back to user mode |
-| `configure terminal` | privileged | all devices | Type the changes here, one command per line |
+| `configure terminal` | privileged | all devices | Change the configuration. With `terminal`: Type the changes here, one command per line. |
 | `exit` | user, privileged, config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Leave this mode (in user or privileged mode: close the session) |
 | `end` | config, interface, routing, OSPF routing, vlan, DHCP pool, config-acl | all devices | Finish configuring and go back to privileged mode |
 | `write` | privileged | all devices | Save the configuration |
@@ -115,21 +115,21 @@ Selecting an interface; turning it off and on; addresses; shaping.
 |---|---|---|---|
 | `interface IFNAME` | config | all devices | Configure one interface |
 | `shutdown` | interface | all devices | Turn this interface off |
-| `no shutdown` | interface | all devices | Turn this interface back on |
+| `no shutdown` | interface | all devices | Undo a setting. With `shutdown`: Turn this interface back on. |
 | `description TEXT` | interface | all devices | A note about this interface (one word) |
 | `no description` | interface | all devices | Remove the note |
-| `ip address PREFIX` | interface | routers, hosts, servers, switches | Set the interface's IPv4 address |
+| `ip address PREFIX` | interface | routers, hosts, servers, switches | IPv4 settings of this interface. With `address`: Set the interface's IPv4 address. |
 | `ip address ADDRESS MASK` | interface | routers, hosts, servers, switches | Network mask, like 255.255.255.0 |
 | `ip address dhcp` | interface | routers, hosts, servers | Ask a DHCP server for an address |
 | `no ip address` | interface | routers, hosts, servers, switches | Remove the interface's address |
-| `shape rate RATE burst BYTES limit QUEUE` | interface | all devices | Queue size in bytes: more waiting than this is dropped |
+| `shape rate RATE burst BYTES limit QUEUE` | interface | all devices | Limit how fast this interface sends (token bucket). With `rate`: Sending rate; `burst`: Bytes that may leave back to back; `limit`: Queue size in bytes: more waiting than this is dropped. |
 | `no shape` | interface | all devices | Send at full speed again |
 | `delay MS` | interface | all devices | One-way delay of the cable this interface is plugged into (both directions) |
 | `no delay` | interface | all devices | Back to the default cable delay |
-| `loss pattern TOBAD TOGOOD INBAD INGOOD` | interface | all devices | The four settings, each 0 or 1 |
+| `loss pattern TOBAD TOGOOD INBAD INGOOD` | interface | all devices | Drop frames this interface sends, following a two-state (good/bad) pattern. With `pattern`: The four settings, each 0 or 1. |
 | `no loss` | interface | all devices | Stop dropping frames |
-| `ipv6 address PREFIX` | interface | routers, hosts, servers | Set the interface's IPv6 address |
-| `no ipv6 address` | interface | routers, hosts, servers | Remove the interface's IPv6 address |
+| `ipv6 address PREFIX` | interface | routers, hosts, servers | IPv6 settings of this interface. With `address`: Set the interface's IPv6 address. |
+| `no ipv6 address` | interface | routers, hosts, servers | Undo a setting. With `ipv6`: IPv6 settings of this interface; `address`: Remove the interface's IPv6 address. |
 
 ### Ip-routing
 
@@ -137,14 +137,14 @@ Static routes in FRRouting's style (ip route PREFIX NEXTHOP); the mask form and 
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `ip route PREFIX NEXTHOP` | config | routers, hosts, servers, switches | Add a static route |
+| `ip route PREFIX NEXTHOP` | config | routers, hosts, servers, switches | IPv4 settings. With `route`: Add a static route. |
 | `ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers, switches | Address of the next router |
 | `no ip route PREFIX NEXTHOP` | config | routers, hosts, servers, switches | Remove a static route |
 | `no ip route PREFIX` | config | routers, hosts, servers, switches | Remove a static route |
 | `no ip route NETWORK MASK NEXTHOP` | config | routers, hosts, servers, switches | Remove a static route |
 | `ip default-gateway GATEWAY` | config | routers, hosts, servers | Send traffic for unknown networks to this router (same as ip route 0.0.0.0/0) |
 | `no ip default-gateway` | config | routers, hosts, servers | Remove the default route |
-| `ipv6 route PREFIX NEXTHOP` | config | routers, hosts, servers | Add an IPv6 static route |
+| `ipv6 route PREFIX NEXTHOP` | config | routers, hosts, servers | IPv6 settings. With `route`: Add an IPv6 static route. |
 | `no ipv6 route PREFIX NEXTHOP` | config | routers, hosts, servers | Remove an IPv6 static route |
 | `no ipv6 route PREFIX` | config | routers, hosts, servers | Remove an IPv6 static route |
 
@@ -155,64 +155,64 @@ Access and trunk ports, spanning tree. Common industry syntax.
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
 | `vlan VLAN` | config | switches | Create a VLAN or change its settings |
-| `no vlan VLAN` | config | switches | Remove a VLAN's name |
+| `no vlan VLAN` | config | switches | Delete a VLAN from the configuration |
 | `name NAME` | vlan | all devices | Give this VLAN a label shown in show vlan |
 | `no name` | vlan | all devices | Remove the label |
-| `switchport mode access` | interface | switches | Carry one VLAN, untagged |
+| `switchport mode access` | interface | switches | VLAN settings of this switch port. With `mode`: Access port (one VLAN) or trunk (several, tagged); `access`: Carry one VLAN, untagged. |
 | `switchport mode trunk` | interface | switches | Carry several VLANs, tagged |
-| `switchport access vlan VLAN` | interface | switches | The VLAN this port belongs to |
-| `switchport trunk allowed vlan VLANS` | interface | switches | VLAN list |
-| `switchport trunk native vlan VLAN` | interface | switches | VLAN number |
-| `no switchport access vlan` | interface | switches | Put the port back in VLAN 1 |
+| `switchport access vlan VLAN` | interface | switches | Settings for an access port. With `vlan`: The VLAN this port belongs to. |
+| `switchport trunk allowed vlan VLANS` | interface | switches | Settings for a trunk port. With `allowed`: Which VLANs the trunk carries; `vlan`: VLAN list. |
+| `switchport trunk native vlan VLAN` | interface | switches | The VLAN sent untagged on this trunk |
+| `no switchport access vlan` | interface | switches | Undo a setting. With `switchport`: VLAN settings of this switch port; `access`: Put the port back in VLAN 1. |
 | `no switchport trunk native vlan` | interface | switches | Use the default native VLAN again |
 | `no switchport mode` | interface | switches | Forget this port's VLAN settings |
-| `channel-group NUMBER mode active` | interface | switches | Send LACPDUs (the only mode the engine models) |
-| `no channel-group` | interface | switches | Take this port out of its port-channel |
-| `lacp rate fast` | interface | switches | Every second (default: every 30 seconds) |
-| `lacp rate slow` | interface | switches | Every 30 seconds (the default) |
+| `channel-group NUMBER mode active` | interface | switches | Bundle this port with others into a port-channel (LACP, 802.3ad). With `mode`: How the channel is negotiated; `active`: Send LACPDUs (the only mode the engine models). |
+| `no channel-group` | interface | switches | Undo a setting. With `channel-group`: Take this port out of its port-channel. |
+| `lacp rate fast` | interface | switches | LACP settings of a port-channel. With `rate`: How often the peer should send LACPDUs; `fast`: Every second (default: every 30 seconds). |
+| `lacp rate slow` | interface | switches | LACP settings of a port-channel. With `rate`: How often the peer should send LACPDUs; `slow`: Every 30 seconds (the default). |
 | `spanning-tree` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop |
-| `no spanning-tree` | config | switches | Turn spanning tree off (and forget its settings) |
-| `ip dhcp snooping` | config | switches | Drop DHCP server messages that arrive on ports not marked trusted (stops rogue DHCP servers) |
-| `no ip dhcp snooping` | config | switches | Let DHCP server messages through on every port again |
-| `ip dhcp snooping trust` | interface | switches | Accept DHCP server messages on this port (the uplink to the real server) |
-| `no ip dhcp snooping trust` | interface | switches | Stop trusting this port |
-| `lldp forward` | config | switches | Pass LLDP frames through this switch instead of dropping them (the switch itself does not speak LLDP) |
-| `no lldp forward` | config | switches | Drop LLDP frames again (the default) |
-| `switchport port-security maximum COUNT` | interface | switches | How many different source MAC addresses the port accepts (the first ones heard stay secured) |
-| `switchport port-security violation protect` | interface | switches | Drop it and keep counting |
+| `no spanning-tree` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). |
+| `ip dhcp snooping` | config | switches | IP settings. With `dhcp`: DHCP; `snooping`: Drop DHCP server messages that arrive on ports not marked trusted (stops rogue DHCP servers). |
+| `no ip dhcp snooping` | config | switches | Undo a setting. With `ip`: IP settings; `dhcp`: DHCP; `snooping`: Let DHCP server messages through on every port again. |
+| `ip dhcp snooping trust` | interface | switches | IP settings. With `dhcp`: DHCP; `snooping`: DHCP snooping; `trust`: Accept DHCP server messages on this port (the uplink to the real server). |
+| `no ip dhcp snooping trust` | interface | switches | Undo a setting. With `ip`: IP settings; `dhcp`: DHCP; `snooping`: DHCP snooping; `trust`: Stop trusting this port. |
+| `lldp forward` | config | switches | Link Layer Discovery Protocol. With `forward`: Pass LLDP frames through this switch instead of dropping them (the switch itself does not speak LLDP). |
+| `no lldp forward` | config | switches | Undo a setting. With `lldp`: Link Layer Discovery Protocol; `forward`: Drop LLDP frames again (the default). |
+| `switchport port-security maximum COUNT` | interface | switches | Limit which hosts may send through this port. With `maximum`: How many different source MAC addresses the port accepts (the first ones heard stay secured). |
+| `switchport port-security violation protect` | interface | switches | What happens to a frame from an address over the limit. With `protect`: Drop it and keep counting. |
 | `switchport port-security violation restrict` | interface | switches | Drop it, count it and log it |
 | `switchport port-security violation shutdown` | interface | switches | Drop it and take the port down (err-disabled) |
-| `no switchport port-security` | interface | switches | Remove the address limit from this port |
-| `storm-control broadcast rate RATE burst BYTES` | interface | switches | How much may arrive at once |
-| `no storm-control broadcast` | interface | switches | Broadcast frames |
-| `mac address-table aging-time SECONDS` | config | switches | Seconds an unused entry is kept (default 300) |
-| `no mac address-table aging-time` | config | switches | Back to the default (300 seconds) |
+| `no switchport port-security` | interface | switches | Undo a setting. With `switchport`: VLAN and security settings of this switch port; `port-security`: Remove the address limit from this port. |
+| `storm-control broadcast rate RATE burst BYTES` | interface | switches | Limit the traffic this port accepts from the host. With `broadcast`: Broadcast frames (sent to every host); `rate`: How fast the port refills its allowance; `burst`: How much may arrive at once. |
+| `no storm-control broadcast` | interface | switches | Undo a setting. With `storm-control`: Remove the broadcast limit from this port; `broadcast`: Broadcast frames. |
+| `mac address-table aging-time SECONDS` | config | switches | MAC address table settings. With `address-table`: The table of which port each MAC address lives on; `aging-time`: Seconds an unused entry is kept (default 300). |
+| `no mac address-table aging-time` | config | switches | Undo a setting. With `mac`: MAC address table settings; `address-table`: The table of which port each MAC address lives on; `aging-time`: Back to the default (300 seconds). |
 | `spanning-tree mode stp` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `mode`: Which spanning tree protocol runs; `stp`: Classic spanning tree (802.1D): timers decide when a port may forward. |
 | `spanning-tree mode rstp` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `rstp`: Rapid spanning tree (802.1w): neighbours agree with proposals and agreements, so ports forward in moments. |
-| `no spanning-tree mode` | config | switches | Turn spanning tree off (and forget its settings). With `mode`: Back to classic spanning tree. |
+| `no spanning-tree mode` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `mode`: Back to classic spanning tree. |
 | `spanning-tree priority PRIORITY` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `priority`: Bridge priority: the lowest becomes the root. |
 | `spanning-tree hello-time SECONDS` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `hello-time`: Seconds between hello messages (default 2). |
 | `spanning-tree max-age SECONDS` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `max-age`: Seconds before a silent root is forgotten (default 20). |
 | `spanning-tree forward-time SECONDS` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `forward-time`: Seconds spent listening, then learning, before forwarding (default 15). |
 | `spanning-tree bridge-address MAC` | config | switches | Spanning tree (802.1D): blocks ports that would make a loop. With `bridge-address`: MAC address used in the bridge ID. |
-| `no spanning-tree priority` | config | switches | Turn spanning tree off (and forget its settings). With `priority`: Default priority. |
-| `no spanning-tree hello-time` | config | switches | Turn spanning tree off (and forget its settings). With `hello-time`: Default hello time. |
-| `no spanning-tree max-age` | config | switches | Turn spanning tree off (and forget its settings). With `max-age`: Default max age. |
-| `no spanning-tree forward-time` | config | switches | Turn spanning tree off (and forget its settings). With `forward-time`: Default forward time. |
-| `no spanning-tree bridge-address` | config | switches | Turn spanning tree off (and forget its settings). With `bridge-address`: Default bridge address. |
-| `spanning-tree cost COST` | interface | switches | Path cost through this port (lower is preferred) |
+| `no spanning-tree priority` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `priority`: Default priority. |
+| `no spanning-tree hello-time` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `hello-time`: Default hello time. |
+| `no spanning-tree max-age` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `max-age`: Default max age. |
+| `no spanning-tree forward-time` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `forward-time`: Default forward time. |
+| `no spanning-tree bridge-address` | config | switches | Undo a setting. With `spanning-tree`: Turn spanning tree off (and forget its settings). With `bridge-address`: Default bridge address. |
+| `spanning-tree cost COST` | interface | switches | Spanning tree settings of this port. With `cost`: Path cost through this port (lower is preferred). |
 | `spanning-tree port-priority PRIORITY` | interface | switches | Breaks ties between ports (lower is preferred) |
 | `spanning-tree portfast` | interface | switches | An edge port: a host hangs here, no switch, so rapid spanning tree forwards on it at once |
 | `no spanning-tree portfast` | interface | switches | Not an edge port (the switch still detects one by itself when no BPDU arrives) |
-| `no spanning-tree cost` | interface | switches | Default cost |
+| `no spanning-tree cost` | interface | switches | Undo a setting. With `cost`: Default cost. |
 | `no spanning-tree port-priority` | interface | switches | Default port priority |
-| `monitor session N destination interface IF` | config | switches | A switch port |
-| `monitor session N source interface IF both` | config | switches | A switch port. With `both`: Frames received and sent (the default). |
-| `monitor session N source interface IF rx` | config | switches | A switch port. With `rx`: Only frames the port receives. |
-| `monitor session N source interface IF tx` | config | switches | A switch port. With `tx`: Only frames the port sends. |
-| `monitor session N source interface IF` | config | switches | A switch port |
-| `no monitor session N source interface IF` | config | switches | A numbered mirroring session. With `source`: Stop copying this port; `interface`: A switch port. |
-| `no monitor session N` | config | switches | A numbered mirroring session |
+| `monitor session N destination interface IF` | config | switches | Copy traffic from some ports to a port where an analyzer listens. With `session`: A numbered mirroring session; `destination`: The port that receives the copies (it stops switching); `interface`: A switch port. |
+| `monitor session N source interface IF both` | config | switches | Copy traffic from some ports to a port where an analyzer listens. With `session`: A numbered mirroring session; `source`: A port whose traffic is copied (both directions); `interface`: A switch port. With `both`: Frames received and sent (the default). |
+| `monitor session N source interface IF rx` | config | switches | Copy traffic from some ports to a port where an analyzer listens. With `session`: A numbered mirroring session; `source`: A port whose traffic is copied (both directions); `interface`: A switch port. With `rx`: Only frames the port receives. |
+| `monitor session N source interface IF tx` | config | switches | Copy traffic from some ports to a port where an analyzer listens. With `session`: A numbered mirroring session; `source`: A port whose traffic is copied (both directions); `interface`: A switch port. With `tx`: Only frames the port sends. |
+| `monitor session N source interface IF` | config | switches | Copy traffic from some ports to a port where an analyzer listens. With `session`: A numbered mirroring session; `source`: A port whose traffic is copied (both directions); `interface`: A switch port. |
+| `no monitor session N source interface IF` | config | switches | Undo a setting. With `monitor`: Copy traffic from some ports to a port where an analyzer listens; `session`: A numbered mirroring session. With `source`: Stop copying this port; `interface`: A switch port. |
+| `no monitor session N` | config | switches | Undo a setting. With `monitor`: Copy traffic from some ports to a port where an analyzer listens; `session`: A numbered mirroring session. |
 
 ### Services
 
@@ -220,38 +220,38 @@ What an IP device serves: DNS names, DHCP pools, DHCP relay, TCP echo, discard a
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `ip dns server` | config | routers, hosts, servers | Answer DNS questions for the names set with ip host |
-| `no ip dns server` | config | routers, hosts, servers | Stop answering DNS questions (and forget the names) |
+| `ip dns server` | config | routers, hosts, servers | IPv4 settings. With `dns`: DNS service; `server`: Answer DNS questions for the names set with ip host. |
+| `no ip dns server` | config | routers, hosts, servers | Undo a setting. With `server`: Stop answering DNS questions (and forget the names). |
 | `ip host NAME ADDRESS` | config | routers, hosts, servers | A name this device's DNS server answers |
 | `no ip host NAME` | config | routers, hosts, servers | Forget a name |
-| `ip dhcp pool NAME` | config | routers, hosts, servers | Create or change a pool of addresses to hand out (the first pool serves this device's own network) |
+| `ip dhcp pool NAME` | config | routers, hosts, servers | DHCP server. With `pool`: Create or change a pool of addresses to hand out (the first pool serves this device's own network). |
 | `no ip dhcp pool NAME` | config | routers, hosts, servers | Delete a pool |
 | `range FIRST LAST` | DHCP pool | all devices | Addresses to hand out |
 | `netmask MASK` | DHCP pool | all devices | Mask for a relayed network's pool |
 | `default-router ADDRESS` | DHCP pool | all devices | Gateway to tell clients about |
 | `dns-server ADDRESS` | DHCP pool | all devices | DNS server to tell clients about |
 | `lease SECONDS` | DHCP pool | all devices | How long a client may keep its address |
-| `no netmask` | DHCP pool | all devices | Remove the mask |
+| `no netmask` | DHCP pool | all devices | Undo a setting. With `netmask`: Remove the mask. |
 | `no default-router` | DHCP pool | all devices | Tell clients no gateway |
 | `no dns-server` | DHCP pool | all devices | Tell clients no DNS server |
 | `no lease` | DHCP pool | all devices | Default lease time |
-| `ip helper-address ADDRESS` | interface | routers | Relay DHCP requests heard on this interface to a server |
-| `no ip helper-address` | interface | routers | Stop relaying DHCP on this interface |
-| `no ip helper-address ADDRESS` | interface | routers | Stop relaying DHCP on this interface |
-| `service tcp-echo PORT` | config | routers, hosts, servers | Listen on a TCP port and send back what arrives |
-| `no service tcp-echo PORT` | config | routers, hosts, servers | Stop the TCP echo service on a port |
-| `service tcp-discard PORT` | config | routers, hosts, servers | Listen on a TCP port and read what arrives without answering |
-| `no service tcp-discard PORT` | config | routers, hosts, servers | Stop the TCP discard service on a port |
-| `service tcp-http PORT` | config | routers, hosts, servers | Answer web page requests (GET) on a TCP port, from the pages set with http page |
-| `no service tcp-http PORT` | config | routers, hosts, servers | Stop the web service on a port |
-| `http page PATH TEXT` | config | routers, hosts, servers | Set the text served for a URL path |
-| `no http page PATH` | config | routers, hosts, servers | Remove a page |
-| `service ntp STRATUM` | config | routers, hosts, servers | Answer NTP time queries on UDP port 123 at this stratum |
-| `no service ntp` | config | routers, hosts, servers | Stop answering NTP queries |
-| `service syslog` | config | routers, hosts, servers | Collect log messages sent to UDP port 514 |
-| `no service syslog` | config | routers, hosts, servers | Stop collecting log messages |
-| `service tcp-slow PORT` | config | routers, hosts, servers | Listen on a TCP port with a small receive buffer; the application reads nothing for one second |
-| `no service tcp-slow PORT` | config | routers, hosts, servers | Stop the TCP slow-reader service on a port |
+| `ip helper-address ADDRESS` | interface | routers | IPv4 settings of this interface. With `helper-address`: Relay DHCP requests heard on this interface to a server. |
+| `no ip helper-address` | interface | routers | Undo a setting. With `helper-address`: Stop relaying DHCP on this interface. |
+| `no ip helper-address ADDRESS` | interface | routers | Undo a setting. With `helper-address`: Stop relaying DHCP on this interface |
+| `service tcp-echo PORT` | config | routers, hosts, servers | Programs this device runs. With `tcp-echo`: Listen on a TCP port and send back what arrives. |
+| `no service tcp-echo PORT` | config | routers, hosts, servers | Stop a program. With `tcp-echo`: Stop the TCP echo service on a port. |
+| `service tcp-discard PORT` | config | routers, hosts, servers | Programs this device runs. With `tcp-discard`: Listen on a TCP port and read what arrives without answering. |
+| `no service tcp-discard PORT` | config | routers, hosts, servers | Stop a program. With `tcp-discard`: Stop the TCP discard service on a port. |
+| `service tcp-http PORT` | config | routers, hosts, servers | Programs this device runs. With `tcp-http`: Answer web page requests (GET) on a TCP port, from the pages set with http page. |
+| `no service tcp-http PORT` | config | routers, hosts, servers | Stop a program. With `tcp-http`: Stop the web service on a port. |
+| `http page PATH TEXT` | config | routers, hosts, servers | Web service pages. With `page`: Set the text served for a URL path. |
+| `no http page PATH` | config | routers, hosts, servers | Undo a setting. With `http`: Web service pages; `page`: Remove a page. |
+| `service ntp STRATUM` | config | routers, hosts, servers | Programs this device runs. With `ntp`: Answer NTP time queries on UDP port 123 at this stratum. |
+| `no service ntp` | config | routers, hosts, servers | Stop a program. With `ntp`: Stop answering NTP queries. |
+| `service syslog` | config | routers, hosts, servers | Programs this device runs. With `syslog`: Collect log messages sent to UDP port 514. |
+| `no service syslog` | config | routers, hosts, servers | Stop a program. With `syslog`: Stop collecting log messages. |
+| `service tcp-slow PORT` | config | routers, hosts, servers | Programs this device runs. With `tcp-slow`: Listen on a TCP port with a small receive buffer; the application reads nothing for one second. |
+| `no service tcp-slow PORT` | config | routers, hosts, servers | Stop a program. With `tcp-slow`: Stop the TCP slow-reader service on a port. |
 
 ### Rip
 
@@ -259,22 +259,22 @@ RIPv2 in FRRouting's style: router rip, then network, passive-interface and time
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `router rip` | config | routers | Routing Information Protocol (version 2) |
-| `no router rip` | config | routers | Turn RIP off |
-| `version 2` | routing | routers | RIPv2 (the only version) |
+| `router rip` | config | routers | Routing protocols. With `rip`: Routing Information Protocol (version 2). |
+| `no router rip` | config | routers | Undo a setting. With `router`: Routing protocols; `rip`: Turn RIP off. |
+| `version 2` | routing | routers | RIP version. With `2`: RIPv2 (the only version). |
 | `network PREFIX` | routing | routers | Run RIP on interfaces inside this network |
 | `network IFNAME` | routing | routers | Run RIP on this interface |
-| `no network PREFIX` | routing | routers | Stop RIP on this network |
+| `no network PREFIX` | routing | routers | Undo a setting. With `network`: Stop RIP on this network. |
 | `no network IFNAME` | routing | routers | Interface name |
 | `passive-interface IFNAME` | routing | routers | Hear RIP on this interface but do not send updates |
-| `no passive-interface IFNAME` | routing | routers | Send updates on this interface again |
-| `timers basic UPDATE TIMEOUT GARBAGE` | routing | routers | Update, timeout and garbage-collection timers |
-| `no timers basic` | routing | routers | Back to the default timers |
-| `split-horizon simple` | routing | routers | Leave them out (the default) |
+| `no passive-interface IFNAME` | routing | routers | Undo a setting. With `passive-interface`: Send updates on this interface again. |
+| `timers basic UPDATE TIMEOUT GARBAGE` | routing | routers | RIP timers. With `basic`: Update, timeout and garbage-collection timers. |
+| `no timers basic` | routing | routers | Undo a setting. With `timers`: RIP timers; `basic`: Back to the default timers. |
+| `split-horizon simple` | routing | routers | How routes learned on an interface are advertised back out of it. With `simple`: Leave them out (the default). |
 | `split-horizon poisoned-reverse` | routing | routers | Advertise them with metric 16 |
-| `no split-horizon` | routing | routers | Advertise everything everywhere |
+| `no split-horizon` | routing | routers | Undo a setting. With `split-horizon`: Advertise everything everywhere. |
 | `triggered-updates` | routing | routers | Send changes at once (the default) |
-| `no triggered-updates` | routing | routers | Wait for the update timer (a teaching setting, not in FRR) |
+| `no triggered-updates` | routing | routers | Undo a setting. With `triggered-updates`: Wait for the update timer (a teaching setting, not in FRR). |
 
 ### Ripng
 
@@ -282,21 +282,21 @@ RIPng, RIP for IPv6: router ripng, then network, passive-interface and timers ba
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `router ripng` | config | routers | RIP for IPv6 |
-| `no router ripng` | config | routers | Turn RIPng off |
+| `router ripng` | config | routers | Routing protocols. With `ripng`: RIP for IPv6. |
+| `no router ripng` | config | routers | Undo a setting. With `router`: Routing protocols; `ripng`: Turn RIPng off. |
 | `network PREFIX` | config-ripng | routers | Run RIPng on interfaces inside this network |
 | `network IFNAME` | config-ripng | routers | Run RIPng on this interface |
-| `no network PREFIX` | config-ripng | routers | Stop RIPng on this network |
+| `no network PREFIX` | config-ripng | routers | Undo a setting. With `network`: Stop RIPng on this network. |
 | `no network IFNAME` | config-ripng | routers | Interface name |
 | `passive-interface IFNAME` | config-ripng | routers | Hear RIP on this interface but do not send updates |
-| `no passive-interface IFNAME` | config-ripng | routers | Send updates on this interface again |
-| `timers basic UPDATE TIMEOUT GARBAGE` | config-ripng | routers | Update, timeout and garbage-collection timers |
-| `no timers basic` | config-ripng | routers | Back to the default timers |
-| `split-horizon simple` | config-ripng | routers | Leave them out (the default) |
+| `no passive-interface IFNAME` | config-ripng | routers | Undo a setting. With `passive-interface`: Send updates on this interface again. |
+| `timers basic UPDATE TIMEOUT GARBAGE` | config-ripng | routers | RIPng timers. With `basic`: Update, timeout and garbage-collection timers. |
+| `no timers basic` | config-ripng | routers | Undo a setting. With `timers`: RIPng timers; `basic`: Back to the default timers. |
+| `split-horizon simple` | config-ripng | routers | How routes learned on an interface are advertised back out of it. With `simple`: Leave them out (the default). |
 | `split-horizon poisoned-reverse` | config-ripng | routers | Advertise them with metric 16 |
-| `no split-horizon` | config-ripng | routers | Advertise everything everywhere |
+| `no split-horizon` | config-ripng | routers | Undo a setting. With `split-horizon`: Advertise everything everywhere. |
 | `triggered-updates` | config-ripng | routers | Send changes at once (the default) |
-| `no triggered-updates` | config-ripng | routers | Wait for the update timer (a teaching setting, not in FRR) |
+| `no triggered-updates` | config-ripng | routers | Undo a setting. With `triggered-updates`: Wait for the update timer (a teaching setting, not in FRR). |
 
 ### Acl
 
@@ -304,25 +304,25 @@ IPv4 access lists on routers: ip access-list NAME with permit/deny rules, applie
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `ip access-list NAME` | config | routers | A packet filter: rules checked top to bottom, then an implicit deny |
-| `no ip access-list NAME` | config | routers | Delete a list (it must not be applied to an interface) |
-| `no rule NUMBER` | config-acl | routers | Delete one rule of this list |
-| `ip access-group NAME in` | interface | routers | Packets arriving on this interface (checked before routing) |
+| `ip access-list NAME` | config | routers | IPv4 settings. With `access-list`: A packet filter: rules checked top to bottom, then an implicit deny. |
+| `no ip access-list NAME` | config | routers | Undo a setting. With `ip`: IPv4 settings; `access-list`: Delete a list (it must not be applied to an interface). |
+| `no rule NUMBER` | config-acl | routers | Undo a setting. With `rule`: Delete one rule of this list. |
+| `ip access-group NAME in` | interface | routers | IPv4 settings of this interface. With `access-group`: Filter packets with an access list; `in`: Packets arriving on this interface (checked before routing). |
 | `ip access-group NAME out` | interface | routers | Packets this router forwards out of this interface |
-| `no ip access-group in` | interface | routers | The inbound list |
+| `no ip access-group in` | interface | routers | Undo a setting. With `ip`: IPv4 settings of this interface; `access-group`: Stop filtering with an access list; `in`: The inbound list. |
 | `no ip access-group out` | interface | routers | The outbound list |
-| `permit ip SRC DST` | config-acl | routers | Any IPv4 packet |
-| `permit icmp SRC DST` | config-acl | routers | ICMP (ping and errors) |
-| `permit icmp SRC DST type TYPE` | config-acl | routers | ICMP (ping and errors). With `type`: Only this ICMP type. |
-| `permit tcp SRC DST` | config-acl | routers | TCP |
-| `permit tcp SRC DST established` | config-acl | routers | TCP. With `established`: Only segments with ACK or RST set (not the first SYN). |
-| `permit udp SRC DST` | config-acl | routers | UDP |
-| `deny ip SRC DST` | config-acl | routers | Any IPv4 packet |
-| `deny icmp SRC DST` | config-acl | routers | ICMP (ping and errors) |
-| `deny icmp SRC DST type TYPE` | config-acl | routers | ICMP (ping and errors). With `type`: Only this ICMP type. |
-| `deny tcp SRC DST` | config-acl | routers | TCP |
-| `deny tcp SRC DST established` | config-acl | routers | TCP. With `established`: Only segments with ACK or RST set (not the first SYN). |
-| `deny udp SRC DST` | config-acl | routers | UDP |
+| `permit ip SRC DST` | config-acl | routers | Let matching packets through. With `ip`: Any IPv4 packet. |
+| `permit icmp SRC DST` | config-acl | routers | Let matching packets through. With `icmp`: ICMP (ping and errors). |
+| `permit icmp SRC DST type TYPE` | config-acl | routers | Let matching packets through. With `icmp`: ICMP (ping and errors). With `type`: Only this ICMP type. |
+| `permit tcp SRC DST` | config-acl | routers | Let matching packets through. With `tcp`: TCP. |
+| `permit tcp SRC DST established` | config-acl | routers | Let matching packets through. With `tcp`: TCP. With `established`: Only segments with ACK or RST set (not the first SYN). |
+| `permit udp SRC DST` | config-acl | routers | Let matching packets through. With `udp`: UDP. |
+| `deny ip SRC DST` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `ip`: Any IPv4 packet. |
+| `deny icmp SRC DST` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `icmp`: ICMP (ping and errors). |
+| `deny icmp SRC DST type TYPE` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `icmp`: ICMP (ping and errors). With `type`: Only this ICMP type. |
+| `deny tcp SRC DST` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `tcp`: TCP. |
+| `deny tcp SRC DST established` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `tcp`: TCP. With `established`: Only segments with ACK or RST set (not the first SYN). |
+| `deny udp SRC DST` | config-acl | routers | Drop matching packets and tell the sender (ICMP administratively prohibited). With `udp`: UDP. |
 
 ### Nat
 
@@ -330,18 +330,18 @@ Address translation on routers: mark interfaces ip nat inside / ip nat outside; 
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `ip nat inside` | interface | routers | This interface faces the private network (its hosts get translated) |
-| `ip nat outside` | interface | routers | This interface faces the public side (translated traffic leaves here) |
-| `no ip nat` | interface | routers | Stop treating this interface as inside or outside |
-| `ip nat inside source overload` | config | routers | Let all inside hosts share the address of the outside interface (ports tell them apart) |
-| `ip nat inside source overload PREFIX` | config | routers | Let all inside hosts share the address of the outside interface (ports tell them apart) |
-| `no ip nat inside source overload` | config | routers | Stop sharing the outside address |
-| `ip nat inside source static INSIDE OUTSIDE` | config | routers | One inside host always appears under one fixed outside address (works in both directions) |
-| `ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Forward one TCP port |
-| `ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Forward one UDP port |
-| `no ip nat inside source static INSIDE OUTSIDE` | config | routers | Remove a fixed mapping |
-| `no ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | TCP port forward |
-| `no ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | UDP port forward |
+| `ip nat inside` | interface | routers | IPv4 settings of this interface. With `nat`: Address translation; `inside`: This interface faces the private network (its hosts get translated). |
+| `ip nat outside` | interface | routers | IPv4 settings of this interface. With `nat`: Address translation; `outside`: This interface faces the public side (translated traffic leaves here). |
+| `no ip nat` | interface | routers | Undo a setting. With `ip`: IPv4 settings of this interface; `nat`: Stop treating this interface as inside or outside. |
+| `ip nat inside source overload` | config | routers | IPv4 settings. With `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `overload`: Let all inside hosts share the address of the outside interface (ports tell them apart). |
+| `ip nat inside source overload PREFIX` | config | routers | IPv4 settings. With `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `overload`: Let all inside hosts share the address of the outside interface (ports tell them apart) |
+| `no ip nat inside source overload` | config | routers | Undo a setting. With `ip`: IPv4 settings; `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `overload`: Stop sharing the outside address. |
+| `ip nat inside source static INSIDE OUTSIDE` | config | routers | IPv4 settings. With `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: One inside host always appears under one fixed outside address (works in both directions). |
+| `ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | IPv4 settings. With `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: Fixed mapping; `tcp`: Forward one TCP port. |
+| `ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | IPv4 settings. With `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: Fixed mapping; `udp`: Forward one UDP port. |
+| `no ip nat inside source static INSIDE OUTSIDE` | config | routers | Undo a setting. With `ip`: IPv4 settings; `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: Remove a fixed mapping. |
+| `no ip nat inside source static tcp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Undo a setting. With `ip`: IPv4 settings; `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: Remove a fixed mapping; `tcp`: TCP port forward. |
+| `no ip nat inside source static udp INSIDE INPORT OUTSIDE OUTPORT` | config | routers | Undo a setting. With `ip`: IPv4 settings; `nat`: Address translation; `inside`: Traffic from inside hosts; `source`: Rewrite the source address of that traffic; `static`: Remove a fixed mapping; `udp`: UDP port forward. |
 
 ### Lldp
 
@@ -349,16 +349,16 @@ LLDP (neighbor discovery) on routers, hosts and servers: `lldp run` turns it on,
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `lldp run` | config | routers, hosts, servers | Send and listen for LLDP on every cabled interface |
-| `no lldp run` | config | routers, hosts, servers | Turn LLDP off and forget its settings |
+| `lldp run` | config | routers, hosts, servers | Link Layer Discovery Protocol. With `run`: Send and listen for LLDP on every cabled interface. |
+| `no lldp run` | config | routers, hosts, servers | Undo a setting. With `lldp`: Link Layer Discovery Protocol; `run`: Turn LLDP off and forget its settings. |
 | `lldp timer SECONDS` | config | routers, hosts, servers | Seconds between advertisements (default 30) |
-| `no lldp timer` | config | routers, hosts, servers | Back to the default of 30 seconds |
+| `no lldp timer` | config | routers, hosts, servers | Undo a setting. With `lldp`: Link Layer Discovery Protocol; `timer`: Back to the default of 30 seconds. |
 | `lldp hold-multiplier COUNT` | config | routers, hosts, servers | How many timer periods a neighbor stays listed after its last advertisement (default 4) |
-| `no lldp hold-multiplier` | config | routers, hosts, servers | Back to the default of 4 |
+| `no lldp hold-multiplier` | config | routers, hosts, servers | Undo a setting. With `lldp`: Link Layer Discovery Protocol; `hold-multiplier`: Back to the default of 4. |
 | `lldp description TEXT` | config | routers, hosts, servers | The system description neighbors see (one word) |
-| `no lldp description` | config | routers, hosts, servers | Back to the default description |
-| `show lldp` | user, privileged | routers, hosts, servers | Whether LLDP runs, its timers and neighbor count |
-| `show lldp neighbors` | user, privileged | routers, hosts, servers | Whether LLDP runs, its timers and neighbor count. With `neighbors`: Devices heard on each interface: name, port, capabilities, time left. |
+| `no lldp description` | config | routers, hosts, servers | Undo a setting. With `lldp`: Link Layer Discovery Protocol; `description`: Back to the default description. |
+| `show lldp` | user, privileged | routers, hosts, servers | Show status and settings. With `lldp`: Whether LLDP runs, its timers and neighbor count. |
+| `show lldp neighbors` | user, privileged | routers, hosts, servers | Show status and settings. With `lldp`: Whether LLDP runs, its timers and neighbor count. With `neighbors`: Devices heard on each interface: name, port, capabilities, time left. |
 
 ### Vrrp
 
@@ -366,15 +366,15 @@ First-hop redundancy on routers: two or more routers on one LAN share a virtual 
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `vrrp GROUP address ADDRESS` | interface | routers | The virtual address hosts use as their gateway |
-| `vrrp GROUP priority PRIORITY` | interface | routers | Who wins the election: the higher number (default 100; 255 means this router owns the address) |
-| `vrrp GROUP interval SECONDS` | interface | routers | Seconds between the master's announcements (default 1; every router of the group must agree) |
-| `vrrp GROUP preempt` | interface | routers | Take the address back from a lower-priority master (the default) |
-| `no vrrp GROUP preempt` | interface | routers | Leave the group and forget its settings. With `preempt`: Stay backup even with a higher priority until the master fails. |
-| `vrrp GROUP virtual-mac` | interface | routers | Answer ARP for the address with the group's own MAC 00:00:5e:00:01:GROUP instead of the interface's MAC |
-| `no vrrp GROUP virtual-mac` | interface | routers | Leave the group and forget its settings. With `virtual-mac`: Use the interface's own MAC again (the default). |
-| `no vrrp GROUP` | interface | routers | Leave the group and forget its settings |
-| `show vrrp` | user, privileged | routers | Each group: its state, who is master, priority and timers |
+| `vrrp GROUP address ADDRESS` | interface | routers | Shared gateway address with other routers. With `address`: The virtual address hosts use as their gateway. |
+| `vrrp GROUP priority PRIORITY` | interface | routers | Shared gateway address with other routers. With `priority`: Who wins the election: the higher number (default 100; 255 means this router owns the address). |
+| `vrrp GROUP interval SECONDS` | interface | routers | Shared gateway address with other routers. With `interval`: Seconds between the master's announcements (default 1; every router of the group must agree). |
+| `vrrp GROUP preempt` | interface | routers | Shared gateway address with other routers. With `preempt`: Take the address back from a lower-priority master (the default). |
+| `no vrrp GROUP preempt` | interface | routers | Undo a setting. With `vrrp`: Leave the group and forget its settings. With `preempt`: Stay backup even with a higher priority until the master fails. |
+| `vrrp GROUP virtual-mac` | interface | routers | Shared gateway address with other routers. With `virtual-mac`: Answer ARP for the address with the group's own MAC 00:00:5e:00:01:GROUP instead of the interface's MAC. |
+| `no vrrp GROUP virtual-mac` | interface | routers | Undo a setting. With `vrrp`: Leave the group and forget its settings. With `virtual-mac`: Use the interface's own MAC again (the default). |
+| `no vrrp GROUP` | interface | routers | Undo a setting. With `vrrp`: Leave the group and forget its settings. |
+| `show vrrp` | user, privileged | routers | Show status and settings. With `vrrp`: Each group: its state, who is master, priority and timers. |
 
 ### Show
 
@@ -382,33 +382,33 @@ Show commands. Every one also takes | json, | include WORD and | exclude WORD.
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `show running-config` | privileged | all devices | The configuration, as commands that rebuild it |
-| `show running-config openconfig` | privileged | all devices | The configuration, as commands that rebuild it. With `openconfig`: The configuration in OpenConfig's JSON form. |
-| `show version` | user, privileged | all devices | Software, device kind and backend |
+| `show running-config` | privileged | all devices | Show status and settings. With `running-config`: The configuration, as commands that rebuild it. |
+| `show running-config openconfig` | privileged | all devices | Show status and settings. With `running-config`: The configuration, as commands that rebuild it. With `openconfig`: The configuration in OpenConfig's JSON form. |
+| `show version` | user, privileged | all devices | Show status and settings. With `version`: Software, device kind and backend. |
 | `show interfaces` | user, privileged | all devices | Details of every interface: state, MAC, addresses, VLANs, shaping |
 | `show interfaces IFNAME` | user, privileged | all devices | Details of every interface: state, MAC, addresses, VLANs, shaping |
-| `show interface brief` | user, privileged | all devices | One line per interface |
-| `show ip interface brief` | user, privileged | all devices | One line per interface |
+| `show interface brief` | user, privileged | all devices | Interfaces. With `brief`: One line per interface. |
+| `show ip interface brief` | user, privileged | all devices | IPv4 status. With `interface`: Interfaces; `brief`: One line per interface. |
 | `show ip route` | user, privileged | routers, hosts, servers, switches | Routing table: where each network is sent |
-| `show ip dhcp snooping` | user, privileged | switches | Whether DHCP snooping is on, which ports are trusted and what was dropped |
+| `show ip dhcp snooping` | user, privileged | switches | DHCP. With `snooping`: Whether DHCP snooping is on, which ports are trusted and what was dropped. |
 | `show ntp` | user, privileged | routers, hosts, servers | The NTP service's stratum and how many queries it has answered |
 | `show syslog` | user, privileged | routers, hosts, servers | Log messages this device has collected (needs service syslog) |
-| `show ip rip` | user, privileged | routers | The RIP table: connected and learned networks with metric and next hop |
-| `show ipv6 route` | user, privileged | routers, hosts, servers | IPv6 routes: connected, static and learned by RIPng |
+| `show ip rip` | user, privileged | routers | IPv4 status. With `rip`: The RIP table: connected and learned networks with metric and next hop. |
+| `show ipv6 route` | user, privileged | routers, hosts, servers | IPv6 status. With `route`: IPv6 routes: connected, static and learned by RIPng. |
 | `show ipv6 neighbors` | user, privileged | routers, hosts, servers | IPv6 address to MAC address table (neighbor discovery cache) |
 | `show ipv6 ripng` | user, privileged | routers | The RIPng table: connected and learned prefixes with metric and next hop |
 | `show arp` | user, privileged | routers, hosts, servers, switches | IPv4 address to MAC address table |
 | `show access-lists` | user, privileged | routers | Packet filters, their rules and where they are applied |
 | `show access-lists NAME` | user, privileged | routers | Packet filters, their rules and where they are applied |
-| `show ip nat translations` | user, privileged | routers | The fixed mappings and the flows being translated now |
+| `show ip nat translations` | user, privileged | routers | Address translation. With `translations`: The fixed mappings and the flows being translated now. |
 | `show ip nat statistics` | user, privileged | routers | Interfaces, rules and how often the table was used |
-| `show ip dhcp binding` | user, privileged | routers, hosts, servers | Addresses this server has handed out |
-| `show mac address-table` | user, privileged | switches | Which port each MAC address was seen on |
-| `show mac address-table aging-time` | user, privileged | switches | Which port each MAC address was seen on. With `aging-time`: How long an unused entry is kept before it is forgotten. |
+| `show ip dhcp binding` | user, privileged | routers, hosts, servers | DHCP server. With `binding`: Addresses this server has handed out. |
+| `show mac address-table` | user, privileged | switches | MAC addresses. With `address-table`: Which port each MAC address was seen on. |
+| `show mac address-table aging-time` | user, privileged | switches | MAC addresses. With `address-table`: Which port each MAC address was seen on. With `aging-time`: How long an unused entry is kept before it is forgotten. |
 | `show port-security` | user, privileged | switches | Limits on how many hosts a switch port accepts, and the violations so far |
 | `show storm-control` | user, privileged | switches | Broadcast limits per switch port, and how many frames each let through or dropped |
-| `show monitor` | user, privileged | switches | Port mirroring sessions: destination and source ports |
-| `show etherchannel summary` | user, privileged | switches | One line per channel, with the state of each member port |
+| `show monitor` | user, privileged | switches | Show device state. With `monitor`: Port mirroring sessions: destination and source ports. |
+| `show etherchannel summary` | user, privileged | switches | Port-channels (link aggregation). With `summary`: One line per channel, with the state of each member port. |
 | `show spanning-tree` | user, privileged | switches | Root bridge, port roles and states |
 | `show spanning-tree interface IFNAME` | user, privileged | switches | Root bridge, port roles and states. With `interface`: One port. |
 | `show vlan id VLAN` | user, privileged | switches | VLANs. With `id`: One VLAN. |
@@ -431,45 +431,45 @@ OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), pe
 
 | Command | Mode | Devices | What it does |
 |---|---|---|---|
-| `router ospf` | config | routers | OSPF: routers learn each other's networks automatically |
+| `router ospf` | config | routers | Routing protocols. With `ospf`: OSPF: routers learn each other's networks automatically. |
 | `no router ospf` | config | routers | Turn OSPF off and forget its settings |
 | `router-id ADDRESS` | OSPF routing | routers | The name this router uses in OSPF (default: its highest address) |
 | `no router-id` | OSPF routing | routers | Go back to the default router ID |
-| `redistribute connected` | OSPF routing | routers | Announce networks directly attached to this router |
-| `redistribute connected metric N` | OSPF routing | routers | Announce networks directly attached to this router. With `metric`: Cost the other routers see for these routes (default 20). |
-| `redistribute connected metric-type T` | OSPF routing | routers | Announce networks directly attached to this router. With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
-| `redistribute connected metric N metric-type T` | OSPF routing | routers | Announce networks directly attached to this router. With `metric`: Cost the other routers see for these routes (default 20). With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
-| `no redistribute connected` | OSPF routing | routers | Stop announcing networks directly attached to this router |
-| `redistribute static` | OSPF routing | routers | Announce the static routes configured on this router |
-| `redistribute static metric N` | OSPF routing | routers | Announce the static routes configured on this router. With `metric`: Cost the other routers see for these routes (default 20). |
-| `redistribute static metric-type T` | OSPF routing | routers | Announce the static routes configured on this router. With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
-| `redistribute static metric N metric-type T` | OSPF routing | routers | Announce the static routes configured on this router. With `metric`: Cost the other routers see for these routes (default 20). With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
-| `no redistribute static` | OSPF routing | routers | Stop announcing the static routes configured on this router |
+| `redistribute connected` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `connected`: Announce networks directly attached to this router. |
+| `redistribute connected metric N` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `connected`: Announce networks directly attached to this router. With `metric`: Cost the other routers see for these routes (default 20). |
+| `redistribute connected metric-type T` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `connected`: Announce networks directly attached to this router. With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
+| `redistribute connected metric N metric-type T` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `connected`: Announce networks directly attached to this router. With `metric`: Cost the other routers see for these routes (default 20). With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
+| `no redistribute connected` | OSPF routing | routers | Stop announcing routes from outside OSPF. With `connected`: Stop announcing networks directly attached to this router. |
+| `redistribute static` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `static`: Announce the static routes configured on this router. |
+| `redistribute static metric N` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `static`: Announce the static routes configured on this router. With `metric`: Cost the other routers see for these routes (default 20). |
+| `redistribute static metric-type T` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `static`: Announce the static routes configured on this router. With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
+| `redistribute static metric N metric-type T` | OSPF routing | routers | Announce routes from outside OSPF into it (this router becomes an ASBR). With `static`: Announce the static routes configured on this router. With `metric`: Cost the other routers see for these routes (default 20). With `metric-type`: 1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default). |
+| `no redistribute static` | OSPF routing | routers | Stop announcing routes from outside OSPF. With `static`: Stop announcing the static routes configured on this router. |
 | `network PREFIX` | OSPF routing | routers | Run OSPF on interfaces inside this network |
 | `passive-interface IFNAME` | OSPF routing | routers | Announce this interface's network but send no OSPF packets on it |
-| `no passive-interface IFNAME` | OSPF routing | routers | Speak OSPF on this interface again |
-| `network interface IFNAME` | OSPF routing | routers | Pick one interface by name |
+| `no passive-interface IFNAME` | OSPF routing | routers | Undo a setting. With `passive-interface`: Speak OSPF on this interface again. |
+| `network interface IFNAME` | OSPF routing | routers | Run OSPF on interfaces inside this network. With `interface`: Pick one interface by name. |
 | `network PREFIX area AREA` | OSPF routing | routers | Run OSPF on interfaces inside this network. With `area`: Put these interfaces in an area. |
-| `network interface IFNAME area AREA` | OSPF routing | routers | Pick one interface by name. With `area`: Put this interface in an area. |
+| `network interface IFNAME area AREA` | OSPF routing | routers | Run OSPF on interfaces inside this network. With `interface`: Pick one interface by name. With `area`: Put this interface in an area. |
 | `no network PREFIX` | OSPF routing | routers | Stop running OSPF on this network |
-| `no network interface IFNAME` | OSPF routing | routers | Pick one interface by name |
-| `ospf cost N` | interface | routers | Cost of sending traffic out of this interface (default 10) |
-| `no ospf cost` | interface | routers | Go back to the default |
-| `ospf hello-interval N` | interface | routers | Seconds between hello packets (default 10) |
-| `no ospf hello-interval` | interface | routers | Go back to the default |
-| `ospf dead-interval N` | interface | routers | Seconds of silence before a neighbor is declared gone (default: 4 x hello) |
-| `no ospf dead-interval` | interface | routers | Go back to the default |
-| `ospf retransmit-interval N` | interface | routers | Seconds before an unacknowledged update is sent again (default 5) |
-| `no ospf retransmit-interval` | interface | routers | Go back to the default |
-| `ospf priority N` | interface | routers | Chance of becoming the designated router; 0 never (default 1) |
-| `no ospf priority` | interface | routers | Go back to the default |
-| `ospf network point-to-point` | interface | routers | Exactly one neighbor: no designated router election |
-| `ospf network broadcast` | interface | routers | Several routers: elect a designated router |
-| `no ospf network` | interface | routers | Go back to the default (broadcast) |
-| `show ip ospf neighbor` | user, privileged | routers | Routers this one has met through OSPF |
-| `show ip ospf interface` | user, privileged | routers | OSPF state of each interface |
-| `show ip ospf database` | user, privileged | routers | The link-state database: what every router announced |
-| `show ip ospf route` | user, privileged | routers | Networks OSPF has computed |
+| `no network interface IFNAME` | OSPF routing | routers | Stop running OSPF on this interface. With `interface`: Pick one interface by name. |
+| `ospf cost N` | interface | routers | OSPF settings of this interface. With `cost`: Cost of sending traffic out of this interface (default 10). |
+| `no ospf cost` | interface | routers | OSPF settings of this interface. With `cost`: Go back to the default. |
+| `ospf hello-interval N` | interface | routers | OSPF settings of this interface. With `hello-interval`: Seconds between hello packets (default 10). |
+| `no ospf hello-interval` | interface | routers | OSPF settings of this interface. With `hello-interval`: Go back to the default. |
+| `ospf dead-interval N` | interface | routers | OSPF settings of this interface. With `dead-interval`: Seconds of silence before a neighbor is declared gone (default: 4 x hello). |
+| `no ospf dead-interval` | interface | routers | OSPF settings of this interface. With `dead-interval`: Go back to the default. |
+| `ospf retransmit-interval N` | interface | routers | OSPF settings of this interface. With `retransmit-interval`: Seconds before an unacknowledged update is sent again (default 5). |
+| `no ospf retransmit-interval` | interface | routers | OSPF settings of this interface. With `retransmit-interval`: Go back to the default. |
+| `ospf priority N` | interface | routers | OSPF settings of this interface. With `priority`: Chance of becoming the designated router; 0 never (default 1). |
+| `no ospf priority` | interface | routers | OSPF settings of this interface. With `priority`: Go back to the default. |
+| `ospf network point-to-point` | interface | routers | OSPF settings of this interface. With `network`: What kind of cable this interface is on; `point-to-point`: Exactly one neighbor: no designated router election. |
+| `ospf network broadcast` | interface | routers | OSPF settings of this interface. With `network`: What kind of cable this interface is on; `broadcast`: Several routers: elect a designated router. |
+| `no ospf network` | interface | routers | OSPF settings of this interface. With `network`: Go back to the default (broadcast). |
+| `show ip ospf neighbor` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `neighbor`: Routers this one has met through OSPF. |
+| `show ip ospf interface` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `interface`: OSPF state of each interface. |
+| `show ip ospf database` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `database`: The link-state database: what every router announced. |
+| `show ip ospf route` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `route`: Networks OSPF has computed. |
 
 ## Examples
 
