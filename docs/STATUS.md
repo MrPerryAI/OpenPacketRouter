@@ -22,7 +22,7 @@ v1.0 is a free, CLI-first teaching simulator. An item is ticked only when its pu
 - [x] OSPF multi-area (ABR, summary LSAs) vs ospfd [checker] (PR #90)
 - [ ] OSPF redistribution (ASBR, external LSAs) vs ospfd [checker]
 - [ ] BGP basics (eBGP, iBGP, prefixes, basic path selection) vs bgpd [checker]
-- [ ] VRRP first-hop redundancy vs keepalived, CLI in our own words [first free agent]
+- [x] VRRP first-hop redundancy vs keepalived, CLI in our own words (CLI, validator, labs: #203, #216) [docs]
 
 **C. Switching**
 - [x] Port security, or recorded here as not validatable [stp-vlan]
