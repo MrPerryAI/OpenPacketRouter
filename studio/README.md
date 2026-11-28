@@ -53,6 +53,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
   members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+- **OSPF database and external routes**: an OSPF router's panel lists its link state database grouped by area (and AS external): LSA type (router, network, summary, ASBR-summary, external), ID, advertising router, sequence number and a detail column. A redistributing router is marked ASBR, and routes say inter-area, intra-area, external E1 or external E2.
 - **IPv6, DHCP snooping, lossy cables, HTTP, OSPF areas**: the device panel lists a device's IPv6 addresses, routes and
   neighbor cache (filled by neighbor discovery); IPv6 frames get two filters, *ICMPv6* and *IPv6 ND* (neighbor solicitation
   and advertisement), and the event list describes them. A switch with `dhcpSnooping` shows its trusted ports and how many
@@ -65,8 +66,9 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
 - **Services**: a router, host or server that runs the syslog receiver or the NTP server gets a
   *Services* section in its device panel: the stored syslog messages, and the NTP stratum with how many queries it has
   answered, at the current playback frame.
+- **TCP**: a host with TCP connections gets a *TCP connections* table (endpoints, state, unacked segments, bytes queued, the peer's window, retransmits (retx)) at the current playback frame.
 - **VRRP**: a router in a VRRP group gets a *VRRP* table in its device panel (interface, vrid, virtual IP, priority, MASTER/BACKUP/FAULT, and the current master's address) at the current playback frame.
-- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
+- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP, NTP, syslog, HTTP (TCP port 80),
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
   play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per
   frame with time, protocol, from → to and a description; click a row to jump to that frame). Studio now describes
@@ -96,3 +98,5 @@ panels, cuts a cable and drives the console. For every lab it also checks that e
   the lab has none). It is rendered by `guide.js`, a small Markdown subset: raw HTML never reaches the page and only relative links
   stay links. A command in backticks or a code block that starts with `show`, `ping` or `traceroute` gets a "▶ run on R" button that
   opens that device's console tab and runs it. The device is the last one the text names ("On R: ...", `R`, **R**), else the first router.
+
+A walk-through with pictures for teachers and students is in [docs/studio-guide.md](../docs/studio-guide.md).
