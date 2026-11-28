@@ -53,6 +53,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   during the run, the engine keeps no counters); LLDP neighbors; on switches the MAC table with each entry's age and
   time left before it ages out (plus the aging time, shortened by a topology change), and port-channel (LACP)
   members with link, mux and partner state. At rest, Studio now runs long enough for OSPF, RIP and LLDP to settle.
+- **OSPF database and external routes**: an OSPF router's panel lists its link state database grouped by area (and AS external): LSA type (router, network, summary, ASBR-summary, external), ID, advertising router, sequence number and a detail column. A redistributing router is marked ASBR, and routes say inter-area, intra-area, external E1 or external E2.
 - **IPv6, DHCP snooping, lossy cables, HTTP, OSPF areas**: the device panel lists a device's IPv6 addresses, routes and
   neighbor cache (filled by neighbor discovery); IPv6 frames get two filters, *ICMPv6* and *IPv6 ND* (neighbor solicitation
   and advertisement), and the event list describes them. A switch with `dhcpSnooping` shows its trusted ports and how many

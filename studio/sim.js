@@ -96,7 +96,7 @@ export function snapshotDevices(net) {
         neighbors: [...n.v6.cache].map(([ip, e]) => ({ip, mac: e.mac, iface: e.iface}))};
       if (n.ripng && n.ripng.started) out[n.name].ripng = n.ripng.describe();
       if (n.rip && n.rip.started) out[n.name].rip = n.rip.describe();
-      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr()};
+      if (n.ospf && n.ospf.started) out[n.name].ospf = {neighbors: n.ospf.neighbors(), interfaces: n.ospf.interfaces(), routes: n.ospf.describe(), areas: n.ospf.areas(), abr: n.ospf.isAbr(), asbr: n.ospf.redist ? n.ospf.redist.length > 0 : false, lsdb: n.ospf.database()};
       const sv = n.services || {};
       if (sv.syslog || sv.ntp) out[n.name].services = {...(sv.syslog ? {syslog: [...(n.syslogLog || [])]} : {}), ...(sv.ntp ? {ntp: {stratum: sv.ntp, queries: (n.ntpLog || []).length}} : {})};
       if (n.vrrp) out[n.name].vrrp = n.vrrp.describe();
