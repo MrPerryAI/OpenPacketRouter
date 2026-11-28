@@ -26,7 +26,7 @@ Get started with the [README quick start](../README.md). The full list of change
 | Links | capacity, queues and drops, delay, deterministic loss, broadcast storm math | `tbf`, `netem`, kernel bridges |
 | IPv4 | ARP, ICMP, static routes, inter-VLAN routing, ACLs, NAT | kernel, nftables, conntrack |
 | Services | DHCP and DHCP relay, TCP (retransmission, receive window), HTTP GET, syslog, NTP | dnsmasq, udhcpc, Linux sockets, util-linux `logger`, `ntpdate` |
-| Routing | RIPv2, RIPng, OSPFv2 (several areas, ABRs), VRRP first-hop redundancy | FRRouting ripd, ripngd, ospfd, keepalived |
+| Routing | RIPv2, RIPng, OSPFv2 (several areas, ABRs, redistribution), VRRP first-hop redundancy | FRRouting ripd, ripngd, ospfd, keepalived |
 | IPv6 | global addresses, neighbor discovery, ICMPv6 echo, static routes | kernel |
 
 ## Not validatable, so not built
@@ -46,8 +46,7 @@ built unchecked:
 
 ## Still open for v1.0
 
-The checklist in `docs/STATUS.md` is the source of truth. At the time of writing these items are still open: OSPF
-redistribution, BGP basics, the remaining FRR backend protocols, and the Studio editor's finishing work.
+The checklist in `docs/STATUS.md` is the source of truth. At the time of writing these items are still open: BGP basics, the remaining FRR backend protocols, and the Studio editor's finishing work.
 OSPFv3 is planned for after v1.0 (RIPng covers IPv6 dynamic routing).
 
 ## Later, not in v1.0
