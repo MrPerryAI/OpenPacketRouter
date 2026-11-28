@@ -198,6 +198,7 @@ export class Bgp {
   }
 
   // ----- advertising -----
+  // Updates go out 0.01 s after the best paths change (batching, and so every route changed in the same event is sent together). The advertisement interval itself is 0, as in recent FRR for eBGP and iBGP.
   _scheduleAdv() { if (this.advTimer) return; this.advTimer = this._after(0.01, () => { this.advTimer = null; for (const p of this.peers.values()) if (p.state === "Established") this._sendAll(p); }); }
   _export(p, b) {
     if (b.from === p.ip) return null;
