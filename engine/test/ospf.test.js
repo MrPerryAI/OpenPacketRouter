@@ -204,3 +204,18 @@ test("the spec check catches bad redistribute settings", () => {
   const paths = validateSpec(s).errors.map(e => e.path);
   for (const p of ["[0].source", "[1].metricType", "[1].metric", "[1].x"]) assert.ok(paths.includes(`$.nodes[2].ospf.redistribute${p}`), p);
 });
+
+test("SPF throttle: 50 ms delay, a run inside the hold waits for it and the hold doubles, a quiet hold resets it", () => {
+  const net = Network.fromSpec(load("ospf-p2p"));
+  at(net, 60);                                      // let the network settle so the node's own SPFs are done
+  const o = net.node("R1").ospf, runs = [];
+  o._runSpf = () => runs.push(+net.time.toFixed(3));
+  o.spfLast = null; o.spfHold = null;
+  const poke = t => { at(net, t); o._spf(); };
+  poke(100);  at(net, 100.06);   // a lone change: runs after the 50 ms delay (100.05)
+  poke(100.06); at(net, 100.11); // 10 ms after a run, inside the 50 ms hold: waits for it (100.10); the hold doubles to 100 ms
+  poke(100.12); at(net, 100.21); // inside the 100 ms hold: waits (100.20); the hold doubles to 200 ms
+  poke(100.25); at(net, 100.5);  // inside the 200 ms hold: waits (100.40); the hold doubles to 400 ms
+  poke(110);    at(net, 112);    // long quiet: back to the plain delay
+  assert.deepEqual(runs, [100.05, 100.1, 100.2, 100.4, 110.05]);
+});
