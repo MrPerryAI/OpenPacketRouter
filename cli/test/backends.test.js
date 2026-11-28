@@ -76,3 +76,11 @@ test("linux: --lab-parity adds the validators' settings (no IPv6, no redirects, 
   for (const k of ["net.ipv6.conf.all.disable_ipv6=1", "net.ipv4.conf.all.send_redirects=0", "net.ipv4.icmp_ratelimit=0", "net.ipv4.conf.all.rp_filter=0",
     "net.ipv6.conf.lan.disable_ipv6=1", "net.ipv4.conf.lan.rp_filter=0"]) assert.ok(lab.includes(k), k);
 });
+
+test("openwrt renders IPv6 addresses and static routes", () => {
+  const s = spec("validate/l3/fti-routed.json"), b = engineBackend(s);
+  const node = s.nodes.find(n => n.name === "R-NOC"); node.ifaces6 = {lan: "2001:db8:1::1/64"}; node.routes6 = [["2001:db8:2::/64", "2001:db8:1::2"]];
+  const u = uciCommands(engineBackend(s).getConfig("R-NOC"), {ports: engineBackend(s).ports("R-NOC")});
+  assert.ok(u.includes("add_list network.lan.ip6addr='2001:db8:1::1/64'"), u.join("\n"));
+  assert.ok(u.includes("set network.route6_0.target='2001:db8:2::/64'") && u.includes("set network.route6_0.gateway='2001:db8:1::2'"), u.join("\n"));
+});

@@ -9,7 +9,7 @@ For every device of every example lab that has addresses or static routes, this 
 
 feeds it to `uci batch` inside the official OpenWrt rootfs container (an empty /etc/config/network), then reads
 the result back with `uci show network` and compares it with the spec: every interface address and mask, and
-every static route (target, mask, gateway). This proves OpenWrt itself accepts what the CLI renders and stores
+every static route (target, mask, gateway), for IPv4 and IPv6 (ip6addr lists and route6 sections). This proves OpenWrt itself accepts what the CLI renders and stores
 exactly the engine's configuration. It does not boot netifd (no kernel configuration is applied here).
 """
 import glob, ipaddress, json, os, re, subprocess, sys
@@ -44,7 +44,10 @@ def parse(show):
         if not m: continue
         name, opt, val = m.groups()
         d = secs.setdefault(name, {})
-        if opt: d[opt] = val.strip("'")
+        if opt:
+            vals = re.findall(r"'([^']*)'", val)
+            d[opt] = val.strip("'") if len(vals) < 2 else vals      # a UCI list prints as 'a' 'b'
+            if opt == "ip6addr": d[opt] = vals
         else: d["_type"] = val.strip("'")
     return secs
 
@@ -70,6 +73,17 @@ def check(spec, node, secs):
         if not g: errs.append(f"{name}: no interface section"); continue
         if g.get("ipaddr") != str(ifc.ip) or g.get("netmask") != str(ifc.netmask):
             errs.append(f"{name}: got {g.get('ipaddr')}/{g.get('netmask')}, want {ifc.ip}/{ifc.netmask}")
+    for name, c in (node.get("ifaces6") or {}).items():
+        ifc6 = ipaddress.ip_interface(c)
+        g = got.get(name)
+        if not g: errs.append(f"{name}: no interface section for {c}"); continue
+        have = [ipaddress.ip_interface(x) for x in (g.get("ip6addr") or [])]
+        if ifc6 not in have: errs.append(f"{name}: ip6addr want {c}, have {[str(x) for x in have]}")
+    routes6 = [(str(ipaddress.ip_network(v.get("target"))), v.get("gateway")) for v in secs.values() if v.get("_type") == "route6"]
+    wanted6 = [(str(ipaddress.ip_network(d)), nh) for d, nh in (node.get("routes6") or [])]
+    if node.get("gw6"): wanted6.append(("::/0", node["gw6"]))
+    for d, nh in wanted6:
+        if (d, nh) not in routes6: errs.append(f"route6 {d} via {nh} missing (have {routes6})")
     routes = [(v.get("target"), v.get("netmask"), v.get("gateway")) for v in secs.values() if v.get("_type") == "route"]
     wanted = list(node.get("routes") or [])
     if node.get("gw"): wanted.append(["0.0.0.0/0", node["gw"]])      # the default gateway is rendered as a 0.0.0.0/0 route
@@ -83,10 +97,10 @@ def main():
     pull()
     bad = checked = 0
     rows = []
-    for path in sorted(glob.glob(os.path.join(ROOT, "examples", "*", "spec.json"))):
+    for path in sorted(glob.glob(os.path.join(ROOT, "examples", "*", "spec.json"))) + [os.path.join(ROOT, "validate", "ipv6", "ipv6-lab.json")]:   # the lab specs, plus the IPv6 validator's own
         spec = os.path.relpath(path, ROOT)
         for node in json.load(open(path))["nodes"]:
-            if not (node.get("ifaces") or node.get("routes") or node.get("gw")): continue
+            if not (node.get("ifaces") or node.get("routes") or node.get("gw") or node.get("ifaces6") or node.get("routes6") or node.get("gw6")): continue
             if node["kind"] == "switch" and not any(isinstance(c, str) for c in (node.get("ifaces") or {}).values()) and not node.get("routes"): continue
             checked += 1
             try:
@@ -101,7 +115,7 @@ def main():
             else: print(f"ok   {tag}"); rows.append(f"ok   {tag}")
     summary = f"{checked} devices checked, {bad} failed"
     print(summary)
-    print("not covered here: VLANs, bridges, switch ports, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
+    print("not covered here: OSPF/RIP/RIPng (UCI has no routing-protocol sections; they go through the FRR backend), VLANs, bridges, switch ports, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
     note("notice", "OpenWrt results", summary + "\n" + "\n".join(rows))
     sys.exit(1 if bad or not checked else 0)
 
