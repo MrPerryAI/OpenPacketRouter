@@ -56,7 +56,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 
 - Our own device CLI: modes, `?` and Tab help, `| json` on show commands, an OpenConfig-shaped model and a running-config round trip (#46, #84).
 - Commands for VLANs, inter-VLAN routing, LLDP, RIP, OSPF (including areas), VRRP, NAT, ACLs, port security, storm control, DHCP snooping, SPAN, HTTP pages, IPv6 and MAC aging (#62, #64, #65, #68, #109, #114, #116, #152, and the feature PRs above).
-- Backends: engine, Linux (devices configured only by the CLI match the engine frame for frame, #56), FRR (rendered `frr.conf` runs in real ospfd/ripd/ripngd, #68, #134, #225) and OpenWrt (rendered UCI applied by real `uci` in the OpenWrt rootfs container, #156).
+- Backends: engine, Linux (devices configured only by the CLI match the engine frame for frame, #56), FRR (rendered `frr.conf` runs in real ospfd/ripd/ripngd, and static routes in zebra + staticd with kernel tables compared to the engine, #68, #134, #225, #240) and OpenWrt (rendered UCI applied by real `uci` in the OpenWrt rootfs container, #156).
 - Generated CLI reference with a freshness check (#54).
 - The engine's `--text` report has a plain line for every action, including VRRP state and LLDP neighbours (#206).
 - Every node key of the spec format has a CLI command, checked by a test over a fixture that uses each key (#175).
@@ -75,6 +75,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - A VRRP table in the device panel and VRRP frames in playback and filters (#205).
 - A RIPng routes table in the device panel; RIPng messages named in playback with their own filter (#234).
 - The Studio smoke test plays every example lab and checks that every frame is described, has a filter, and that every device panel opens (#210).
+- A TCP connections table in the device panel (#248).
 - Opening an example lab shows its student guide beside the map, with buttons that run the guide's commands in the right device console (#221).
 
 ### Labs and docs
@@ -83,4 +84,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - New labs with student guides: a VRRP gateway pair and a services lab (syslog, NTP) (#203).
 - README quick start (#142); validation on a Mac via Docker (#2); mismatches reported as GitHub annotations (#40).
 - A release check in CI runs the README quick start commands and checks the npm package contents, without publishing (#218).
+- The CLI package depends on the engine package and works when installed from its tarball; the release check installs both tarballs and runs them (#239).
+- A Studio user guide with real screenshots (`docs/studio-guide.md`, #238).
+- The OSPF validator lists the MaxAge LSAs ospfd still holds when packet types differ, to diagnose mismatches (#244).
 - Licensed under Apache-2.0 (#42).
