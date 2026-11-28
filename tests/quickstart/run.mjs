@@ -1,6 +1,7 @@
 // Release check: runs every command in README.md's "Quick start" code blocks (taken from the README itself, so the
 // text can't drift) and checks `npm pack` contents for the engine and the CLI. Run from anywhere: node tests/quickstart/run.mjs
-import {readFileSync} from "node:fs";
+import {readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync} from "node:fs";
+import {tmpdir} from "node:os";
 import {spawnSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import path from "node:path";
@@ -64,6 +65,30 @@ for (const [pkg, must] of [["engine", ["bin/openpacketrouter.mjs", "spec.schema.
   for (const m of must) files.includes(m) ? ok(`${pkg} tarball has ${m}`) : fail(`${pkg} tarball lacks ${m}`);
   const bad = files.filter((f) => /^(test|tests|validate|node_modules|tools)\//.test(f));
   bad.length ? fail(`${pkg} tarball leaks ${bad.slice(0, 5).join(", ")}`) : ok(`${pkg} tarball has no tests/validate/tools/node_modules`);
+}
+
+// 3. Install both tarballs into an empty directory (as a user would) and run the commands from there.
+{
+  const tmp = mkdtempSync(path.join(tmpdir(), "opr-install-"));
+  const tars = [];
+  for (const pkg of ["engine", "cli"]) {
+    const r = spawnSync("npm", ["pack", "--json", "--pack-destination", tmp], {cwd: path.join(root, pkg), encoding: "utf8"});
+    if (r.status !== 0) { fail(`npm pack ${pkg}: ${r.stderr.slice(0, 300)}`); continue; }
+    tars.push(path.join(tmp, JSON.parse(r.stdout)[0].filename));
+  }
+  const inst = path.join(tmp, "app");
+  mkdirSync(inst);
+  writeFileSync(path.join(inst, "package.json"), "{\"name\":\"installcheck\",\"private\":true}");
+  const r = spawnSync("npm", ["install", "--no-audit", "--no-fund", ...tars], {cwd: inst, encoding: "utf8"});
+  if (r.status !== 0) fail("npm install of both tarballs: " + (r.stderr || "").slice(0, 400));
+  else {
+    const spec = path.join(root, "examples/routed-lan-dns/spec.json");
+    const c = spawnSync("npx", ["--no-install", "opr-cli", spec, "R1", "-c", "show ip route | json"], {cwd: inst, encoding: "utf8"});
+    try { JSON.parse(c.stdout.slice(c.stdout.search(/^[[{]/m))); ok("installed opr-cli prints JSON"); } catch { fail("installed opr-cli: " + (c.stderr || c.stdout).slice(0, 400)); }
+    const e = spawnSync("npx", ["--no-install", "openpacketrouter", "run", path.join(root, "examples/loop-with-stp/spec.json"), path.join(root, "examples/loop-with-stp/actions.json"), "--text"], {cwd: inst, encoding: "utf8"});
+    /frame/i.test(e.stdout) ? ok("installed openpacketrouter runs a lab") : fail("installed openpacketrouter: " + (e.stderr || e.stdout).slice(0, 400));
+  }
+  rmSync(tmp, {recursive: true, force: true});
 }
 console.log(failed ? `\n${failed} check(s) failed` : "\nall quick start and pack checks passed");
 process.exit(failed ? 1 : 0);
