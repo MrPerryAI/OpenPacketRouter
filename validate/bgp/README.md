@@ -17,3 +17,5 @@ Not modelled: the IGP metric to the next hop (a best-path step after eBGP-over-i
 Limits of the comparison: the message types per cable are compared as a set (weak on its own; UPDATE count and order are compared separately), the KEEPALIVE count uses the aligned window described above (a normalisation, not strict frame-for-frame), and the TCP frames of the session (SYN, ACK, FIN) are not compared, only the BGP messages.
 
 Known TCP limit (not covered by this validator): the engine's `tcpClose` does not retransmit a lost FIN, which Linux does on the normal RTO.
+
+With `BGP_RENDER=cli` (also a CI step) bgpd's config comes only from the device CLI's FRR rendering (`opr-cli --render frr`), not from the validator's own writer; every comparison is unchanged.

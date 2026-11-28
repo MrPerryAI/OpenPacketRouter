@@ -96,6 +96,12 @@ class BgpNet(l3.KernelNet):
         conf += [" exit-address-family", "!"]
         for v in sorted({x["localPref"] for x in b["neighbors"] if x.get("localPref") is not None}):
             conf += [f"route-map LP{v} permit 10", f" set local-preference {v}", "!"]
+        if os.environ.get("BGP_RENDER") == "cli":   # bgpd's config comes only from the device CLI: the model -> FRR rendering
+            sf = f"{self.tmp}/spec.json"; Path(sf).write_text(json.dumps(self.spec))
+            out = subprocess.run(["node", str(ROOT / "cli/bin/opr-cli.mjs"), sf, n["name"], "--render", "frr"], capture_output=True, text=True, check=True).stdout
+            # addresses, routes and "end" belong to the namespace setup, not to bgpd's own config
+            conf = [l for l in out.splitlines() if not l.strip().startswith(("ip address", "ipv6 address", "ip route", "ipv6 route", "end", "shutdown")) and l.strip()]
+            assert any(l.strip() == f"router bgp {b['asn']}" for l in conf), f"{n['name']}: the rendering has no router bgp:\n{out}"
         Path(f"{d}/bgpd.conf").write_text("\n".join(conf) + "\n")
         Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
         shutil.chown(d, "frr", "frr")

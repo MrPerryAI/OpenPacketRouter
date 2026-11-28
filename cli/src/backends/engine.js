@@ -121,6 +121,7 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
     if (n.ripng) { const {networks, passive, timers, splitHorizon, triggered} = n.ripng;
       out.ripng = {networks: [...networks], ...(passive ? {passive: [...passive]} : {}), ...(timers ? {timers: {...timers}} : {}),
         ...(splitHorizon !== undefined ? {splitHorizon} : {}), ...(triggered !== undefined ? {triggered} : {})}; }
+    if (n.bgp) out.bgp = JSON.parse(JSON.stringify({networks: [], ...n.bgp, neighbors: n.bgp.neighbors.map(x => ({...x}))}));
     if (n.ospf) {
       const o = M.ospf(m, true);
       if (n.ospf.routerId) o.global.config["router-id"] = n.ospf.routerId;
@@ -159,7 +160,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
   const old = out.nodes[i], name = M.hostname(m);
   if (name !== device && out.nodes.some(x => x.name === name)) throw new Error(`${name} is already the name of another device`);
   const n = {name, kind: old.kind};
-  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "vrrp", "rip", "ripng", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor", "dhcpSnooping"].includes(k)) n[k] = v;
+  for (const [k, v] of Object.entries(old)) if (!["name", "kind", "ifaces", "ifaces6", "gw", "gw6", "routes", "routes6", "services", "lldp", "vrrp", "rip", "ripng", "bgp", "acl", "nat", "ospf", "blocked", "stp", "vlans", "agingTime", "forwardLldp", "vlanNames", "channels", "portSecurity", "stormControl", "monitor", "dhcpSnooping"].includes(k)) n[k] = v;
   const ports = portsOf(spec, device);
   const ifs = M.interfaces(m);
 
@@ -284,6 +285,7 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
     if (s.vrrp?.some(g => g.ip)) n.vrrp = s.vrrp.filter(g => g.ip).map(g => ({...g}));
     if (s.rip && s.rip.networks.length) n.rip = JSON.parse(JSON.stringify(s.rip));
     if (s.ripng && s.ripng.networks.length) n.ripng = JSON.parse(JSON.stringify(s.ripng));
+    if (s.bgp && s.bgp.neighbors.length) n.bgp = JSON.parse(JSON.stringify(s.bgp));
     if (s.acl) {
       const bind = {};
       for (const [ifn, ifc] of Object.entries(ifs)) if (ifc["openpacketrouter:acl"]) bind[ifn] = {...ifc["openpacketrouter:acl"]};
@@ -356,6 +358,8 @@ function convergeTime(spec) {
   // RIP learns routes over a few update periods
   for (const n of spec.nodes || []) if (n.rip) t = Math.max(t, 3 * (n.rip.timers?.update ?? 30));
   for (const n of spec.nodes || []) if (n.ripng) t = Math.max(t, 3 * (n.ripng.timers?.update ?? 30));
+  // BGP: sessions open 1 s after start (a little later for each router) and exchange tables at once
+  for (const n of spec.nodes || []) if (n.bgp) t = Math.max(t, 6 + (spec.nodes || []).length * 0.1);
   return t;
 }
 function freshNet(spec, cut) {
@@ -375,6 +379,7 @@ function routesOf(n) {
   }
   if (n.ospf) for (const r of n.ospf.fib()) routes.push({prefix: r.cidr, protocol: "ospf", nextHop: r.gw, interface: r.iface, metric: r.metric});
   if (n.rip) for (const r of n.rip.fib()) routes.push({prefix: r.cidr, protocol: "rip", nextHop: r.gw, interface: r.iface ?? null, metric: r.metric});
+  if (n.bgp) for (const r of n.bgp.fib()) routes.push({prefix: r.cidr, protocol: "bgp", nextHop: r.gw, interface: r.iface ?? null, asPath: r.asPath.join(" ")});
   return routes;
 }
 
@@ -424,6 +429,7 @@ export function stateOf(net, device, spec) {
     ...(n.v6 ? {routes6: routes6Of(n), neighbors6: [...n.v6.cache].map(([ip, e]) => ({address: ip, mac: e.mac, interface: e.iface}))} : {}),
     ...(n.services.ntp ? {ntp: {stratum: n.services.ntp, requests: [...(n.ntpLog || [])]}} : {}),
     ...(n.services.syslog ? {syslog: [...(n.syslogLog || [])]} : {}),
+    ...(n.bgp ? {bgp: {asn: n.bgp.asn, routerId: n.bgp.routerId(), neighbors: n.bgp.neighbors(), routes: n.bgp.describe()}} : {}),
     leases: n.dhcpLeases ? [...n.dhcpLeases].map(([mac, ip]) => ({mac, ip})) : [],
   };
 }
