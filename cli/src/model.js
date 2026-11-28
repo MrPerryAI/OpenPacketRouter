@@ -59,7 +59,7 @@ export const staticList6 = m => Object.entries(statics(m)).filter(([prefix]) => 
 /** OSPFv2 (openconfig-ospfv2): null until `router ospf`. Its networks are under "openpacketrouter:networks" (OpenConfig selects interfaces per area instead). */
 export const ospf = (m, make = false) => {
   const all = ni(m).protocols.protocol;
-  if (!all.OSPF) { if (!make) return null; all.OSPF = {identifier: "OSPF", config: {identifier: "OSPF", name: "ospf"}, ospfv2: {global: {config: {}}, "openpacketrouter:networks": [], "openpacketrouter:redistribute": [], areas: {area: {"0": {interfaces: {interface: {}}}}}}}; }
+  if (!all.OSPF) { if (!make) return null; all.OSPF = {identifier: "OSPF", config: {identifier: "OSPF", name: "ospf"}, ospfv2: {global: {config: {}}, "openpacketrouter:networks": [], "openpacketrouter:redistribute": [], "openpacketrouter:ranges": [], areas: {area: {"0": {interfaces: {interface: {}}}}}}}; }
   return all.OSPF.ospfv2;
 };
 export const ospfDelete = m => { delete ni(m).protocols.protocol.OSPF; };

@@ -122,3 +122,16 @@ test("redistribute connected/static with metric and metric-type: spec, running-c
   assert.match(run(s, ["configure terminal", "router ospf", "no redistribute connected"])[2].output, /not redistributed/);
   assert.match(run(s, ["end", "configure terminal", "router ospf", "redistribute static metric-type 3"])[3].output, /%/);
 });
+
+test("area ranges: spec, running-config round trip, FRR rendering, removal", () => {
+  const b = engineBackend(spec()), s = createSession(b, "R1"); s.exec("enable");
+  ok(run(s, ["configure terminal", "router ospf", "network 10.0.0.0/8 area 1", "area 1 range 10.1.0.0/16", "area 0.0.0.1 range 10.2.0.0/16 not-advertise", "end"]));
+  assert.deepEqual(b.spec().nodes[0].ospf.ranges, [{area: "0.0.0.1", network: "10.1.0.0/16"}, {area: "0.0.0.1", network: "10.2.0.0/16", notAdvertise: true}]);
+  const cfg = s.exec("show running-config").output;
+  assert.match(cfg, / area 0.0.0.1 range 10.1.0.0\/16\n area 0.0.0.1 range 10.2.0.0\/16 not-advertise\n/);
+  const again = createSession(engineBackend(b.spec()), "R1"); again.exec("enable"); assert.equal(again.exec("show running-config").output, cfg);
+  assert.match(frrConfig(b.getConfig("R1"), {ports: b.ports("R1")}), / area 0.0.0.1 range 10.1.0.0\/16\n area 0.0.0.1 range 10.2.0.0\/16 not-advertise\n/);
+  ok(run(s, ["configure terminal", "router ospf", "no area 1 range 10.1.0.0/16", "end"]));
+  assert.equal(b.spec().nodes[0].ospf.ranges.length, 1);
+  assert.match(run(s, ["configure terminal", "router ospf", "no area 1 range 10.9.0.0/16"])[2].output, /No range/);
+});

@@ -470,6 +470,9 @@ OSPFv2 (several areas, ABRs): router ospf, network (optionally with an area), pe
 | `show ip ospf interface` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `interface`: OSPF state of each interface. |
 | `show ip ospf database` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `database`: The link-state database: what every router announced. |
 | `show ip ospf route` | user, privileged | routers | IPv4 status. With `ospf`: OSPF; `route`: Networks OSPF has computed. |
+| `area AREA range PREFIX` | OSPF routing | routers | Settings for one OSPF area. With `range`: Summarize this area's routes inside a prefix into one route (this router is the ABR). |
+| `area AREA range PREFIX not-advertise` | OSPF routing | routers | Settings for one OSPF area. With `range`: Summarize this area's routes inside a prefix into one route (this router is the ABR). With `not-advertise`: Do not announce anything for this prefix. |
+| `no area AREA range PREFIX` | OSPF routing | routers | Remove it. With `area`: Settings for one OSPF area; `range`: Summarize this area's routes inside a prefix into one route (this router is the ABR). |
 
 ## Examples
 
