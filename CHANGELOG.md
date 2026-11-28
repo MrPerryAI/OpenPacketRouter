@@ -61,6 +61,7 @@ Versions are not tagged or published yet: the owner decides when v1.0 is release
 - The engine's `--text` report has a plain line for every action, including VRRP state and LLDP neighbours (#206).
 - Every node key of the spec format has a CLI command, checked by a test over a fixture that uses each key (#175).
 - `show ipv6 route`, `show ipv6 neighbors` and `show ipv6 ripng`, each with `| json` (#212).
+- `redistribute connected|static [metric N] [metric-type 1|2]` under `router ospf`; the FRR rendering runs in real ospfd for the redistribution cases (`OSPF_RENDER=cli`, #233).
 
 ### Studio (browser)
 
