@@ -15,6 +15,7 @@
 #   validate/docker/run.sh nat        # just the NAT check (nftables masquerade/snat/dnat)
 #   validate/docker/run.sh span       # just the port-mirroring check (tc mirred)
 #   validate/docker/run.sh ripng      # just the RIPng check (FRRouting ripngd)
+#   validate/docker/run.sh frrstatic  # just the static-route proof of the FRR rendering (zebra + staticd)
 #   validate/docker/run.sh ipv6       # just the IPv6 check (addresses, neighbor discovery, ICMPv6 echo, static routes)
 #   validate/docker/run.sh cli        # the device CLI's Linux rendering vs the engine (validate/cli)
 #   validate/docker/run.sh intervlan  # just the inter-VLAN routing check (subinterfaces + SVIs)
@@ -49,7 +50,8 @@ span='python3 validate/span/run_kernel_span.py'
 ipv6='python3 validate/ipv6/run_kernel_ipv6.py'
 vrrp='python3 validate/vrrp/run_kernel_vrrp.py'
 ripng='python3 validate/ripng/run_kernel_ripng.py'
-full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$lldp"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; '"$span"'; '"$ipv6"'; '"$services"'; '"$vrrp"'; '"$ripng"'; ('"$storm"')'
+frrstatic='python3 validate/frr-static/run_frr_static.py'
+full='set -e; python3 tools/build_web.py --check; (cd poc/storm-math && python3 -m pytest -q); python3 -m pytest -q tests; (cd engine && npm test); (cd cli && npm test); '"$l3"'; '"$l2"'; '"$links"'; '"$dhcp"'; '"$tcp"'; '"$cli"'; '"$intervlan"'; '"$ospf"'; '"$lldp"'; '"$aging"'; '"$rip"'; '"$tcn"'; '"$acl"'; '"$lacp"'; '"$nat"'; '"$span"'; '"$ipv6"'; '"$services"'; '"$vrrp"'; '"$ripng"'; '"$frrstatic"'; ('"$storm"')'
 
 case "${1:-all}" in
   l3)    cmd="$l3" ;;
@@ -59,7 +61,6 @@ case "${1:-all}" in
   dhcp)  cmd="$dhcp" ;;
   tcp)   cmd="$tcp" ;;
   services) cmd="$services" ;;
-  ripng) cmd="$ripng" ;;
   cli)   cmd="$cli" ;;
   intervlan) cmd="$intervlan" ;;
   ospf)  cmd="$ospf" ;;
@@ -73,11 +74,12 @@ case "${1:-all}" in
   span)  cmd="$span" ;;
   ipv6)  cmd="$ipv6" ;;
   ripng) cmd="$ripng" ;;
+  frrstatic) cmd="$frrstatic" ;;
   vrrp)  cmd="$vrrp" ;;
-  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; $span; $ipv6; $services; $vrrp; $ripng; ($storm)" ;;
+  all)   cmd="set -e; $l3; $l2; $links; $dhcp; $tcp; $cli; $intervlan; $ospf; $lldp; $aging; $rip; $tcn; $acl; $lacp; $nat; $span; $ipv6; $services; $vrrp; $ripng; $frrstatic; ($storm)" ;;
   full)  cmd="$full" ;;
   --)    shift; cmd="$*" ;;
-  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|span|services|vrrp|ripng|storm|all|full|-- CMD...]" >&2; exit 2 ;;
+  *)     echo "usage: $0 [l3|l2|links|dhcp|tcp|cli|intervlan|ospf|lldp|aging|rip|tcn|acl|lacp|nat|span|services|vrrp|ripng|frrstatic|storm|all|full|-- CMD...]" >&2; exit 2 ;;
 esac
 
 # --privileged: namespaces, veth, bridges, qdiscs and sysctls need CAP_SYS_ADMIN/CAP_NET_ADMIN.
