@@ -1,0 +1,141 @@
+{
+ "version": 1,
+ "name": "eBGP chain",
+ "about": "Three routers in three ASes, R1-R2-R3, each originating its LAN. R2-R3 is cut and restored (eBGP sessions end at once when the cable loses carrier). Keepalive 1 s, hold 3 s, connect retry 5 s.",
+ "nodes": [
+  {
+   "name": "R1",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.1/24",
+    "eth1": "10.1.0.1/24"
+   },
+   "bgp": {
+    "asn": 65001,
+    "routerId": "1.1.1.1",
+    "networks": [
+     "10.1.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.2",
+      "remoteAs": 65002
+     }
+    ]
+   }
+  },
+  {
+   "name": "R2",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.12.0.2/24",
+    "eth1": "10.23.0.2/24",
+    "eth2": "10.2.0.1/24"
+   },
+   "bgp": {
+    "asn": 65002,
+    "routerId": "2.2.2.2",
+    "networks": [
+     "10.2.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.12.0.1",
+      "remoteAs": 65001
+     },
+     {
+      "ip": "10.23.0.3",
+      "remoteAs": 65003
+     }
+    ]
+   }
+  },
+  {
+   "name": "R3",
+   "kind": "router",
+   "ifaces": {
+    "eth0": "10.23.0.3/24",
+    "eth1": "10.3.0.1/24"
+   },
+   "bgp": {
+    "asn": 65003,
+    "routerId": "3.3.3.3",
+    "networks": [
+     "10.3.0.0/24"
+    ],
+    "timers": {
+     "keepalive": 1,
+     "hold": 3,
+     "connect": 5
+    },
+    "neighbors": [
+     {
+      "ip": "10.23.0.2",
+      "remoteAs": 65002
+     }
+    ]
+   }
+  },
+  {
+   "name": "H1",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.1.0.10/24"
+   },
+   "gw": "10.1.0.1"
+  },
+  {
+   "name": "H2",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.2.0.10/24"
+   },
+   "gw": "10.2.0.1"
+  },
+  {
+   "name": "H3",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.3.0.10/24"
+   },
+   "gw": "10.3.0.1"
+  }
+ ],
+ "links": [
+  [
+   "R1:eth0",
+   "R2:eth0",
+   1
+  ],
+  [
+   "R2:eth1",
+   "R3:eth0",
+   1
+  ],
+  [
+   "H1:eth0",
+   "R1:eth1",
+   1
+  ],
+  [
+   "H2:eth0",
+   "R2:eth2",
+   1
+  ],
+  [
+   "H3:eth0",
+   "R3:eth1",
+   1
+  ]
+ ]
+}

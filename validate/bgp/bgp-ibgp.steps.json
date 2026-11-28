@@ -1,0 +1,1 @@
+[{"wait": 25}, {"snapshot": "converged"}, {"ping": ["H1", "10.3.0.10"]}, {"linkDown": "R1:eth0"}, {"wait": 25}, {"snapshot": "iBGP cable cut: both sides lose the other's prefixes"}, {"linkUp": "R1:eth0"}, {"wait": 40}, {"snapshot": "cable restored"}, {"ping": ["H1", "10.3.0.10"]}]
