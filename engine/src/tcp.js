@@ -298,6 +298,7 @@ export function tcpConnect(node, dst, port, onEvent) {
 /** Write one application message of `len` bytes (carried as `data` on the last segment). */
 export function tcpWrite(conn, len, data) { if (!conn.dead && conn.state === "ESTABLISHED") sendData(conn, len, data); }
 /** Close from our side: FIN, nothing more is retransmitted. */
+/** Close: send FIN and stop retransmitting anything. Known limit: a FIN that is lost is not retransmitted (Linux retransmits it on the normal RTO); not validated, so it is not claimed. */
 export function tcpClose(conn) {
   if (conn.dead) return;
   conn.unacked = []; conn.rtoGen = -1;

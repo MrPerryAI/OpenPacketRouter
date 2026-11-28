@@ -15,3 +15,5 @@ Files carry the `.net` extension so the CLI's round-trip test (which reads every
 Not modelled: the IGP metric to the next hop (a best-path step after eBGP-over-iBGP), MED, weight, communities, route maps, multipath, route reflectors, confederations, IPv6, graceful restart.
 
 Limits of the comparison: the message types per cable are compared as a set (weak on its own; UPDATE count and order are compared separately), the KEEPALIVE count uses the aligned window described above (a normalisation, not strict frame-for-frame), and the TCP frames of the session (SYN, ACK, FIN) are not compared, only the BGP messages.
+
+Known TCP limit (not covered by this validator): the engine's `tcpClose` does not retransmit a lost FIN, which Linux does on the normal RTO.
