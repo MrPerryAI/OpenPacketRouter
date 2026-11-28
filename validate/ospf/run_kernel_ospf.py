@@ -81,6 +81,8 @@ class OspfNet(l3.KernelNet):
             out = subprocess.run(["node", str(Path(__file__).resolve().parents[2] / "cli/bin/opr-cli.mjs"), sf, n["name"], "--render", "frr"], capture_output=True, text=True, check=True).stdout
             # addresses, routes and "end" belong to zebra/the namespace setup, not to ospfd's own config
             keep = [l for l in out.splitlines() if not l.strip().startswith(("ip address", "ip route", "end", "shutdown")) and l.strip()]
+            # the CLI says `redistribute static`; here the static routes are `ip route` kernel routes to zebra (as in the direct config below)
+            keep = [l.replace("redistribute static", "redistribute kernel") for l in keep]
             Path(f"{d}/ospfd.conf").write_text("\n".join(keep) + "\n")
             Path(f"{d}/zebra.conf").write_text(f"hostname {n['name']}\n")
             return self._finish_conf(n, d)
