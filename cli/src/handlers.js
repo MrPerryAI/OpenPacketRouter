@@ -4,7 +4,8 @@
 // family of commands.
 
 import * as M from "./model.js";
-import {parseCidr6, intToIp6, ip6ToInt} from "../../engine/src/addr6.js";
+import {addr6} from "./engine-modules.js";
+const {parseCidr6, intToIp6, ip6ToInt} = addr6;
 import {maskToPrefix, networkOf, isPrefix, prefixToMask, aclEndpoint} from "./types.js";
 
 const need = (cond, msg) => { if (!cond) throw new Error(msg); };

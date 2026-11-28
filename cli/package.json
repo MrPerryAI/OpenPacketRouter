@@ -24,5 +24,8 @@
     "src",
     "commands",
     "README.md"
-  ]
+  ],
+  "dependencies": {
+    "@openpacketrouter/engine": "0.1.0"
+  }
 }

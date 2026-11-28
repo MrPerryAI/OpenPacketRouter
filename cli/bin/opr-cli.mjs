@@ -13,7 +13,8 @@
 import fs from "node:fs";
 import readline from "node:readline";
 import {createSession} from "../src/index.js";
-import {parseData, dumpYaml} from "../../engine/src/yaml.js";
+import {yaml} from "../src/engine-modules.js";
+const {parseData, dumpYaml} = yaml;
 import {engineBackend} from "../src/backends/engine.js";
 import {linuxCommands} from "../src/backends/linux.js";
 import {frrConfig} from "../src/backends/frr.js";

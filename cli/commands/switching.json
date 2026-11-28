@@ -5,7 +5,7 @@
     {"modes": ["config"], "kinds": ["switch"], "syntax": "vlan VLAN", "args": {"VLAN": "vlan-id"}, "handler": "vlan.select", "enter": "config-vlan",
      "help": {"vlan": "Create a VLAN or change its settings", "VLAN": "VLAN number"}},
     {"modes": ["config"], "kinds": ["switch"], "syntax": "no vlan VLAN", "args": {"VLAN": "vlan-id"}, "handler": "vlan.no-vlan",
-     "help": {"vlan": "Remove a VLAN's name", "VLAN": "VLAN number"}},
+     "help": {"vlan": "Delete a VLAN from the configuration", "VLAN": "VLAN number"}},
     {"modes": ["config-vlan"], "syntax": "name NAME", "args": {"NAME": "word"}, "handler": "vlan.name",
      "help": {"name": "Give this VLAN a label shown in show vlan", "NAME": "Label"}},
     {"modes": ["config-vlan"], "syntax": "no name", "handler": "vlan.no-name",
