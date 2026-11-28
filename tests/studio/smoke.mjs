@@ -33,6 +33,8 @@ try {
   await page.goto(BASE); await page.waitForFunction(() => document.body.dataset.ready);
   check(await page.evaluate(() => document.body.dataset.ready) === "1", "studio starts");
 
+  const indexed = JSON.parse(fs.readFileSync(path.join(root, "examples", "index.json"), "utf8")).labs.map(l => l.id);
+  check(indexed.length === labs.length && indexed.every(id => labs.includes(id)), "examples/index.json lists exactly the lab folders", `${indexed.length} vs ${labs.length}`);
   const listed = await page.$$eval("#examples option[value]:not([value=''])", o => o.length);
   check(listed === labs.length, "every lab in examples/ is in the dropdown", `${listed} listed, ${labs.length} folders`);
 
@@ -52,6 +54,12 @@ try {
     check(!q.badDesc.length && !q.noDesc && !q.noFilter.length, `${lab}: every frame is described and has a filter`, JSON.stringify(q).slice(0, 200));
     if (shots) { fs.mkdirSync(shots, {recursive: true}); await page.screenshot({path: path.join(shots, `${lab}.png`)}); }
   }
+
+  // NTP, syslog and HTTP frames are named and have their own filter
+  await page.goto(BASE + "?lab=services-lab"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  const svc = await page.evaluate(() => { const st = window.studio.S.sim.steps; return {kinds: [...new Set(st.map(x => x.kind))], ntp: st.some(x => x.kind === "ntp" && /\(NTP\)/.test(x.desc)), sys: st.some(x => x.kind === "syslog" && /\(syslog\)/.test(x.desc)),
+    filters: [...document.querySelectorAll("#filters input[data-kind]")].map(x => x.dataset.kind)}; });
+  check(svc.ntp && svc.sys && ["ntp", "syslog"].every(k => svc.filters.includes(k)), "services-lab: NTP and syslog frames are named and filterable", svc.kinds.join(","));
 
   // loop with spanning tree: one port blocks at rest
   await page.goto(BASE + "?lab=loop-with-stp"); await page.waitForFunction(() => document.body.dataset.ready === "1");
@@ -228,6 +236,9 @@ try {
   check(labsWithGuide.length > 0 && guideBad.length === 0, `every lab guide opens and its command buttons reach the console (${labsWithGuide.length} labs, ${guideButtons} buttons)`, guideBad.join("; ").slice(0, 200));
   check(guideButtons > 0, "at least one guide has a run-in-console button");
 
+  const ug = fs.readFileSync(path.join(root, "docs", "studio-guide.md"), "utf8");
+  const missingImgs = [...ug.matchAll(/\]\((img\/studio\/[^)]+)\)/g)].map(m => m[1]).filter(f => !fs.existsSync(path.join(root, "docs", f)));
+  check(/img\/studio\//.test(ug) && missingImgs.length === 0, "the Studio user guide's pictures all exist", missingImgs.join(", "));
   const panel = async (lab, dev) => { await page.goto(BASE + "?lab=" + lab); await page.waitForFunction(() => document.body.dataset.ready === "1");
     await page.evaluate(d => window.studio.select(d), dev); return page.textContent("#device"); };
   check(/RIP routes/.test(await panel("rip-chain", "R2")) && /192\.168|10\./.test(await page.textContent("#device")), "RIP table panel on a RIP router");
@@ -338,6 +349,13 @@ try {
   check(rw.ok && !/spec /.test(rw.errors), "TCP window spec loads", rw.errors.slice(0, 120));
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window \d+ B/.test(st.desc))), "TCP segments name the receiver's advertised window");
   check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /window 0 B \(full/.test(st.desc))), "a zero window is called out in the frame description");
+  const tcpDev = await page.evaluate(() => { const st = window.studio.S.sim.steps.find(x => Object.values(x.state).some(d => d.tcp && d.tcp.length)); return st ? Object.keys(st.state).find(n => st.state[n].tcp) : null; });
+  check(!!tcpDev, "a host with a TCP connection has it in its snapshot", String(tcpDev));
+  if (tcpDev) {
+    await page.evaluate(n => { const S = window.studio.S; S.step = S.sim.steps.findIndex(x => x.state[n] && x.state[n].tcp); window.studio.select(n); }, tcpDev);
+    const tp = await page.textContent("#device");
+    check(/TCP connections/.test(tp) && /ESTABLISHED|SYN|FIN/.test(tp), "the device panel shows a TCP connections table", tp.slice(0, 120));
+  }
 
   const rv = await page.evaluate(([sp, ac]) => { const ok = window.studio.load(sp, ac, "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; },
     [vfile("vrrp/vrrp-preempt.net"), [{do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}, {do: "link", end: "R1:eth0", up: false}, {do: "wait", seconds: 8}, {do: "ping", src: "H1", dst: "10.0.0.254"}]]);
@@ -363,6 +381,14 @@ try {
   await page.evaluate(() => window.studio.select("R2"));
   const osp = await page.textContent("#device");
   check(/Area border router/.test(osp) && /inter-area/.test(osp) && /0\.0\.0\.1/.test(osp), "OSPF panel marks the ABR, shows areas and inter-area routes");
+  const rr = await page.evaluate(sp => { const ok = window.studio.load(sp, [{do: "wait", seconds: 60}], "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; }, vfile("ospf/ospf-redist.net"));
+  check(rr.ok && !/spec /.test(rr.errors), "OSPF redistribution spec loads", rr.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.goto(window.studio.S.sim.steps.length - 1); window.studio.select("R1"); });
+  const o1 = await page.textContent("#device");
+  check(/OSPF database, area 0\.0\.0\.1/.test(o1) && /OSPF database, AS external/.test(o1), "an OSPF router's panel groups its database by area and lists external LSAs", o1.slice(0, 80));
+  check(/asbr-summary/.test(o1) && /summary/.test(o1) && /external E[12]/.test(o1), "the database has summary and ASBR-summary LSAs and routes show their external type");
+  await page.evaluate(() => window.studio.select("R3"));
+  check(/ASBR/.test(await page.textContent("#device")), "a redistributing router is marked ASBR");
 
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});
