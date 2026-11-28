@@ -1,0 +1,65 @@
+{
+ "name": "IPv6 basics: addresses, neighbor discovery, static routes",
+ "about": "A and B share 2001:db8:1::/64 through a switch; router R joins it to C on 2001:db8:2::/64. Neighbors are found with ICMPv6 neighbor solicitation instead of ARP; C reaches the first network through a static route.",
+ "nodes": [
+  {
+   "name": "SW",
+   "kind": "switch"
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces6": {
+    "eth0": "2001:db8:1::a/64"
+   },
+   "gw6": "2001:db8:1::1"
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces6": {
+    "eth0": "2001:db8:1::b/64"
+   },
+   "gw6": "2001:db8:1::1"
+  },
+  {
+   "name": "R",
+   "kind": "router",
+   "ifaces6": {
+    "eth0": "2001:db8:1::1/64",
+    "eth1": "2001:db8:2::1/64"
+   }
+  },
+  {
+   "name": "C",
+   "kind": "host",
+   "ifaces6": {
+    "eth0": "2001:db8:2::c/64"
+   },
+   "routes6": [
+    [
+     "2001:db8:1::/64",
+     "2001:db8:2::1"
+    ]
+   ]
+  }
+ ],
+ "links": [
+  [
+   "A:eth0",
+   "SW:p1"
+  ],
+  [
+   "B:eth0",
+   "SW:p2"
+  ],
+  [
+   "R:eth0",
+   "SW:p3"
+  ],
+  [
+   "R:eth1",
+   "C:eth0"
+  ]
+ ]
+}

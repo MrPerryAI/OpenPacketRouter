@@ -22,6 +22,8 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [DHCP through a relay](dhcp-relay.md) | Why a router does not forward DHCP broadcasts, and how a relay hands them to a server on another network. |
 | [A 1 Mbit bottleneck](bottleneck.md) | What happens when a fast sender meets a slow link with a small queue: frames get dropped. |
 | [TCP across a router](tcp.md) | The TCP handshake, an echo, a clean close, and what a refused port and a silent host look like. |
+| [OSPF with three areas](ospf-areas.md) | How OSPF splits a network into areas, how ABRs pass summaries between areas. |
+| [IPv6 basics](ipv6-basics.md) | IPv6 addresses, neighbor discovery instead of ARP, ping, and a static route. |
 | [RIP on a chain of routers](rip-chain.md) | How routers learn routes from each other with RIPv2, and how a cut cable poisons them. |
 | [Count to infinity](count-to-infinity.md) | A classic routing failure: bad news and stale news chase each other around a loop of routers. |
 | [Access lists on a router](acl-lab.md) | Filtering traffic with ordered permit/deny rules on an interface, and what a denied sender is told. |

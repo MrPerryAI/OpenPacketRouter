@@ -1,0 +1,52 @@
+[
+ {
+  "do": "wait",
+  "seconds": 25,
+  "settle": 1
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.5.0.10"
+ },
+ {
+  "do": "traceroute",
+  "src": "H1",
+  "dst": "10.5.0.10"
+ },
+ {
+  "do": "ping",
+  "src": "H5",
+  "dst": "10.1.0.10"
+ },
+ {
+  "do": "link",
+  "end": "R1:eth0",
+  "up": false
+ },
+ {
+  "do": "wait",
+  "seconds": 15,
+  "settle": 1
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.5.0.10"
+ },
+ {
+  "do": "link",
+  "end": "R1:eth0",
+  "up": true
+ },
+ {
+  "do": "wait",
+  "seconds": 25,
+  "settle": 1
+ },
+ {
+  "do": "ping",
+  "src": "H1",
+  "dst": "10.5.0.10"
+ }
+]
