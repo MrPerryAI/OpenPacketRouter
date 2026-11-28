@@ -128,7 +128,7 @@ def main():
             else: print(f"ok   {tag}"); rows.append(f"ok   {tag}")
     summary = f"{checked} devices checked, {bad} failed"
     print(summary)
-    print("not covered here: OSPF/RIP/RIPng (UCI has no routing-protocol sections; they go through the FRR backend), STP/LACP/port security, bridges, switch ports, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
+    print("not covered here: OSPF/RIP/RIPng (UCI has no routing-protocol sections; they go through the FRR backend), STP/LACP/port security, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
     note("notice", "OpenWrt results", summary + "\n" + "\n".join(rows))
     sys.exit(1 if bad or not checked else 0)
 
