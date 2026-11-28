@@ -518,8 +518,8 @@ export class Ospf {
         if (r.cost >= LS_INFINITY || !ok(t, r)) continue;
         const rng = r.kind === "intra" && this.ranges.find(g => g.area === r.area && (ipToInt(r.net) & g.mask) >>> 0 === g.net >>> 0 && ipToInt(r.mask) >>> 0 >= g.mask >>> 0);
         if (rng) {   // covered by a range: only the range is advertised, at the largest cost of the routes inside it; notAdvertise hides them all
-          if (!this.discards.includes(rng)) this.discards.push(rng);   // an active range also gets a discard (blackhole) route on the ABR, so traffic for unused addresses inside it is not sent back out
           if (rng.notAdvertise) continue;
+          if (!this.discards.includes(rng)) this.discards.push(rng);   // an active range also gets a discard (blackhole) route on the ABR, so traffic for unused addresses inside it is not sent back out
           const k = `${t}|${intToIp(rng.net)}`, cur = want.get(k);
           if (!cur || r.cost > cur.metric) want.set(k, {mask: intToIp(rng.mask), metric: r.cost});
           continue;
