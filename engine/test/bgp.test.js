@@ -54,3 +54,11 @@ test("path selection: the shorter AS path wins; a higher local preference beats 
   const b = Network.fromSpec(load("bgp-localpref")); at(b, 25);
   assert.deepEqual(best(b, "R4").filter(x => x.startsWith("10.1.")), ["10.1.0.0/24 from 10.45.0.5 path [65005 65003 65001] nh 10.45.0.5"]);
 });
+
+test("eBGP: a route learned from a peer is also announced back to it (bgpd does; the peer drops it as a loop)", () => {
+  const net = Network.fromSpec(load("bgp-chain"));
+  at(net, 40);
+  const sent = [...net.node("R1").bgp.peers.get("10.12.0.2").adjOut.keys()].sort();
+  assert.deepEqual(sent, ["10.1.0.0/24", "10.2.0.0/24", "10.3.0.0/24"]);
+  assert.ok(best(net, "R2").some(x => x.startsWith("10.2.0.0/24 from local")));
+});

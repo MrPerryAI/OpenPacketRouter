@@ -17,11 +17,12 @@
 //   - Path selection (RFC 4271 9.1.2.2, with bgpd's tie-breaks): reachable next hop; highest local preference
 //     (default 100); shortest AS path; lowest origin; eBGP over iBGP; if both are eBGP the older path; lowest router
 //     ID; lowest peer address. MED, weight, communities and policy are not modeled.
-//   - Advertising: the best path goes to every peer but the one it came from; a route learned from an iBGP peer
-//     does not go to another iBGP peer. To an eBGP peer our AS is prepended, and the next hop becomes our address
-//     on that cable unless it already is on the peer's subnet (third-party next hop). To an iBGP peer the next hop
-//     and AS path stay, and the local preference is carried. A path whose AS path holds the receiver's AS is neither
-//     sent nor accepted (loop prevention).
+//   - Advertising: the best path goes to every peer. A route learned from an iBGP peer does not go to another iBGP
+//     peer or back to that peer. An eBGP route does go back to the eBGP peer it came from, and with that peer's own AS
+//     in the path: bgpd does this too (no split horizon, no sender-side loop check), and the receiver drops it as a
+//     loop. To an eBGP peer our AS is prepended, and the next hop becomes our address on that cable unless it already
+//     is on the peer's subnet (third-party next hop). To an iBGP peer the next hop and AS path stay, and the local
+//     preference is carried. A received path that holds our own AS is a loop and is not accepted.
 //   - Installed in the forwarding table: the best path of each prefix that is not locally originated, with its next
 //     hop resolved through the other routes (distance 20 for eBGP, 200 for iBGP).
 import {ipToInt, parseCidr, inSubnet} from "./addr.js";
@@ -201,9 +202,8 @@ export class Bgp {
   // Updates go out 0.01 s after the best paths change (batching, and so every route changed in the same event is sent together). The advertisement interval itself is 0, as in recent FRR for eBGP and iBGP.
   _scheduleAdv() { if (this.advTimer) return; this.advTimer = this._after(0.01, () => { this.advTimer = null; for (const p of this.peers.values()) if (p.state === "Established") this._sendAll(p); }); }
   _export(p, b) {
-    if (b.from === p.ip) return null;
+    if (b.from === p.ip && !p.ebgp) return null;       // iBGP: never back to the peer it came from. eBGP: ospf-style split horizon is not applied (bgpd sends it back, with the peer's own AS in the path; the peer drops it as a loop)
     if (!p.ebgp && b.from !== null && !b.ebgp && this.peers.get(b.from) && !this.peers.get(b.from).ebgp) return null;   // iBGP to iBGP: no
-    if (p.ebgp && b.asPath.includes(p.remoteAs)) return null;
     const r = this.node.route(p.ip, true); if (!r) return null;
     const mine = this.node.ifaces[r.iface].ip, i = this.node.ifaces[r.iface];
     if (p.ebgp) {
