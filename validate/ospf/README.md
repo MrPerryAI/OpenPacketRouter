@@ -43,3 +43,5 @@ The comparison stays strict. If a network's only differences are Acknowledgments
 side is run again in fresh namespaces, up to two more times, and the network passes if one real ospfd run matches the
 engine on every row; the results table then says "matched on run N of 3". Any other difference (another packet type,
 a cable on a switch, neighbors, routes, database, Hellos) fails at once with no retry.
+
+With `OSPF_RENDER=cli`, redistribution comes from the device CLI too (`redistribute connected|static [metric N] [metric-type 1|2]` under `router ospf`, rendered by the FRR backend). The only translation: `redistribute static` becomes `redistribute kernel`, because the namespace setup adds static routes with `ip route`.
