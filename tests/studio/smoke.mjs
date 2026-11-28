@@ -33,6 +33,8 @@ try {
   await page.goto(BASE); await page.waitForFunction(() => document.body.dataset.ready);
   check(await page.evaluate(() => document.body.dataset.ready) === "1", "studio starts");
 
+  const indexed = JSON.parse(fs.readFileSync(path.join(root, "examples", "index.json"), "utf8")).labs.map(l => l.id);
+  check(indexed.length === labs.length && indexed.every(id => labs.includes(id)), "examples/index.json lists exactly the lab folders", `${indexed.length} vs ${labs.length}`);
   const listed = await page.$$eval("#examples option[value]:not([value=''])", o => o.length);
   check(listed === labs.length, "every lab in examples/ is in the dropdown", `${listed} listed, ${labs.length} folders`);
 
@@ -52,6 +54,12 @@ try {
     check(!q.badDesc.length && !q.noDesc && !q.noFilter.length, `${lab}: every frame is described and has a filter`, JSON.stringify(q).slice(0, 200));
     if (shots) { fs.mkdirSync(shots, {recursive: true}); await page.screenshot({path: path.join(shots, `${lab}.png`)}); }
   }
+
+  // NTP, syslog and HTTP frames are named and have their own filter
+  await page.goto(BASE + "?lab=services-lab"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  const svc = await page.evaluate(() => { const st = window.studio.S.sim.steps; return {kinds: [...new Set(st.map(x => x.kind))], ntp: st.some(x => x.kind === "ntp" && /\(NTP\)/.test(x.desc)), sys: st.some(x => x.kind === "syslog" && /\(syslog\)/.test(x.desc)),
+    filters: [...document.querySelectorAll("#filters input[data-kind]")].map(x => x.dataset.kind)}; });
+  check(svc.ntp && svc.sys && ["ntp", "syslog"].every(k => svc.filters.includes(k)), "services-lab: NTP and syslog frames are named and filterable", svc.kinds.join(","));
 
   // loop with spanning tree: one port blocks at rest
   await page.goto(BASE + "?lab=loop-with-stp"); await page.waitForFunction(() => document.body.dataset.ready === "1");

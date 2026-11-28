@@ -68,7 +68,7 @@ Serve the repository root (not `studio/`): the page loads `../engine/src/*.js` a
   answered, at the current playback frame.
 - **TCP**: a host with TCP connections gets a *TCP connections* table (endpoints, state, unacked segments, bytes queued, the peer's window, retransmits (retx)) at the current playback frame.
 - **VRRP**: a router in a VRRP group gets a *VRRP* table in its device panel (interface, vrid, virtual IP, priority, MASTER/BACKUP/FAULT, and the current master's address) at the current playback frame.
-- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP,
+- **Playback filters and event list**: under the map, one checkbox per protocol that appears in the run (ARP, ICMP, NTP, syslog, HTTP (TCP port 80),
   TCP, UDP, DHCP, DNS, STP, LACP, RIP, OSPF, LLDP) with its frame count. Unchecked protocols are skipped when you
   play or step, and leave the **Event list** in the side panel (like Packet Tracer's simulation mode: one row per
   frame with time, protocol, from → to and a description; click a row to jump to that frame). Studio now describes
