@@ -228,6 +228,9 @@ try {
   check(labsWithGuide.length > 0 && guideBad.length === 0, `every lab guide opens and its command buttons reach the console (${labsWithGuide.length} labs, ${guideButtons} buttons)`, guideBad.join("; ").slice(0, 200));
   check(guideButtons > 0, "at least one guide has a run-in-console button");
 
+  const ug = fs.readFileSync(path.join(root, "docs", "studio-guide.md"), "utf8");
+  const missingImgs = [...ug.matchAll(/\]\((img\/studio\/[^)]+)\)/g)].map(m => m[1]).filter(f => !fs.existsSync(path.join(root, "docs", f)));
+  check(/img\/studio\//.test(ug) && missingImgs.length === 0, "the Studio user guide's pictures all exist", missingImgs.join(", "));
   const panel = async (lab, dev) => { await page.goto(BASE + "?lab=" + lab); await page.waitForFunction(() => document.body.dataset.ready === "1");
     await page.evaluate(d => window.studio.select(d), dev); return page.textContent("#device"); };
   check(/RIP routes/.test(await panel("rip-chain", "R2")) && /192\.168|10\./.test(await page.textContent("#device")), "RIP table panel on a RIP router");
