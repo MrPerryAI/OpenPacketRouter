@@ -13,3 +13,5 @@ No tolerance on counts: the advertisements per cable direction between two snaps
 Known differences are listed in `mismatches.json`.
 
 One Linux-only frame is left out of the gratuitous-ARP comparison, and counted in `results.md` / `mismatches.json` ("Linux race replies left out"): an ARP reply (op 2) from a router that was master before the window, sent to the MAC of the router that just took over. When R1 takes over it sends its advert and then a broadcast ARP; R2's kernel can answer that ARP if it receives it in the sub-millisecond gap before keepalived has removed the virtual address. The engine has no such gap, and its side of the comparison is not filtered at all.
+
+`VRRP_RENDER=cli validate/docker/run.sh vrrp` runs the same cases and comparisons, but each router's keepalived config comes only from the device CLI's Linux rendering (`opr-cli --render linux`). The harness adds only a router id and the one-ARP-per-takeover pins (`garp_master_*`) described above.

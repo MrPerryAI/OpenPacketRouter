@@ -182,3 +182,5 @@ jobs:
           f=$(grep -lE '^ *(profile +)?[^ ]*keepalived\b' /etc/apparmor.d/* 2>/dev/null | head -1)
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f" || true; fi
           validate/docker/run.sh vrrp
+          # same comparison, but keepalived's config comes only from the device CLI's Linux rendering (opr-cli --render linux)
+          VRRP_RENDER=cli validate/docker/run.sh vrrp
