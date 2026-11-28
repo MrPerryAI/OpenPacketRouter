@@ -26,6 +26,21 @@ export function uciCommands(model, {ports = Object.keys(M.interfaces(model))} = 
   M.staticList6(model).forEach((r, i) => {
     out.push(`set network.route6_${i}=route6`, `set network.route6_${i}.target='${r.prefix}'`, `set network.route6_${i}.gateway='${r.nextHop}'`);
   });
+  // Switch VLANs: one bridge device, one bridge-vlan section per VLAN; a port is "name:u*" (untagged, the port VLAN) or "name:t" (tagged).
+  const sw = ports.filter(p => { const i = M.iface(model, p, false); return i && M.switchedVlan(i, false)?.["interface-mode"]; });
+  if (sw.length) {
+    out.push("set network.br0=device", "set network.br0.name='br0'", "set network.br0.type='bridge'", ...sw.map(p => `add_list network.br0.ports='${p}'`));
+    const byVlan = {};
+    for (const p of sw) {
+      const c = M.switchedVlan(M.iface(model, p, false), false);
+      if (c["interface-mode"] === "ACCESS") (byVlan[c["access-vlan"] ?? 1] ||= []).push(`${p}:u*`);
+      else {
+        for (const v of c["trunk-vlans"]) if (v !== c["native-vlan"]) (byVlan[v] ||= []).push(`${p}:t`);
+        if (c["native-vlan"] !== undefined) (byVlan[c["native-vlan"]] ||= []).push(`${p}:u*`);
+      }
+    }
+    for (const [v, members] of Object.entries(byVlan)) out.push(`set network.vlan${v}=bridge-vlan`, `set network.vlan${v}.device='br0'`, `set network.vlan${v}.vlan='${v}'`, ...members.map(m => `add_list network.vlan${v}.ports='${m}'`));
+  }
   out.push("commit network");
   return out;
 }

@@ -84,3 +84,10 @@ test("openwrt renders IPv6 addresses and static routes", () => {
   assert.ok(u.includes("add_list network.lan.ip6addr='2001:db8:1::1/64'"), u.join("\n"));
   assert.ok(u.includes("set network.route6_0.target='2001:db8:2::/64'") && u.includes("set network.route6_0.gateway='2001:db8:1::2'"), u.join("\n"));
 });
+
+test("openwrt renders switch VLANs as a bridge with bridge-vlan sections", () => {
+  const s = spec("examples/vlans/spec.json"), b = engineBackend(s), name = s.nodes.find(n => n.kind === "switch").name;
+  const u = uciCommands(b.getConfig(name), {ports: b.ports(name)}).join("\n");
+  assert.match(u, /set network\.br0\.type='bridge'/);
+  assert.match(u, /set network\.vlan10=bridge-vlan[\s\S]*add_list network\.vlan10\.ports='p1:u\*'[\s\S]*add_list network\.vlan10\.ports='trunk:t'/);
+});

@@ -47,7 +47,7 @@ def parse(show):
         if opt:
             vals = re.findall(r"'([^']*)'", val)
             d[opt] = val.strip("'") if len(vals) < 2 else vals      # a UCI list prints as 'a' 'b'
-            if opt == "ip6addr": d[opt] = vals
+            if opt in ("ip6addr", "ports"): d[opt] = vals
         else: d["_type"] = val.strip("'")
     return secs
 
@@ -84,6 +84,19 @@ def check(spec, node, secs):
     if node.get("gw6"): wanted6.append(("::/0", node["gw6"]))
     for d, nh in wanted6:
         if (d, nh) not in routes6: errs.append(f"route6 {d} via {nh} missing (have {routes6})")
+    if node.get("vlans"):
+        want = set()
+        for p, c in node["vlans"].items():
+            if c.get("access") is not None: want.add((c["access"], p, "u*"))
+            for v in (c.get("trunk") if isinstance(c.get("trunk"), list) else []):
+                if v != c.get("native"): want.add((v, p, "t"))
+            if c.get("native") is not None: want.add((c["native"], p, "u*"))
+        have = set()
+        for v in secs.values():
+            if v.get("_type") == "bridge-vlan":
+                for m in v.get("ports", []):
+                    port, _, mode = m.partition(":"); have.add((int(v["vlan"]), port, mode))
+        if want != have: errs.append(f"bridge-vlan: want {sorted(want)}, have {sorted(have)}")
     routes = [(v.get("target"), v.get("netmask"), v.get("gateway")) for v in secs.values() if v.get("_type") == "route"]
     wanted = list(node.get("routes") or [])
     if node.get("gw"): wanted.append(["0.0.0.0/0", node["gw"]])      # the default gateway is rendered as a 0.0.0.0/0 route
@@ -100,8 +113,8 @@ def main():
     for path in sorted(glob.glob(os.path.join(ROOT, "examples", "*", "spec.json"))) + [os.path.join(ROOT, "validate", "ipv6", "ipv6-lab.json")]:   # the lab specs, plus the IPv6 validator's own
         spec = os.path.relpath(path, ROOT)
         for node in json.load(open(path))["nodes"]:
-            if not (node.get("ifaces") or node.get("routes") or node.get("gw") or node.get("ifaces6") or node.get("routes6") or node.get("gw6")): continue
-            if node["kind"] == "switch" and not any(isinstance(c, str) for c in (node.get("ifaces") or {}).values()) and not node.get("routes"): continue
+            if not (node.get("ifaces") or node.get("routes") or node.get("gw") or node.get("ifaces6") or node.get("routes6") or node.get("gw6") or node.get("vlans")): continue
+            if node["kind"] == "switch" and not any(isinstance(c, str) for c in (node.get("ifaces") or {}).values()) and not node.get("routes") and not node.get("vlans"): continue
             checked += 1
             try:
                 out, err = apply(render(spec, node["name"]))
@@ -115,7 +128,7 @@ def main():
             else: print(f"ok   {tag}"); rows.append(f"ok   {tag}")
     summary = f"{checked} devices checked, {bad} failed"
     print(summary)
-    print("not covered here: OSPF/RIP/RIPng (UCI has no routing-protocol sections; they go through the FRR backend), VLANs, bridges, switch ports, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
+    print("not covered here: OSPF/RIP/RIPng (UCI has no routing-protocol sections; they go through the FRR backend), STP/LACP/port security, bridges, switch ports, ACL/NAT/firewall, DHCP pools (not rendered for OpenWrt yet); netifd is not booted")
     note("notice", "OpenWrt results", summary + "\n" + "\n".join(rows))
     sys.exit(1 if bad or not checked else 0)
 
