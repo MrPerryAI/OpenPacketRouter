@@ -33,6 +33,8 @@ try {
   await page.goto(BASE); await page.waitForFunction(() => document.body.dataset.ready);
   check(await page.evaluate(() => document.body.dataset.ready) === "1", "studio starts");
 
+  const indexed = JSON.parse(fs.readFileSync(path.join(root, "examples", "index.json"), "utf8")).labs.map(l => l.id);
+  check(indexed.length === labs.length && indexed.every(id => labs.includes(id)), "examples/index.json lists exactly the lab folders", `${indexed.length} vs ${labs.length}`);
   const listed = await page.$$eval("#examples option[value]:not([value=''])", o => o.length);
   check(listed === labs.length, "every lab in examples/ is in the dropdown", `${listed} listed, ${labs.length} folders`);
 
@@ -52,6 +54,12 @@ try {
     check(!q.badDesc.length && !q.noDesc && !q.noFilter.length, `${lab}: every frame is described and has a filter`, JSON.stringify(q).slice(0, 200));
     if (shots) { fs.mkdirSync(shots, {recursive: true}); await page.screenshot({path: path.join(shots, `${lab}.png`)}); }
   }
+
+  // NTP, syslog and HTTP frames are named and have their own filter
+  await page.goto(BASE + "?lab=services-lab"); await page.waitForFunction(() => document.body.dataset.ready === "1");
+  const svc = await page.evaluate(() => { const st = window.studio.S.sim.steps; return {kinds: [...new Set(st.map(x => x.kind))], ntp: st.some(x => x.kind === "ntp" && /\(NTP\)/.test(x.desc)), sys: st.some(x => x.kind === "syslog" && /\(syslog\)/.test(x.desc)),
+    filters: [...document.querySelectorAll("#filters input[data-kind]")].map(x => x.dataset.kind)}; });
+  check(svc.ntp && svc.sys && ["ntp", "syslog"].every(k => svc.filters.includes(k)), "services-lab: NTP and syslog frames are named and filterable", svc.kinds.join(","));
 
   // loop with spanning tree: one port blocks at rest
   await page.goto(BASE + "?lab=loop-with-stp"); await page.waitForFunction(() => document.body.dataset.ready === "1");
@@ -373,6 +381,14 @@ try {
   await page.evaluate(() => window.studio.select("R2"));
   const osp = await page.textContent("#device");
   check(/Area border router/.test(osp) && /inter-area/.test(osp) && /0\.0\.0\.1/.test(osp), "OSPF panel marks the ABR, shows areas and inter-area routes");
+  const rr = await page.evaluate(sp => { const ok = window.studio.load(sp, [{do: "wait", seconds: 60}], "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; }, vfile("ospf/ospf-redist.net"));
+  check(rr.ok && !/spec /.test(rr.errors), "OSPF redistribution spec loads", rr.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.goto(window.studio.S.sim.steps.length - 1); window.studio.select("R1"); });
+  const o1 = await page.textContent("#device");
+  check(/OSPF database, area 0\.0\.0\.1/.test(o1) && /OSPF database, AS external/.test(o1), "an OSPF router's panel groups its database by area and lists external LSAs", o1.slice(0, 80));
+  check(/asbr-summary/.test(o1) && /summary/.test(o1) && /external E[12]/.test(o1), "the database has summary and ASBR-summary LSAs and routes show their external type");
+  await page.evaluate(() => window.studio.select("R3"));
+  check(/ASBR/.test(await page.textContent("#device")), "a redistributing router is marked ASBR");
 
   // a spec with an error is reported, not thrown
   const bad = await page.evaluate(() => { const ok = window.studio.load({nodes: [{name: "X", kind: "toaster"}], links: []});

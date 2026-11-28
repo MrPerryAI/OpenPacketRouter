@@ -21,72 +21,100 @@ jobs:
       - name: Python dependencies
         run: pip install numpy matplotlib pytest jsonschema
       - name: Lab build is up to date
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: python3 tools/build_web.py --check
       - name: Storm math proof of concept
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         working-directory: poc/storm-math
         run: python3 -m pytest -q
       - name: Lab engine matches the proof of concept
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: python3 -m pytest -q tests
       - name: Browser smoke test
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: |
           npm install
           npx playwright install --with-deps chromium
           node tests/web/smoke.mjs
       - name: Studio smoke test
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: node tests/studio/smoke.mjs
       - name: Release check (README quick start commands run; npm pack contents)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: node tests/quickstart/run.mjs
       - name: Engine unit tests
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         working-directory: engine
         run: npm test
       - name: Device CLI tests (incl. running-config round trip on every spec)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         working-directory: cli
         run: npm test
       - name: CLI reference and lab commands.txt are up to date
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: |
           node cli/tools/gen-reference.mjs --check
           node cli/tools/gen-commands.mjs --check
       - name: Engine vs real Linux (frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l3/run_kernel_l3.py
       - name: Engine L2 (STP + VLANs) vs real Linux
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/l2/run_kernel_l2.py
       - name: Inter-VLAN routing (subinterfaces + SVIs) vs real Linux
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/intervlan/run_kernel_intervlan.py
       - name: MAC address aging vs real Linux bridges (ageing_time, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/aging/run_kernel_aging.py
       - name: Port security vs real Linux (nftables bridge sets, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/portsec/run_kernel_portsec.py
       - name: STP topology change notices vs real Linux bridges (flags, aging, MAC tables)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcn/run_kernel_tcn.py
       - name: LACP port-channels vs real Linux bonds (802.3ad, states, LACPDUs, hash per cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: |
           sudo modprobe bonding || true
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/lacp/run_kernel_lacp.py
       - name: Storm control vs real Linux (tc police on bridge ports, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/storm-control/run_kernel_storm.py
       - name: Port mirroring (SPAN) vs Linux tc mirred (frame for frame, monitor cables included)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/span/run_kernel_span.py
       - name: Link shaping vs real Linux tbf (frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/links/run_kernel_links.py
       - name: DHCP vs real Linux (dnsmasq + udhcpc, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: |
           sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends dnsmasq-base busybox >/dev/null)
           sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp/run_kernel_dhcp.py
       - name: Link delay and loss vs Linux tc netem (RTTs, frames, drops)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/netem/run_kernel_netem.py
       - name: DHCP snooping vs Linux nftables (rogue server dropped on untrusted ports, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/dhcp-snooping/run_kernel_snoop.py
       - name: TCP vs real Linux (frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/tcp/run_kernel_tcp.py
       - name: Access lists vs Linux nftables (frames, pings, UDP and TCP connects)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: validate/docker/run.sh acl
       - name: Server services vs real Linux tools (syslog with util-linux logger, NTP with ntpdate; stored messages and frames)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: validate/docker/run.sh services
       - name: NAT vs Linux nftables (masquerade, snat and dnat; frames, pings, TCP and UDP)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: validate/docker/run.sh nat
       - name: IPv6 vs Linux (neighbor discovery, ICMPv6 echo, static routes; frames on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: validate/docker/run.sh ipv6
       - name: RIPv2 vs FRRouting ripd (tables and packets on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh rip` locally.
         run: |
           # The runner's AppArmor ships an enforcing "ripd" profile (no zebra one); host profiles also bind to
@@ -100,6 +128,7 @@ jobs:
           # same comparison, but ripd's config comes only from the device CLI's FRR rendering
           RIP_RENDER=cli validate/docker/run.sh rip
       - name: RIPng vs FRRouting ripngd (tables and packets on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: |
           # Same AppArmor handling as for ripd above.
           f=$(grep -lE '^ *profile +ripngd\b' /etc/apparmor.d/* 2>/dev/null | head -1)
@@ -116,10 +145,13 @@ jobs:
           done
           validate/docker/run.sh frrstatic
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
       - name: Device CLI's OpenWrt rendering applied by real OpenWrt uci (official rootfs container), read back
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: python3 validate/openwrt/run_openwrt.py
       - name: OSPFv2 vs FRRouting ospfd (neighbors, DR/BDR, routes, LSDB and packets on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         # Runs in the project's privileged container (validate/docker/Dockerfile has frr), like `run.sh ospf` locally.
         run: |
           # The runner's AppArmor may ship an enforcing "ospfd" profile (as it does for ripd); host profiles also bind to
@@ -142,6 +174,7 @@ jobs:
           sudo aa-status 2>/dev/null | grep -iE 'bgpd' && { echo "bgpd profile still loaded"; exit 1; } || true
           validate/docker/run.sh bgp
       - name: LLDP vs lldpd (neighbor tables, LLDPDU contents and counts on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         # Runs in the project's privileged container (validate/docker/Dockerfile has lldpd), like `run.sh lldp` locally.
         run: |
           # The runner's AppArmor may confine a host "lldpd" profile onto the container's lldpd (as it does for ripd and
@@ -151,6 +184,7 @@ jobs:
           if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f" || true; fi
           validate/docker/run.sh lldp
       - name: VRRP vs keepalived (master, ping to the virtual address, advertisements on every cable)
+        if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         # Runs in the project's privileged container (validate/docker/Dockerfile has keepalived), like `run.sh vrrp` locally.
         run: |
           # As for lldpd: unload a host AppArmor profile that could confine the container's keepalived.

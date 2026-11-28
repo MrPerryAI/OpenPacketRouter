@@ -14,7 +14,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ripng", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "ntp", "syslog", "http", "bpdu", "lacp", "rip", "ripng", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
 const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
@@ -417,7 +417,12 @@ function featurePanels(n, d) {
     h += `<div class="when">${d.ospf.areas.length > 1 ? `Area border router (ABR) between areas ${esc(d.ospf.areas.join(", "))}.` : `Area ${esc(d.ospf.areas.join(", ") || "none")}.`}</div>`;
     h += `<h4>OSPF neighbors</h4>` + table(["router ID", "address", "iface", "state", "role"], d.ospf.neighbors.map(x => [x.routerId, x.address, x.iface, x.state, x.role]));
     h += `<h4>OSPF interfaces</h4>` + table(["iface", "area", "state", "type", "cost", "DR", "BDR"], d.ospf.interfaces.map(x => [x.iface, x.area, x.state, x.type, x.cost, x.dr, x.bdr]));
-    h += `<h4>OSPF routes</h4>` + table(["network", "kind", "cost", "via"], d.ospf.routes.map(x => [x.network, x.type === "inter" ? "inter-area" : x.type === "intra" ? "intra-area" : x.type, x.cost, x.via.map(v => `${v.gw} (${v.iface})`).join(", ")]));
+    if (d.ospf.asbr) h += `<div class="when">Autonomous system boundary router (ASBR): redistributes routes into OSPF.</div>`;
+    h += `<h4>OSPF routes</h4>` + table(["network", "kind", "cost", "via"], d.ospf.routes.map(x => [x.network, ({inter: "inter-area", intra: "intra-area", e1: "external E1", e2: "external E2"})[x.type] || x.type, x.cost, x.via.map(v => `${v.gw} (${v.iface})`).join(", ")]));
+    const lsaDetail = l => l.type === "router" ? `${l.abr ? "ABR " : ""}${l.asbr ? "ASBR " : ""}${l.links.length} link(s)` : l.type === "network" ? `${l.mask}, attached ${l.attached.join(" ")}` : l.type === "external" ? `${l.mask}, metric ${l.metric} (E${l.eType})` : `${l.mask || ""} metric ${l.metric}`;
+    const byArea = new Map();
+    for (const l of d.ospf.lsdb || []) { const a = l.type === "external" ? "AS external" : "area " + (l.area || "0.0.0.0"); if (!byArea.has(a)) byArea.set(a, []); byArea.get(a).push(l); }
+    for (const [a, ls] of byArea) h += `<h4>OSPF database, ${esc(a)}</h4>` + table(["type", "ID", "advertised by", "seq", "detail"], ls.map(l => [l.type, l.id, l.adv, l.seq, lsaDetail(l)]));
   }
   if (d.nat) h += `<h4>NAT translations</h4>` + table(["proto", "inside global", "inside local", "outside global", "left"], d.nat.map(x => [x.proto, x.insideGlobal, x.insideLocal, x.outsideGlobal, x.static ? "static" : x.secondsLeft === undefined ? "" : `${x.secondsLeft} s`]));
   if (n.acl && n.acl.lists) {
