@@ -18,4 +18,4 @@ Limits of the comparison: the message types per cable are compared as a set (wea
 
 Known TCP limit (not covered by this validator): the engine's `tcpClose` does not retransmit a lost FIN, which Linux does on the normal RTO.
 
-With `BGP_RENDER=cli` (also a CI step) bgpd's config comes only from the device CLI's FRR rendering (`opr-cli --render frr`), not from the validator's own writer; every comparison is unchanged.
+With `BGP_RENDER=cli` (also a CI step) bgpd's config comes only from the device CLI's FRR rendering (`opr-cli --render frr`), not from the validator's own writer; every comparison is unchanged. The only translation: the lines of the rendering that belong to the namespace setup instead of bgpd (`ip address`, `ipv6 address`, `ip route`, `ipv6 route`, `shutdown`, `end`) are dropped before the config is loaded; the validator asserts that the rendering contains `router bgp <asn>` for every BGP router. Nothing in `router bgp` is rewritten.
