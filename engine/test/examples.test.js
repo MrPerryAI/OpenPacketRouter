@@ -148,3 +148,11 @@ test("rstp-fast-failover: the alternate port takes over the moment the cable is 
   assert.equal(back.ports.p1.role, "root"); assert.equal(back.ports.p2.role, "alternate");
   assert.equal(ping3.ok, true);
 });
+
+test("stp-guards: root guard leaves p1 listening and SW1 root; BPDU guard disables p2; the ping fails", () => {
+  const r = run("stp-guards");
+  const sw1 = r[1].result, sw2 = r[2].result;
+  assert.equal(sw1.isRoot, true); assert.equal(sw1.ports.p1.state, "listening"); assert.equal(sw1.ports.p2.state, "disabled");
+  assert.equal(sw2.isRoot, true, "the customer switch stays its own root");
+  assert.equal(r[3].result.ok, false);
+});

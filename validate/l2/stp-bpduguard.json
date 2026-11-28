@@ -1,0 +1,54 @@
+{
+ "name": "STP BPDU guard",
+ "about": "SW1 (root) has BPDU guard on p1, the cable to SW2: the first BPDU from SW2 shuts the port, and a link flap brings it back, only to be shut again. SW2 and SW3 stay connected through SW1:p2.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:01",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "priority": 4096,
+    "bpduGuard": {
+     "p1": true
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:02",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:bb:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:p1",
+   "SW2:p1"
+  ],
+  [
+   "SW1:p2",
+   "SW3:p1"
+  ],
+  [
+   "SW2:p2",
+   "SW3:p2"
+  ]
+ ]
+}

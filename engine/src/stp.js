@@ -26,13 +26,14 @@ const cmpId = (a, b) => a[0] !== b[0] ? a[0] - b[0] : a[1] < b[1] ? -1 : a[1] > 
 const idStr = id => `${id[0].toString(16).padStart(4, "0")}.${id[1].replace(/:/g, "")}`;
 
 export class Stp {
-  /** sw: the Switch. opts: {priority, mac, hello, maxAge, forwardDelay, cost: {port: n}, portPriority: {port: n}} */
+  /** sw: the Switch. opts: {priority, mac, hello, maxAge, forwardDelay, cost: {port: n}, portPriority: {port: n}, bpduGuard: {port: true}, rootGuard: {port: true}} */
   constructor(sw, opts = {}) {
     this.sw = sw; this.net = sw.net;
     this.priority = opts.priority ?? 0x8000;
     this.mac = opts.mac;
     this.hello = opts.hello ?? 2; this.maxAge = opts.maxAge ?? 20; this.forwardDelay = opts.forwardDelay ?? 15;
     this.costOf = opts.cost || {}; this.prioOf = opts.portPriority || {};
+    this.bpduGuard = opts.bpduGuard || {}; this.rootGuard = opts.rootGuard || {};   // the bridge port flags `guard` (BR_BPDU_GUARD) and `root_block` (BR_ROOT_BLOCK)
     this.started = false; this.ports = new Map(); this.gen = {};
     this.tc = false; this.tcd = false;       // topology_change flag (in force) and topology_change_detected (our TCN not yet acknowledged)
   }
@@ -126,7 +127,9 @@ export class Stp {
     let best = null;
     for (const p of this.ports.values()) {
       if (p.state === DISABLED || this._isDesignated(p) || cmpId(p.desRoot, this.bid) >= 0) continue;
-      if (!best || this._betterRoot(p, best)) best = p;
+      if (best && !this._betterRoot(p, best)) continue;
+      if (this.rootGuard[p.name]) { this._rootBlock(p); continue; }   // br_root_selection: a root-guarded port may not become the root port
+      best = p;
     }
     if (!best) { this.rootId = this.bid; this.rootCost = 0; this.rootPort = null; }
     else { this.rootId = best.desRoot; this.rootCost = best.desCost + best.cost; this.rootPort = best.name;
@@ -137,6 +140,14 @@ export class Stp {
           (this.rootCost === p.desCost && (cmpId(this.bid, p.desBridge) < 0 || (cmpId(this.bid, p.desBridge) === 0 && p.id < p.desPort))))
         this._becomeDesignated(p);
     }
+  }
+  /** br_root_port_block: the port tried to become the root port, so it goes to listening and its forward-delay timer restarts.
+   *  What follows decides the rest, as in the kernel: a port that stays blocked-by-superior-BPDU is made designated by the
+   *  designated-port selection (its information names another root), the port state selection leaves a listening port alone,
+   *  and every new BPDU from the better root restarts the timer, so the port never reaches forwarding while it keeps hearing it. */
+  _rootBlock(p) {
+    this.sw.log("stp", `port ${p.name} tried to become root port (blocked by root guard)`);
+    this._setState(p, LISTENING); this._timer("fd:" + p.name, this.curFwd, () => this._fdExpired(p));
   }
   _betterRoot(a, b) {
     const x = [cmpId(a.desRoot, b.desRoot), (a.desCost + a.cost) - (b.desCost + b.cost), cmpId(a.desBridge, b.desBridge), a.desPort - b.desPort, a.id - b.id];
@@ -209,6 +220,9 @@ export class Stp {
   receive(ifname, f) {
     const p = this.ports.get(ifname); if (!p || p.state === DISABLED) return;
     const b = f.bpdu;
+    if (this.bpduGuard[ifname]) {   // br_stp_rcv: any BPDU (config or TCN) on a guarded port shuts the port down; link down and up brings it back
+      this.sw.log("stp", `BPDU received on guarded port ${ifname}: port disabled`); this._disable(p); return;
+    }
     if (b.tcn) {
       if (this._isDesignated(p)) { this.sw.log("stp", `TCN on ${ifname}: acknowledging it`); this._topologyChange(); p.tcAck = true; this._transmit(p); }
       return;

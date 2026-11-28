@@ -1,0 +1,77 @@
+{
+ "version": 1,
+ "name": "Spanning tree guards: BPDU guard and root guard",
+ "about": "SW1 is the provider's switch and the root (priority 4096). A customer switch SW2 claims to be a better root (priority 0): SW1's root-guard port p1 refuses to follow it and sits in listening. A rogue mini-switch SW3 is plugged into SW1's p2, which has BPDU guard: its first BPDU shuts the port.",
+ "nodes": [
+  {
+   "name": "SW1",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:01",
+    "priority": 4096,
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4,
+    "rootGuard": {
+     "p1": true
+    },
+    "bpduGuard": {
+     "p2": true
+    }
+   }
+  },
+  {
+   "name": "SW2",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:02",
+    "priority": 0,
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "SW3",
+   "kind": "switch",
+   "stp": {
+    "mac": "02:aa:00:00:00:03",
+    "hello": 1,
+    "maxAge": 6,
+    "forwardDelay": 4
+   }
+  },
+  {
+   "name": "A",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.1/24"
+   }
+  },
+  {
+   "name": "B",
+   "kind": "host",
+   "ifaces": {
+    "eth0": "10.0.0.2/24"
+   }
+  }
+ ],
+ "links": [
+  [
+   "SW1:p1",
+   "SW2:p1"
+  ],
+  [
+   "SW1:p2",
+   "SW3:p1"
+  ],
+  [
+   "A:eth0",
+   "SW1:p3"
+  ],
+  [
+   "B:eth0",
+   "SW2:p2"
+  ]
+ ]
+}

@@ -89,6 +89,8 @@ export function configLines(model, {kind, ports}) {
       if (sp && sp.cost !== undefined) out.push(` spanning-tree cost ${sp.cost}`);
       if (sp && sp["port-priority"] !== undefined) out.push(` spanning-tree port-priority ${sp["port-priority"]}`);
       if (sp && sp["edge-port"] === "EDGE_ENABLE") out.push(" spanning-tree portfast");
+      if (sp && sp["openpacketrouter:bpdu-guard"]) out.push(" spanning-tree bpdu-guard");
+      if (sp && sp["openpacketrouter:root-guard"]) out.push(" spanning-tree root-guard");
       if (ifc["openpacketrouter:nat"]) out.push(` ip nat ${ifc["openpacketrouter:nat"]}`);
       for (const d of ["in", "out"]) if (ifc["openpacketrouter:acl"]?.[d]) out.push(` ip access-group ${ifc["openpacketrouter:acl"][d]} ${d}`);
       for (const g of (M.services(model).vrrp || []).filter(x => x.iface === name)) {

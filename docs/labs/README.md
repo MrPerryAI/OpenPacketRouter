@@ -7,6 +7,7 @@ Each guide says what the lab shows, the commands to try and what you should see.
 | [Switch ring with no spanning tree](loop-no-stp.md) | What happens when switches are cabled in a circle and nothing stops frames going round it. |
 | [Switch ring with spanning tree](loop-with-stp.md) | How spanning tree breaks a loop: it picks a root switch and blocks exactly enough ports to leave a tree. |
 | [Spanning tree topology change](stp-topology-change.md) | What a switch does when a cable fails: it announces the change and shortens how long it remembers addresses. |
+| [Spanning tree guards: BPDU guard and root guard](stp-guards.md) | How a switch refuses a better root from a customer port (root guard) and shuts a port where a rogue switch is plugged in (BPDU guard). |
 | [Rapid spanning tree: fast failover](rstp-fast-failover.md) | How rapid spanning tree replaces a failed link in a moment, using a blocked alternate port, with no timers. |
 | [MAC address aging](mac-aging.md) | A switch forgets a host that has been silent for the aging time, and floods traffic to it until it learns again. |
 | [Port security](port-security.md) | A switch port that accepts only a limited number of source MAC addresses; the others are dropped and counted. |

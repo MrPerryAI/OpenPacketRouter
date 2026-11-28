@@ -46,3 +46,18 @@ test("Linux rendering of an RSTP switch uses stp_state 2 and mstpctl", () => {
   assert.ok(out.some(l => /^mstpctl setportpathcost br0 p1 20000$/.test(l)));
   assert.ok(out.includes("mstpctl setportadminedge br0 p3 yes"));
 });
+
+test("spanning-tree bpdu-guard / root-guard: running-config, spec round trip, show json, Linux flags, and the rstp refusal", () => {
+  const b = engineBackend(load("stp-guards")), s = createSession(b, "SW2");
+  for (const c of ["enable", "configure terminal", "interface p1", "spanning-tree bpdu-guard", "spanning-tree root-guard", "end"]) assert.ok(!/^%/m.test(s.exec(c).output), c);
+  assert.match(s.exec("show running-config").output, /^ spanning-tree bpdu-guard\n spanning-tree root-guard$/m);
+  const n = b.spec().nodes.find(x => x.name === "SW2");
+  assert.deepEqual(n.stp.bpduGuard, {p1: true}); assert.deepEqual(n.stp.rootGuard, {p1: true});
+  assert.deepEqual(JSON.parse(s.exec("show interfaces p1 | json").output).stp, {cost: null, portPriority: null, bpduGuard: true, rootGuard: true});
+  const cmds = linuxCommands(b.getConfig("SW2"), {kind: "switch", ports: ["p1", "p2"]}).join("\n");
+  assert.match(cmds, /ip link set p1 type bridge_slave cost \d+ guard on root_block on/);
+  s.exec("configure terminal"); s.exec("interface p1"); s.exec("no spanning-tree bpdu-guard"); s.exec("no spanning-tree root-guard"); s.exec("end");
+  assert.equal(b.spec().nodes.find(x => x.name === "SW2").stp.bpduGuard, undefined);
+  const r = sess("rstp-fast-failover", "SW1"); for (const c of ["enable", "configure terminal", "interface p1"]) r.exec(c);
+  assert.match(r.exec("spanning-tree bpdu-guard").output, /^% bpdu-guard is for classic/);
+});

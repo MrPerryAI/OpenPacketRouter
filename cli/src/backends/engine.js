@@ -72,6 +72,8 @@ export function modelFromSpec(spec, device, {cut = new Set()} = {}) {
       for (const [p, v] of Object.entries(n.stp.cost || {})) M.stpPort(m, p).cost = v;
       for (const [p, v] of Object.entries(n.stp.portPriority || {})) M.stpPort(m, p)["port-priority"] = v;
       for (const [p, v] of Object.entries(n.stp.edge || {})) if (v) M.stpPort(m, p)["edge-port"] = "EDGE_ENABLE";
+      for (const [p, v] of Object.entries(n.stp.bpduGuard || {})) if (v) M.stpPort(m, p)["openpacketrouter:bpdu-guard"] = true;
+      for (const [p, v] of Object.entries(n.stp.rootGuard || {})) if (v) M.stpPort(m, p)["openpacketrouter:root-guard"] = true;
     }
   } else {
     for (const [name, a] of Object.entries(n.ifaces || {})) {
@@ -214,9 +216,11 @@ export function specWithModel(spec, device, m, {cut = new Set()} = {}) {
         if (e.config.cost !== undefined) (s.cost ||= {})[p] = e.config.cost;
         if (e.config["port-priority"] !== undefined) (s.portPriority ||= {})[p] = e.config["port-priority"];
         if (e.config["edge-port"] === "EDGE_ENABLE") (s.edge ||= {})[p] = true;
+        if (e.config["openpacketrouter:bpdu-guard"]) (s.bpduGuard ||= {})[p] = true;
+        if (e.config["openpacketrouter:root-guard"]) (s.rootGuard ||= {})[p] = true;
       }
       n.stp = s;
-    } else if (Object.values(portCfg).some(e => e.config.cost !== undefined || e.config["port-priority"] !== undefined || e.config["edge-port"] !== undefined) || Object.keys(g).length)
+    } else if (Object.values(portCfg).some(e => e.config.cost !== undefined || e.config["port-priority"] !== undefined || e.config["edge-port"] !== undefined || e.config["openpacketrouter:bpdu-guard"] || e.config["openpacketrouter:root-guard"]) || Object.keys(g).length)
       throw new Error("Spanning tree is off on this switch: turn it on first (spanning-tree)");
   } else {
     const ifaces = {};

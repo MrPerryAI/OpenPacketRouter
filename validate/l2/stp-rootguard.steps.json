@@ -1,0 +1,1 @@
+[{"wait": 24}, {"snapshot": "converged"}, {"linkDown": "SW1:p1"}, {"wait": 24}, {"snapshot": "cable cut"}, {"linkUp": "SW1:p1"}, {"wait": 24}, {"snapshot": "cable back"}]

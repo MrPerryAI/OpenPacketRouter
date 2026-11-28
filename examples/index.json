@@ -193,6 +193,14 @@
    "spec": "services-lab/spec.json",
    "actions": "services-lab/actions.json",
    "readme": "services-lab/README.md"
+  },
+  {
+   "id": "stp-guards",
+   "name": "Spanning tree guards: BPDU guard and root guard",
+   "about": "A provider switch refuses a customer switch's better root claim (root guard) and shuts the port where a rogue switch is plugged in (BPDU guard).",
+   "spec": "stp-guards/spec.json",
+   "actions": "stp-guards/actions.json",
+   "readme": "stp-guards/README.md"
   }
  ]
 }

@@ -1,0 +1,19 @@
+[
+ {
+  "do": "wait",
+  "seconds": 30
+ },
+ {
+  "do": "stp",
+  "switch": "SW1"
+ },
+ {
+  "do": "stp",
+  "switch": "SW2"
+ },
+ {
+  "do": "ping",
+  "src": "A",
+  "dst": "10.0.0.2"
+ }
+]
