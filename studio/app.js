@@ -14,7 +14,7 @@ const SVG = "http://www.w3.org/2000/svg";
 const el = (tag, attrs = {}, parent = null) => { const e = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (parent) parent.appendChild(e); return e; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"})[c]);
-const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ripng", "ospf", "lldp", "icmp6", "ndp", "vrrp"];
+const KINDS = ["arp", "icmp", "tcp", "udp", "dhcp", "dns", "bpdu", "lacp", "rip", "ripng", "ospf", "bgp", "lldp", "icmp6", "ndp", "vrrp"];
 const KIND_LABEL = {bpdu: "STP", icmp6: "ICMPv6", ndp: "IPv6 ND"};   // the filter and the list say STP for spanning-tree BPDUs
 const kindName = k => KIND_LABEL[k] || k.toUpperCase();
 const VLAN_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#ca8a04", "#db2777"];
@@ -411,6 +411,8 @@ function featurePanels(n, d) {
   let h = "";
   if (d.tcp && d.tcp.length) h += `<h4>TCP connections</h4>` + table(["local", "remote", "state", "unacked", "queued B", "window", "retx"], d.tcp.map(c => [c.local, c.remote, c.state, c.unacked, c.pending, c.peerWindow, c.retransmits]));
   if (d.vrrp && d.vrrp.length) h += `<h4>VRRP</h4>` + table(["iface", "vrid", "virtual IP", "priority", "state", "master"], d.vrrp.map(g => [g.iface, g.vrid, g.ip, g.priority + (g.preempt ? "" : " (no preempt)"), g.state.toUpperCase(), g.masterIp || ""]));
+  if (d.bgp) h += `<h4>BGP neighbors (AS ${d.bgp.asn})</h4>` + table(["neighbor", "remote AS", "state", "router ID", "prefixes received"], d.bgp.peers.map(p => [p.ip, p.remoteAs, p.state, p.routerId || "", p.received]))
+    + `<h4>BGP table</h4>` + table(["prefix", "from", "next hop", "AS path", "local pref", ""], d.bgp.table.map(r => [r.prefix, r.from, r.nextHop, r.asPath || "(local)", r.localPref ?? "", (r.best ? "best" : "") + (r.valid ? "" : " (invalid)")]));
   if (d.ripng) h += `<h4>RIPng routes</h4>` + table(["prefix", "next hop", "metric", "type", "iface"], d.ripng.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.rip) h += `<h4>RIP routes</h4>` + table(["network", "next hop", "metric", "type", "iface"], d.rip.map(r => [r.network, r.nextHop, r.metric, r.type, r.iface]));
   if (d.ospf) {
