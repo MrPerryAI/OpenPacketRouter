@@ -31,11 +31,34 @@ function transcript(lab, device, commands, {json = false} = {}) {
 const fence = t => "```text\n" + t + "\n```";
 const example = (lab, device, cmds) => `Lab \`${lab}\`, device \`${device}\`:\n\n${fence(transcript(lab, device, cmds))}`;
 
-function description(c) {
-  const words = c.syntax.split(" "), last = words[words.length - 1];
-  const h = c.help || {}, vals = Object.values(h);
-  return (h[last] ?? vals[vals.length - 1] ?? "").replace(/\|/g, "\\|");
+const ALL = DEFINITIONS.flatMap(d => d.commands);
+const esc = t => (t ?? "").replace(/\|/g, "\\|");
+/** Plain keywords of a command (everything that is not an argument placeholder). */
+const keywords = c => c.syntax.split(" ").filter(w => !(c.args && w in c.args) && !/^[<\[]/.test(w));
+/**
+ * What the command does. A command that extends a shorter command (same words, one or more extra keywords and
+ * arguments) is described as the shorter command plus what each extra keyword adds; otherwise by its first keyword with help text plus what each later keyword adds; never by an argument placeholder such as N.
+ */
+function describe(c) {
+  const words = c.syntax.split(" "), h = c.help || {};
+  let base = null;
+  for (const p of ALL) {
+    const pw = p.syntax.split(" ");
+    if (p === c || pw.length >= words.length || !pw.every((w, i) => w === words[i])) continue;
+    if (!p.modes.some(m => c.modes.includes(m))) continue;
+    if (!base || pw.length > base.syntax.split(" ").length) base = p;
+  }
+  const withExtra = (start) => {
+    const extra = words.slice(start).filter(w => !(c.args && w in c.args) && h[w]);
+    return extra.length ? ". With " + extra.map(w => `\`${w}\`: ${h[w]}`).join("; ") + "." : "";
+  };
+  if (base) return describe(base).replace(/[.\s]+$/, "") + withExtra(base.syntax.split(" ").length);
+  // No shorter command to build on: the first keyword says what the command is about, the rest are options.
+  const first = words.find(w => !(c.args && w in c.args) && h[w]), i = words.indexOf(first);
+  const lead = h[first] ?? Object.values(h).pop() ?? "";
+  return lead.replace(/[.\s]+$/, "") + withExtra(i + 1);
 }
+const description = c => esc(describe(c));
 const modeList = c => c.modes.map(m => MODE[m] || m).join(", ");
 const kindList = c => c.kinds ? c.kinds.map(k => KIND[k] || k).join(", ") : "all devices";
 
