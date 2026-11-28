@@ -358,6 +358,12 @@ try {
   await page.evaluate(() => { window.studio.select("R2"); });
   const vp = await page.textContent("#device");
   check(/VRRP/.test(vp) && /MASTER/.test(vp), "after the master is cut, the backup router shows MASTER; a VRRP router's panel shows its group state", vp.slice(0, 100));
+  const rng = await page.evaluate(sp => { const ok = window.studio.load(sp, [{do: "wait", seconds: 45}], "t"); return {ok, errors: document.querySelector("#errors").hidden ? "" : document.querySelector("#errors").textContent}; }, vfile("ripng/ripng-chain.json"));
+  check(rng.ok && !/spec /.test(rng.errors), "RIPng spec loads", rng.errors.slice(0, 120));
+  await page.evaluate(() => { window.studio.select("R2"); window.studio.goto(window.studio.S.sim.steps.length - 1); });
+  check(await page.evaluate(() => window.studio.S.sim.steps.some(st => /RIPng response, \d+ route/.test(st.desc))), "RIPng messages are named in playback");
+  check(await page.$$eval("#filters input[data-kind]", i => i.some(x => x.dataset.kind === "ripng")), "RIPng frames get a filter checkbox");
+  check(/RIPng routes/.test(await page.textContent("#device")), "RIPng routes panel on a RIPng router");
 
   const ro = await vload("ospf/ospf-areas.net");
   check(ro.ok && !/spec /.test(ro.errors), "OSPF areas spec loads", ro.errors.slice(0, 120));
