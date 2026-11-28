@@ -136,6 +136,14 @@ jobs:
           validate/docker/run.sh ripng
           # same comparison, but ripngd's config comes only from the device CLI's FRR rendering
           RIPNG_RENDER=cli validate/docker/run.sh ripng
+      - name: Static routes from the CLI's FRR rendering, loaded in real FRR (zebra + staticd), kernel routing tables vs engine
+        run: |
+          # Same AppArmor handling as for ripd above (the runner may ship profiles for zebra and staticd too).
+          for d in zebra staticd; do
+            f=$(grep -lE "^ *profile +$d\b" /etc/apparmor.d/* 2>/dev/null | head -1)
+            if [ -n "$f" ]; then echo "unloading AppArmor profile $f"; sudo apparmor_parser -R "$f"; fi
+          done
+          validate/docker/run.sh frrstatic
       - name: Device CLI's Linux backend vs engine (devices configured only by the CLI, frame for frame)
         if: ${{ !cancelled() }}   # a failed step must not hide the results of the later ones; the job still fails
         run: sudo env "PATH=$PATH" GITHUB_ACTIONS=true python3 validate/cli/run_kernel_cli.py
