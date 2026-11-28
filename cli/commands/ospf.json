@@ -67,6 +67,182 @@
    "kinds": [
     "router"
    ],
+   "syntax": "redistribute connected",
+   "handler": "ospf.redist:connected",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "connected": "Announce networks directly attached to this router"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected metric N",
+   "args": {
+    "N": "uint:0-16777214"
+   },
+   "handler": "ospf.redist:connected:m",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "connected": "Announce networks directly attached to this router",
+    "metric": "Cost the other routers see for these routes (default 20)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected metric-type T",
+   "args": {
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:connected:t",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "connected": "Announce networks directly attached to this router",
+    "metric-type": "1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default)",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute connected metric N metric-type T",
+   "args": {
+    "N": "uint:0-16777214",
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:connected:mt",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "connected": "Announce networks directly attached to this router",
+    "metric": "Cost the other routers see for these routes (default 20)",
+    "N": "Number",
+    "metric-type": "1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default)",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no redistribute connected",
+   "handler": "ospf.no-redist:connected",
+   "help": {
+    "redistribute": "Stop announcing routes from outside OSPF",
+    "connected": "Stop announcing networks directly attached to this router"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static",
+   "handler": "ospf.redist:static",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "static": "Announce the static routes configured on this router"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static metric N",
+   "args": {
+    "N": "uint:0-16777214"
+   },
+   "handler": "ospf.redist:static:m",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "static": "Announce the static routes configured on this router",
+    "metric": "Cost the other routers see for these routes (default 20)",
+    "N": "Number"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static metric-type T",
+   "args": {
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:static:t",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "static": "Announce the static routes configured on this router",
+    "metric-type": "1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default)",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "redistribute static metric N metric-type T",
+   "args": {
+    "N": "uint:0-16777214",
+    "T": "uint:1-2"
+   },
+   "handler": "ospf.redist:static:mt",
+   "help": {
+    "redistribute": "Announce routes from outside OSPF into it (this router becomes an ASBR)",
+    "static": "Announce the static routes configured on this router",
+    "metric": "Cost the other routers see for these routes (default 20)",
+    "N": "Number",
+    "metric-type": "1: add the internal cost on the way (E1); 2: the cost stays as announced (E2, default)",
+    "T": "1 or 2"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
+   "syntax": "no redistribute static",
+   "handler": "ospf.no-redist:static",
+   "help": {
+    "redistribute": "Stop announcing routes from outside OSPF",
+    "static": "Stop announcing the static routes configured on this router"
+   }
+  },
+  {
+   "modes": [
+    "config-ospf"
+   ],
+   "kinds": [
+    "router"
+   ],
    "syntax": "network PREFIX",
    "args": {
     "PREFIX": "ipv4-prefix"
